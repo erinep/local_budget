@@ -18,6 +18,35 @@
         maximumFractionDigits: 0,
     });
 
+    function renderTransactionsTable(transactions) {
+        if (!transactions.length) {
+            return '<p class="chart-empty">No transactions found for this selection.</p>';
+        }
+
+        const rows = transactions.map((transaction) => `
+            <tr>
+                <td>${escapeHtml(transaction["Transaction Date"])}</td>
+                <td>${escapeHtml(transaction.Description)}</td>
+                <td>${escapeHtml(transaction.Category)}</td>
+                <td>${currency.format(transaction.Net)}</td>
+            </tr>
+        `).join("");
+
+        return `
+            <table class="data-table transaction-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Category</th>
+                        <th>Amount</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        `;
+    }
+
     function colorFor(label, index) {
         let hash = 0;
         for (let i = 0; i < label.length; i += 1) {
@@ -39,6 +68,8 @@
 
     function renderDonut(host, data) {
         const total = data.reduce((sum, item) => sum + item.value, 0);
+        const drilldownKind = host.dataset.drilldownKind || "";
+        const isCategoryDrilldown = drilldownKind === "category";
 
         if (!total) {
             host.innerHTML = '<p class="chart-empty">No chart data available.</p>';
@@ -52,14 +83,28 @@
             const end = start + (share * 360);
             const segment = `${color} ${start}deg ${end}deg`;
             start = end;
+            const isClickable = isCategoryDrilldown && Array.isArray(item.transactions);
+            const defaultLegendInner = `
+                <span class="chart-swatch" style="background:${color}"></span>
+                <span class="chart-legend-label">${escapeHtml(item.label)}</span>
+                <span class="chart-legend-value">${currency.format(item.value)}</span>
+            `;
+            const legendInner = defaultLegendInner;
 
             return {
                 segment,
                 markup: `
-                    <li class="chart-legend-item">
-                        <span class="chart-swatch" style="background:${color}"></span>
-                        <span class="chart-legend-label">${escapeHtml(item.label)}</span>
-                        <span class="chart-legend-value">${currency.format(item.value)}</span>
+                    <li class="chart-legend-item ${isClickable ? "chart-legend-item-clickable" : ""} ${isCategoryDrilldown ? "chart-legend-item-fullwidth" : ""}">
+                        ${isClickable ? `
+                            <button
+                                type="button"
+                                class="chart-legend-button ${isCategoryDrilldown ? "chart-legend-button-fullwidth" : ""}"
+                                data-transactions='${escapeHtml(JSON.stringify(item.transactions))}'
+                                data-modal-title='${escapeHtml(item.label)} purchases'
+                            >
+                                ${legendInner}
+                            </button>
+                        ` : legendInner}
                     </li>
                 `,
             };
@@ -73,7 +118,7 @@
                         <strong class="donut-total-value">${currency.format(total)}</strong>
                     </div>
                 </div>
-                <ul class="chart-legend">
+                <ul class="chart-legend ${isCategoryDrilldown ? "chart-legend-fullwidth" : ""}">
                     ${legend.map((item) => item.markup).join("")}
                 </ul>
             </div>
@@ -91,7 +136,11 @@
             return;
         }
 
-        const width = 1320;
+        const maxActiveBars = Math.max(...labels.map((_, monthIndex) =>
+            datasets.filter((dataset) => (dataset.values[monthIndex] || 0) > 0).length
+        ), 1);
+        const minGroupWidth = Math.max(116, (maxActiveBars * 44) + 26);
+        const width = Math.max(1320, (labels.length * minGroupWidth) + 140);
         const height = 560;
         const margin = { top: 56, right: 20, bottom: 108, left: 120 };
         const plotWidth = width - margin.left - margin.right;
@@ -101,8 +150,13 @@
         const tickCount = 5;
         const tickStep = roundedMax / tickCount;
         const monthBand = plotWidth / labels.length;
-        const innerGap = 14;
-        const barWidth = Math.max(16, ((monthBand - innerGap * 2) / datasets.length) * 0.82);
+        const monthGap = Math.max(10, monthBand * 0.08);
+        const availableWidth = monthBand - (monthGap * 2);
+        const fixedIntraGap = maxActiveBars > 1 ? Math.min(8, availableWidth * 0.025) : 0;
+        const fixedBarWidth = Math.max(
+            22,
+            (availableWidth - (fixedIntraGap * Math.max(maxActiveBars - 1, 0))) / maxActiveBars
+        );
         const gridLines = Array.from({ length: tickCount + 1 }, (_, index) => {
             const value = tickStep * (tickCount - index);
             const y = margin.top + (plotHeight / tickCount) * index;
@@ -113,20 +167,27 @@
         }).join("");
 
         const bars = labels.map((label, monthIndex) => {
-            const groupStart = margin.left + (monthBand * monthIndex) + innerGap;
-            const monthBars = datasets.map((dataset, seriesIndex) => {
+            const activeDatasets = datasets.filter((dataset) => (dataset.values[monthIndex] || 0) > 0);
+            const slotCount = Math.max(activeDatasets.length, 1);
+            const intraGap = slotCount > 1 ? fixedIntraGap : 0;
+            const groupWidth = (fixedBarWidth * slotCount) + (intraGap * Math.max(slotCount - 1, 0));
+            const groupStart = margin.left + (monthBand * monthIndex) + ((monthBand - groupWidth) / 2);
+
+            const monthBars = activeDatasets.map((dataset, seriesIndex) => {
                 const value = dataset.values[monthIndex] || 0;
                 const barHeight = roundedMax ? (value / roundedMax) * plotHeight : 0;
-                const x = groupStart + (seriesIndex * barWidth);
+                const x = groupStart + (seriesIndex * (fixedBarWidth + intraGap));
                 const y = margin.top + plotHeight - barHeight;
-                const color = colorFor(dataset.label, seriesIndex);
+                const datasetIndex = datasets.findIndex((item) => item.label === dataset.label);
+                const color = colorFor(dataset.label, datasetIndex);
                 const labelY = y - 12;
+                const rectWidth = Math.max(18, fixedBarWidth - 2);
 
                 return `
-                    <rect x="${x}" y="${y}" width="${barWidth - 4}" height="${barHeight}" rx="8" fill="${color}">
+                    <rect x="${x}" y="${y}" width="${rectWidth}" height="${barHeight}" rx="8" fill="${color}">
                         <title>${escapeHtml(dataset.label)}: ${currency.format(value)} in ${escapeHtml(label)}</title>
                     </rect>
-                    ${value > 0 ? `<text x="${x + ((barWidth - 4) / 2)}" y="${labelY}" class="chart-total-label">${currency.format(value)}</text>` : ""}
+                    <text x="${x + (rectWidth / 2)}" y="${labelY}" class="chart-total-label">${currency.format(value)}</text>
                 `;
             }).join("");
 
@@ -146,12 +207,14 @@
 
         host.innerHTML = `
             <div class="bar-chart-layout">
-                <svg viewBox="0 0 ${width} ${height}" class="bar-chart-svg" role="img" aria-label="${escapeHtml(host.getAttribute("aria-label") || "Chart")}">
-                    ${gridLines}
-                    <line x1="${margin.left}" y1="${margin.top + plotHeight}" x2="${width - margin.right}" y2="${margin.top + plotHeight}" class="chart-axis-line"></line>
-                    <line x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${margin.top + plotHeight}" class="chart-axis-line"></line>
-                    ${bars}
-                </svg>
+                <div class="bar-chart-scroll">
+                    <svg viewBox="0 0 ${width} ${height}" class="bar-chart-svg" style="width:${width}px" role="img" aria-label="${escapeHtml(host.getAttribute("aria-label") || "Chart")}">
+                        ${gridLines}
+                        <line x1="${margin.left}" y1="${margin.top + plotHeight}" x2="${width - margin.right}" y2="${margin.top + plotHeight}" class="chart-axis-line"></line>
+                        <line x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${margin.top + plotHeight}" class="chart-axis-line"></line>
+                        ${bars}
+                    </svg>
+                </div>
                 <ul class="chart-legend chart-legend-compact">
                     ${legend}
                 </ul>
@@ -175,6 +238,68 @@
 
         if (type === "grouped-bar") {
             renderGroupedBar(host, data);
+        }
+    });
+
+    const modal = document.getElementById("month-transactions-modal");
+    const modalTitle = document.getElementById("month-transactions-title");
+    const modalContent = document.getElementById("month-transactions-content");
+
+    function openModal(title, transactions) {
+        if (!modal || !modalTitle || !modalContent) {
+            return;
+        }
+
+        modalTitle.textContent = title;
+        modalContent.innerHTML = renderTransactionsTable(transactions);
+        modal.showModal();
+    }
+
+    function closeModal() {
+        if (modal && modal.open) {
+            modal.close();
+        }
+    }
+
+    document.querySelectorAll(".month-card-clickable").forEach((card) => {
+        card.addEventListener("click", () => {
+            const month = card.dataset.month || "Month details";
+            const transactions = JSON.parse(card.dataset.transactions || "[]");
+            openModal(`${month} transactions`, transactions);
+        });
+    });
+
+    document.querySelectorAll(".chart-legend-button").forEach((button) => {
+        button.addEventListener("click", () => {
+            const transactions = JSON.parse(button.dataset.transactions || "[]");
+            const title = button.dataset.modalTitle || "Category purchases";
+            openModal(title, transactions);
+        });
+    });
+
+    document.querySelectorAll("[data-close-modal]").forEach((button) => {
+        button.addEventListener("click", closeModal);
+    });
+
+    if (modal) {
+        modal.addEventListener("click", (event) => {
+            const bounds = modal.getBoundingClientRect();
+            const clickedBackdrop = (
+                event.clientX < bounds.left ||
+                event.clientX > bounds.right ||
+                event.clientY < bounds.top ||
+                event.clientY > bounds.bottom
+            );
+
+            if (clickedBackdrop) {
+                closeModal();
+            }
+        });
+    }
+
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+            closeModal();
         }
     });
 }());

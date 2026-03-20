@@ -33,12 +33,16 @@
         <div class="section-heading">
             <div>
                 <h2>Overall category share</h2>
-                <p class="section-text">Aggregate spending distribution across all uploaded transactions.</p>
+                <p class="section-text">
+                    Aggregate spending distribution across all uploaded transactions from
+                    {{ report_date_range.start }} to {{ report_date_range.end }}.
+                </p>
             </div>
         </div>
         <div
             class="chart-host chart-host-donut"
             data-chart-type="donut"
+            data-drilldown-kind="category"
             data-chart='{{ overall_chart_data|tojson }}'
             aria-label="Overall spending donut chart"
         ></div>
@@ -55,9 +59,14 @@
 
     <div class="monthly-grid">
         {% for m in monthly %}
-        <article class="card month-card">
+        <article
+            class="card month-card month-card-clickable"
+            data-month="{{ m.month }}"
+            data-transactions='{{ m.transactions|tojson }}'
+        >
             <div class="month-header">
                 <h3>{{ m.month }}</h3>
+                <p class="section-text month-meta">{{ m.transaction_count }} transactions. Click to inspect.</p>
             </div>
             <div
                 class="chart-host chart-host-donut"
@@ -84,6 +93,19 @@
         </div>
     </article>
 </section>
+
+<dialog class="transaction-modal" id="month-transactions-modal">
+    <div class="transaction-modal-card">
+        <div class="transaction-modal-header">
+            <div>
+                <p class="eyebrow">Monthly Transactions</p>
+                <h2 id="month-transactions-title">Month details</h2>
+            </div>
+            <button type="button" class="modal-close-button" data-close-modal aria-label="Close transaction details">Close</button>
+        </div>
+        <div class="table-wrap table-wrap-modal" id="month-transactions-content"></div>
+    </div>
+</dialog>
 {% endblock %}
 
 {% block scripts %}

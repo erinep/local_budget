@@ -36,7 +36,7 @@ def categorize(desc):
     for category_map in (CUSTOM_CATEGORY_MAP, GENERIC_CATEGORY_MAP):
         for category, keywords in category_map.items():
             for keyword in keywords:
-                if keyword in desc:
+                if str(keyword).upper() in desc:
                     return category
 
     return "Slush Fund"
@@ -61,6 +61,21 @@ def series_to_chart_data(series):
     ]
 
 
+def serialize_transactions(frame, *, sort_by):
+    return (
+        frame[["Transaction Date", "Description 1", "Category", "Net"]]
+        .sort_values(sort_by, ascending=[False] * len(sort_by))
+        .assign(
+            **{
+                "Transaction Date": lambda data: data["Transaction Date"].dt.strftime("%b %d, %Y"),
+                "Net": lambda data: data["Net"].round(2),
+            }
+        )
+        .rename(columns={"Description 1": "Description"})
+        .to_dict("records")
+    )
+
+
 @app.route("/", methods=["GET", "POST"])
 def upload():
     if request.method == "POST":
@@ -81,6 +96,10 @@ def upload():
         df = df[df["Net"] != 0]
         df = df.dropna(subset=["Transaction Date"])
         df["Month"] = df["Transaction Date"].dt.to_period("M")
+        report_date_range = {
+            "start": df["Transaction Date"].min().strftime("%b %d, %Y"),
+            "end": df["Transaction Date"].max().strftime("%b %d, %Y"),
+        }
 
         summary = df.groupby("Category")["Net"].sum().sort_values(ascending=False)
         monthly_pivot = (
@@ -94,9 +113,12 @@ def upload():
         monthly_data = []
         for month, group in df.groupby("Month"):
             month_summary = group.groupby("Category")["Net"].sum().sort_values(ascending=False)
+            month_transactions = serialize_transactions(group, sort_by=["Net", "Transaction Date"])
             monthly_data.append({
                 "month": str(month),
                 "chart_data": series_to_chart_data(month_summary),
+                "transaction_count": len(month_transactions),
+                "transactions": month_transactions,
             })
 
         merchants = (
@@ -116,6 +138,18 @@ def upload():
             ],
         }
 
+        overall_chart_data = []
+        for category, value in summary[summary > 0].sort_values(ascending=False).items():
+            category_transactions = serialize_transactions(
+                df[df["Category"] == category],
+                sort_by=["Net", "Transaction Date"],
+            )
+            overall_chart_data.append({
+                "label": str(category),
+                "value": round(float(value), 2),
+                "transactions": category_transactions,
+            })
+
         return render_template(
             "report.html",
             merchants=merchants.to_html(
@@ -124,7 +158,8 @@ def upload():
                 classes="data-table",
             ),
             monthly=monthly_data,
-            overall_chart_data=series_to_chart_data(summary),
+            overall_chart_data=overall_chart_data,
+            report_date_range=report_date_range,
             trend_chart_data=trend_chart,
         )
 
