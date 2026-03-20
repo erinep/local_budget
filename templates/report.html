@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Spending Report{% endblock %}
+
+{% block content %}
+<section class="page-intro">
+    <div>
+        <p class="eyebrow">Generated Report</p>
+        <h1>Spending overview and monthly breakdown.</h1>
+    </div>
+    <a href="{{ url_for('upload') }}" class="button-secondary">Upload another file</a>
+</section>
+
+<section class="section-stack">
+    <article class="card feature-card">
+        <div class="section-heading">
+            <div>
+                <h2>Monthly spending trends</h2>
+                <p class="section-text">Category totals grouped by month.</p>
+            </div>
+        </div>
+        <div
+            class="chart-host chart-host-bar"
+            data-chart-type="grouped-bar"
+            data-chart='{{ trend_chart_data|tojson }}'
+            aria-label="Monthly spending by category bar chart"
+        ></div>
+    </article>
+</section>
+
+<section class="section-stack">
+    <article class="card split-card">
+        <div class="section-heading">
+            <div>
+                <h2>Overall category share</h2>
+                <p class="section-text">Aggregate spending distribution across all uploaded transactions.</p>
+            </div>
+        </div>
+        <div
+            class="chart-host chart-host-donut"
+            data-chart-type="donut"
+            data-chart='{{ overall_chart_data|tojson }}'
+            aria-label="Overall spending donut chart"
+        ></div>
+    </article>
+</section>
+
+<section class="section-stack">
+    <div class="section-heading">
+        <div>
+            <h2>Monthly breakdown</h2>
+            <p class="section-text">Each month includes a category share chart.</p>
+        </div>
+    </div>
+
+    <div class="monthly-grid">
+        {% for m in monthly %}
+        <article class="card month-card">
+            <div class="month-header">
+                <h3>{{ m.month }}</h3>
+            </div>
+            <div
+                class="chart-host chart-host-donut"
+                data-chart-type="donut"
+                data-chart='{{ m.chart_data|tojson }}'
+                aria-label="Spending breakdown for {{ m.month }}"
+            ></div>
+        </article>
+        {% endfor %}
+    </div>
+</section>
+
+<section class="section-stack">
+    <div class="section-heading">
+        <div>
+            <h2>Merchant to category mapping</h2>
+            <p class="section-text">Unique merchant descriptions and the category assigned to each one.</p>
+        </div>
+    </div>
+
+    <article class="card">
+        <div class="table-wrap table-wrap-tall">
+            {{ merchants|safe }}
+        </div>
+    </article>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='report_charts.js') }}"></script>
+{% endblock %}

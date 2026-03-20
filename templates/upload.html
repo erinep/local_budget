@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Transactions{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-copy">
+        <p class="eyebrow">Transaction Upload</p>
+        <h1>Turn a raw CSV into a readable spending report.</h1>
+        <p class="hero-text">
+            Upload your export and the app will categorize transactions, build monthly charts, and generate a merchant mapping you can review.
+        </p>
+    </div>
+
+    <div class="card upload-card">
+        <h2>Upload CSV</h2>
+        <p class="section-text">Use a transaction export that includes the fields below.</p>
+
+        <div class="requirements-grid">
+            <section class="requirement-panel">
+                <h3>Required columns</h3>
+                <ul class="clean-list">
+                    <li><strong>Description 1</strong> for the merchant or transaction label</li>
+                    <li><strong>Transaction Date</strong> for monthly grouping</li>
+                    <li><strong>CAD$</strong> for transaction amount</li>
+                </ul>
+            </section>
+
+            <section class="requirement-panel">
+                <h3>Optional columns</h3>
+                <ul class="clean-list">
+                    <li><strong>Account Number</strong> if you want to compare multiple accounts later</li>
+                </ul>
+            </section>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" class="upload-form">
+            <label class="file-input">
+                <span>Choose transaction file</span>
+                <input type="file" name="file" accept=".csv" required>
+            </label>
+            <button type="submit" class="button-primary">Generate report</button>
+        </form>
+    </div>
+</section>
+{% endblock %}

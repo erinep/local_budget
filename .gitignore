@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+.env/
+.env.*
+
+# Flask
+instance/
+.webassets-cache/
+
+# Static generated files (your charts)
+static/*.png
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Jupyter (just in case)
+.ipynb_checkpoints/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# Environment variables
+.env
+
+# Temporary files
+*.tmp
+*.bak
+
+
+#peronsal info
+custom_categories.json
