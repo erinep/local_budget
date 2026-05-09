@@ -1,5 +1,7 @@
 # Local Budget Parser
 
+[![Tests](https://github.com/erinep/local_budget/actions/workflows/tests.yml/badge.svg)](https://github.com/erinep/local_budget/actions/workflows/tests.yml)
+
 A small Flask app for turning exported transaction CSVs into a visual spending report.
 
 ## What It Does
