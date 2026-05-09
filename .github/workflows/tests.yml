@@ -20,7 +20,16 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install flask pandas pytest pytest-flask
+        run: pip install -r requirements-dev.txt
 
       - name: Run tests
         run: pytest -v
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Trigger Render deploy
+        run: curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
