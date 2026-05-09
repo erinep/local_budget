@@ -15,10 +15,12 @@ def test_substring_match():
     assert categorize("SOME RANDOM RESTAURANT") == "Food"
 
 
-def test_custom_rule_beats_generic():
-    # "LCBO" is in custom_categories as Food, and also in generic as Slush Fund —
-    # custom should win
-    assert categorize("LCBO") == "Food"
+def test_custom_rule_beats_generic(monkeypatch):
+    # Patch both maps with controlled values so this test doesn't depend on
+    # custom_categories.json being present (it's personal and not committed)
+    monkeypatch.setattr("app.CUSTOM_CATEGORY_MAP", {"CustomCategory": ["TESTMART"]})
+    monkeypatch.setattr("app.GENERIC_CATEGORY_MAP", {"GenericCategory": ["TESTMART"]})
+    assert categorize("TESTMART") == "CustomCategory"
 
 
 def test_unmatched_falls_back_to_slush_fund():
