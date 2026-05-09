@@ -64,7 +64,7 @@ flowchart LR
     A[PR opened] --> B[Tests run]
     B -->|Fail| C[Deploy blocked]
     B -->|Pass| D[Merge to main]
-    D --> E[Tests run again]
+    D --> E[Trigger Render Deployment]
     E -->|Fail| C
     E -->|Pass| F[Deploy to Render]
 
