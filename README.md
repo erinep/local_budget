@@ -62,11 +62,11 @@ The app is deployed on Render. Merging to `main` triggers an automatic deploy, b
 ```mermaid
 flowchart LR
     A[PR opened] --> B[Tests run]
-    B -->|Fail| C[Deploy blocked]
+    B -->|Fail| C[Tests Fail]
     B -->|Pass| D[Merge to main]
     D --> E[Trigger Render Deployment]
     E -->|Fail| C
-    E -->|Pass| F[Deploy to Render]
+    E -->|Pass| F[Tests Pass]
 
     classDef blocked fill:#ffcccc,stroke:#cc0000,color:#cc0000
     classDef deploy fill:#ccffcc,stroke:#006600,color:#006600
