@@ -89,7 +89,19 @@
 
     <article class="card">
         <div class="table-wrap table-wrap-tall">
-            {{ merchants|safe }}
+            <table class="data-table">
+                <thead>
+                    <tr><th>Description</th><th>Category</th></tr>
+                </thead>
+                <tbody>
+                    {% for row in merchants %}
+                    <tr>
+                        <td>{{ row["Description 1"] }}</td>
+                        <td>{{ row["Category"] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </article>
 </section>

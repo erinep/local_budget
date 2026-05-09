@@ -34,6 +34,7 @@
             </section>
         </div>
 
+        {% if error %}<p class="upload-error">{{ error }}</p>{% endif %}
         <form method="post" enctype="multipart/form-data" class="upload-form">
             <label class="file-input">
                 <span>Choose transaction file</span>
