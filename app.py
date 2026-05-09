@@ -5,6 +5,7 @@ import pandas as pd
 from flask import Flask, render_template, request
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # 5 MB
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -81,6 +82,9 @@ def upload():
     if request.method == "POST":
         file = request.files["file"]
 
+        if not file.filename.lower().endswith(".csv"):
+            return render_template("upload.html", error="Only .csv files are accepted.")
+
         df = pd.read_csv(file, encoding="latin1")
         df = df[["Transaction Date", "Description 1", "CAD$"]]
 
@@ -152,11 +156,7 @@ def upload():
 
         return render_template(
             "report.html",
-            merchants=merchants.to_html(
-                index=False,
-                border=0,
-                classes="data-table",
-            ),
+            merchants=merchants.to_dict("records"),
             monthly=monthly_data,
             overall_chart_data=overall_chart_data,
             report_date_range=report_date_range,
@@ -167,4 +167,4 @@ def upload():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=os.environ.get("FLASK_DEBUG", "").lower() == "true")
