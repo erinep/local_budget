@@ -2,79 +2,89 @@
 
 [![Tests](https://github.com/erinep/local_budget/actions/workflows/tests.yml/badge.svg)](https://github.com/erinep/local_budget/actions/workflows/tests.yml)
 
-A small Flask app for turning exported transaction CSVs into a visual spending report.
+A Flask app that turns exported bank transaction CSVs into a visual spending report, with monthly breakdowns, category charts, and drillable transaction lists.
 
-## What It Does
+## Usage
 
-- Uploads a CSV of transactions
-- Categorizes merchants using generic and personal keyword maps
-- Excludes transfer and payment activity that should not be tracked as spend
-- Shows:
-  - monthly spending trends
-  - overall category share
-  - month-by-month category breakdowns
-  - merchant-to-category mapping
-- Lets you drill into:
-  - all transactions for a given month
-  - all transactions for a given overall category
+Upload a CSV export from your bank. The app categorizes each transaction, filters out transfers and payments, and generates:
 
-## Example Output
+- Monthly spending trend chart
+- Overall category share (donut chart, drillable to transactions)
+- Month-by-month category breakdown
+- Merchant to category mapping
 
-![Example report](docs/example-report.png)
+### Expected CSV columns
 
-## Project Structure
-
-- `app.py`: Flask app and data processing
-- `templates/`: HTML templates
-- `static/`: frontend styling and chart rendering
-- `generic_categories.json`: shared category keywords
-- `custom_categories.json`: personal overrides
+| Column | Description |
+|---|---|
+| `Transaction Date` | Used for monthly grouping |
+| `Description 1` | Merchant name, used for categorization |
+| `CAD$` | Transaction amount |
 
 ## Category Rules
 
-Matching is substring-based.
+Matching is substring-based and case-insensitive.
 
-- Generic rules are loaded from `generic_categories.json`
-- Personal overrides are loaded from `custom_categories.json`
-- Custom rules are checked before generic rules
-- Matching is case-insensitive
+- `generic_categories.json` contains shared keyword rules
+- `custom_categories.json` contains personal overrides and is checked first (not committed)
 
-Examples:
+Examples: `NO FRILLS` → Food, `AIRBNB` → Travel, `UBER` → Transport. Anything unmatched falls back to Slush Fund.
 
-- `NO FRILLS` -> `Food`
-- `AIRBNB` -> `Travel`
-- `LOCAL SALON` -> `Personal Care`
+## Development
 
-## Running Locally
-
-1. Activate the virtual environment.
-2. Install dependencies if needed.
-3. Start the Flask app.
-
-Example on Windows PowerShell:
-
+**Install dependencies**
 ```powershell
 .\venv\Scripts\Activate.ps1
-pip install flask pandas
+pip install -r requirements-dev.txt
+```
+
+**Run locally**
+```powershell
+python app.py
+```
+Then open `http://127.0.0.1:5000`.
+
+**Run tests**
+```powershell
+pytest -v
+```
+
+**Run with debug mode**
+```powershell
+$env:FLASK_DEBUG = "true"
 python app.py
 ```
 
-Then open:
+## Deployment
 
-```text
-http://127.0.0.1:5000
+The app is deployed on Render. Merging to `main` triggers an automatic deploy, but only if all tests pass. A failing test suite blocks the deploy and leaves production untouched.
+
+```mermaid
+flowchart LR
+    A[PR opened] --> B[Tests run]
+    B -->|Fail| C[Deploy blocked]
+    B -->|Pass| D[Merge to main]
+    D --> E[Tests run again]
+    E -->|Fail| C
+    E -->|Pass| F[Deploy to Render]
+
+    classDef blocked fill:#ffcccc,stroke:#cc0000,color:#cc0000
+    classDef deploy fill:#ccffcc,stroke:#006600,color:#006600
+    class C blocked
+    class F deploy
 ```
 
-## Expected CSV Columns
+Debug mode is always off in production.
 
-The uploaded CSV should contain:
+## Project Structure
 
-- `Transaction Date`
-- `Description 1`
-- `CAD$`
-
-## Notes
-
-- Transfers, payments, and similar non-spend activity are filtered out in code.
-- Charts are rendered on the frontend from raw aggregated data.
-- If you update category JSON files while the server is running, restart the app so the new rules are reloaded.
+```
+app.py                  Flask app and data processing
+templates/              Jinja HTML templates
+static/                 CSS and chart rendering (JS)
+tests/                  pytest suite
+generic_categories.json Shared category keyword rules
+render.yaml             Render deployment config
+requirements.txt        Production dependencies
+requirements-dev.txt    Development and test dependencies
+```
