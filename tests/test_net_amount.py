@@ -1,5 +1,5 @@
 import pytest
-from app import net_amount
+from app.transactions.services import net_amount
 
 
 def make_row(desc, amount):
