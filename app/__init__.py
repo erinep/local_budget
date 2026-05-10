@@ -1,7 +1,8 @@
 """Application factory for Local Budget Parser.
 
-ADR 0004 — Flask Blueprint Layout and Application Factory.
-ADR 0005 — Category Map Dependency Injection.
+ADR-0004 — Flask Blueprint Layout and Application Factory.
+ADR-0005 — Category Map Dependency Injection.
+ADR-0006 — Cookie-based signed sessions; CSRF via Flask-WTF.
 """
 
 import json
@@ -82,10 +83,9 @@ def create_app(config=None):
 
     app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # 5 MB
 
-    # Load category maps from JSON files. These are injected into the service
-    # layer via app.config so they are never module-level globals (ADR 0005).
-    # In Phase 1 this block is replaced by a per-user database read; the
-    # make_categorizer call site in the route handler does not change.
+    # Load category maps from JSON files. These are kept in app.config as the
+    # generic fallback; per-user overrides are loaded from the database via
+    # the Account Settings service at request time (ADR-0005).
     base_dir = os.path.dirname(os.path.abspath(__file__))
     repo_root = os.path.dirname(base_dir)
 
@@ -115,15 +115,34 @@ def create_app(config=None):
     app.logger.addHandler(handler)
     app.logger.setLevel(logging.INFO)
 
-    # Sentry integration point — no data flows yet; activated in Phase 1.
-    # sentry_dsn = os.environ.get("SENTRY_DSN", None)
-    # if sentry_dsn:
-    #     import sentry_sdk
-    #     sentry_sdk.init(dsn=sentry_dsn)
+    # Sentry error tracking (Phase 1).
+    # Only initialised when SENTRY_DSN is set so local dev without credentials
+    # works without modification.
+    sentry_dsn = os.environ.get("SENTRY_DSN")
+    if sentry_dsn:
+        import sentry_sdk
+        from sentry_sdk.integrations.flask import FlaskIntegration
+        sentry_sdk.init(
+            dsn=sentry_dsn,
+            integrations=[FlaskIntegration()],
+            traces_sample_rate=0.1,
+        )
 
-    # Register blueprints. ADR 0004: transactions_bp first because its URL
-    # prefix is "/" and later blueprints use distinct prefixes.
+    # Register blueprints. ADR-0004.
+    # auth_bp must be registered before transactions_bp so that the login
+    # redirect (url_for("auth.login")) resolves when load_user() runs.
+    from app.auth.routes import auth_bp
+    app.register_blueprint(auth_bp)
+
+    from app.account_settings.routes import account_settings_bp
+    app.register_blueprint(account_settings_bp)
+
     from app.transactions.routes import transactions_bp
     app.register_blueprint(transactions_bp)
+
+    # Register the authentication before_request hook.
+    # ADR-0006: load_user populates flask.g.user from the signed session cookie.
+    from app.middleware.auth import load_user
+    app.before_request(load_user)
 
     return app

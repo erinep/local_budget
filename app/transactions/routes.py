@@ -1,8 +1,16 @@
-"""Transaction Engine routes — upload and report."""
+"""Transaction Engine routes — upload and report.
+
+All routes require authentication (ADR-0006). The category map is loaded from
+the Account Settings service, injecting the per-user map via the same factory
+closure used in Phase 0 (ADR-0005). The call site is unchanged; only the
+source of the map has moved from a JSON file to the database.
+"""
 
 import pandas as pd
-from flask import Blueprint, current_app, render_template, request
+from flask import Blueprint, g, render_template, request
 
+from app.account_settings.services import get_category_map
+from app.middleware.auth import login_required
 from app.transactions.services import (
     make_categorizer,
     net_amount,
@@ -14,6 +22,7 @@ transactions_bp = Blueprint("transactions", __name__)
 
 
 @transactions_bp.route("/", methods=["GET", "POST"])
+@login_required
 def upload():
     if request.method == "POST":
         file = request.files["file"]
@@ -21,8 +30,14 @@ def upload():
         if not file.filename.lower().endswith(".csv"):
             return render_template("upload.html", error="Only .csv files are accepted.")
 
-        custom_map = current_app.config["CUSTOM_CATEGORY_MAP"]
-        generic_map = current_app.config["GENERIC_CATEGORY_MAP"]
+        # ADR-0005: category map is injected via the make_categorizer factory.
+        # Phase 1: the per-user map is loaded from the database via Account
+        # Settings service (ADR-0003 — no direct table access here).
+        # The generic map from app.config is passed as the fallback so that any
+        # category not in the user's custom map still gets classified correctly.
+        from flask import current_app
+        custom_map = get_category_map(g.user.id)
+        generic_map = current_app.config.get("GENERIC_CATEGORY_MAP", {})
         categorize = make_categorizer(custom_map, generic_map)
 
         df = pd.read_csv(file, encoding="latin1")
