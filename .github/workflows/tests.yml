@@ -25,11 +25,3 @@ jobs:
       - name: Run tests
         run: pytest -v
 
-  deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
-    steps:
-      - name: Trigger Render deploy
-        run: curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"

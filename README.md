@@ -1,6 +1,7 @@
 # Local Budget Parser
 
 [![Tests](https://github.com/erinep/local_budget/actions/workflows/tests.yml/badge.svg)](https://github.com/erinep/local_budget/actions/workflows/tests.yml)
+[![Deploy](https://github.com/erinep/local_budget/actions/workflows/deploy.yml/badge.svg)](https://github.com/erinep/local_budget/actions/workflows/deploy.yml)
 
 A Flask app that turns exported bank transaction CSVs into a visual spending report, with monthly breakdowns, category charts, and drillable transaction lists.
 
@@ -57,22 +58,10 @@ python app.py
 
 ## Deployment
 
-The app is deployed on Render. Merging to `main` triggers an automatic deploy, but only if all tests pass. A failing test suite blocks the deploy and leaves production untouched.
+The app is deployed on Render via two separate workflows:
 
-```mermaid
-flowchart LR
-    A[PR opened] --> B[Tests run]
-    B -->|Fail| C[Tests Fail]
-    B -->|Pass| D[Merge to main]
-    D --> E[Trigger Render Deployment]
-    E -->|Fail| C
-    E -->|Pass| F[Tests Pass]
-
-    classDef blocked fill:#ffcccc,stroke:#cc0000,color:#cc0000
-    classDef deploy fill:#ccffcc,stroke:#006600,color:#006600
-    class C blocked
-    class F deploy
-```
+- **Tests** — runs on every PR and every push to `main`. Must pass before a PR can be merged.
+- **Deploy** — runs only on merge to `main`, triggering a Render deploy. Runs independently of tests; a failing deploy does not retroactively affect the test badge.
 
 Debug mode is always off in production.
 
