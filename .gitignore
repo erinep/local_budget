@@ -19,8 +19,9 @@ static/*.png
 # VS Code
 .vscode/
 
-# Claude Code
-.claude/
+# Claude Code — track project scaffolding, exclude personal permissions
+.claude/settings.local.json
+.mcp.json
 
 # OS files
 .DS_Store
