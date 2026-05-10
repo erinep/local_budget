@@ -35,7 +35,7 @@ def load_user() -> None:
     """
     # Import here to avoid circular imports; auth.services is the Supabase
     # boundary and is only needed at request time.
-    from app.auth.services import AuthError, AuthUser, refresh_session
+    from app.auth.services import AuthError, AuthUser, get_refresh_token, refresh_session, store_refresh_token
 
     g.user = None
 
@@ -74,18 +74,14 @@ def load_user() -> None:
     # Silent refresh: if within the refresh window, exchange the refresh token.
     time_remaining = expires_at - now
     if time_remaining <= timedelta(minutes=_REFRESH_WINDOW_MINUTES):
-        refresh_token = session.get("refresh_token")
+        refresh_token = get_refresh_token(user_id)
         if refresh_token:
             try:
                 new_session = refresh_session(refresh_token)
-                # Update session with new tokens and expiry.
-                session["refresh_token"] = new_session.refresh_token
                 session["expires_at"] = new_session.expires_at.isoformat()
-                # Update g.user in case the email changed (unlikely, but safe).
+                store_refresh_token(user_id, new_session.refresh_token, new_session.expires_at)
                 g.user = new_session.user
             except AuthError:
-                # Refresh failed — log without PII and leave current session
-                # in place until it naturally expires.
                 logger.warning("Silent session refresh failed; session will expire normally.")
 
 

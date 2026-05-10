@@ -23,11 +23,11 @@ import pytest
 
 # Skip the entire module if the test Supabase project is not configured.
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY")
 
 pytestmark = pytest.mark.skipif(
-    not (SUPABASE_URL and SUPABASE_KEY),
-    reason="SUPABASE_URL and SUPABASE_KEY must be set to run auth service integration tests",
+    not (SUPABASE_URL and SUPABASE_ANON_KEY),
+    reason="SUPABASE_URL and SUPABASE_ANON_KEY must be set to run auth service integration tests",
 )
 
 

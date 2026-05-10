@@ -43,7 +43,7 @@ def auth_client(app):
         sess["user_id"] = "00000000-0000-0000-0000-000000000001"
         sess["email"] = "test@example.invalid"
         sess["expires_at"] = expires_at.isoformat()
-        sess["refresh_token"] = "test-refresh-token"
+        # refresh_token is stored server-side in user_sessions (ADR-0006), not in the cookie.
 
     return client
 
@@ -87,11 +87,15 @@ def mock_auth_session(mock_auth_user):
 
 @pytest.fixture
 def authenticated_client(client, mock_auth_user):
-    """Test client with a valid session pre-populated (user_id, email, expires_at in the future)."""
+    """Test client with a valid session pre-populated (user_id, email, expires_at in the future).
+
+    Expiry is set 1 hour ahead so the 5-minute silent-refresh window in
+    load_user() does not fire — no DB call for get_refresh_token is made.
+    Tests that specifically exercise the refresh path must mock
+    app.auth.services.get_refresh_token and store_refresh_token.
+    """
     with client.session_transaction() as sess:
         sess["user_id"] = mock_auth_user.id
         sess["email"] = mock_auth_user.email
-        sess["expires_at"] = (
-            datetime.now(UTC) + timedelta(hours=1)
-        ).isoformat()
+        sess["expires_at"] = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
     return client

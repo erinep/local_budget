@@ -9,7 +9,6 @@ All timestamps are UTC-aware (ADR-0001).
 
 import uuid
 from datetime import datetime, timezone, timedelta
-from unittest.mock import patch, MagicMock
 
 import pytest
 from flask import g, session
@@ -22,40 +21,26 @@ from flask import g, session
 class TestLoadUser:
     def test_sets_g_user_when_session_has_valid_user_id(self, app, mock_auth_user):
         """When flask.session contains a user_id and a future expires_at,
-        load_user must set g.user to an AuthUser with that id."""
+        load_user must construct g.user from session data (no DB call for
+        non-expiring sessions)."""
         future_expiry = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
 
         with app.test_request_context("/"):
-            with patch(
-                "app.middleware.auth.get_user_from_session",
-                return_value=mock_auth_user,
-            ):
-                from flask import session as flask_session
-                # Manually populate session values inside the request context
-                with app.test_client() as client:
-                    with client.session_transaction() as sess:
-                        sess["user_id"] = mock_auth_user.id
-                        sess["email"] = mock_auth_user.email
-                        sess["expires_at"] = future_expiry
+            session["user_id"] = mock_auth_user.id
+            session["email"] = mock_auth_user.email
+            session["expires_at"] = future_expiry
 
-                    # Make a request — load_user fires as before_request
-                    with patch(
-                        "app.middleware.auth.get_user_from_session",
-                        return_value=mock_auth_user,
-                    ):
-                        # A simple GET to any route will trigger load_user
-                        response = client.get("/auth/login")
-                        # We cannot directly inspect g after the request ends,
-                        # so we verify the downstream effect: the page must not
-                        # redirect to login (user was loaded successfully).
-                        # The login page itself returns 200 whether logged in or not.
-                        assert response.status_code in (200, 302)
+            from app.middleware.auth import load_user
+            load_user()
+
+            assert g.user is not None
+            assert g.user.id == mock_auth_user.id
+            assert g.user.email == mock_auth_user.email
 
     def test_sets_g_user_to_none_when_no_user_id_in_session(self, app):
         """When flask.session has no user_id key, load_user must set g.user = None."""
         with app.test_request_context("/"):
             from app.middleware.auth import load_user
-            # Empty session — no user_id set
             load_user()
             assert g.user is None
 
@@ -66,8 +51,6 @@ class TestLoadUser:
         past_expiry = (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()
 
         with app.test_request_context("/"):
-            from flask import session as flask_session
-            # Inject session data directly into the request context
             session["user_id"] = mock_auth_user.id
             session["email"] = mock_auth_user.email
             session["expires_at"] = past_expiry
@@ -77,24 +60,18 @@ class TestLoadUser:
 
             assert g.user is None
 
-    def test_sets_g_user_to_none_when_get_user_from_session_returns_none(self, app):
-        """If the session has a user_id but get_user_from_session returns None
-        (e.g. user deleted from Supabase), load_user must set g.user = None."""
-        future_expiry = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
-
+    def test_sets_g_user_to_none_when_expires_at_is_missing(self, app, mock_auth_user):
+        """A session with user_id but no expires_at is malformed and must be
+        rejected — load_user must set g.user = None and clear the session."""
         with app.test_request_context("/"):
-            session["user_id"] = str(uuid.uuid4())
-            session["email"] = "ghost@example.com"
-            session["expires_at"] = future_expiry
+            session["user_id"] = mock_auth_user.id
+            session["email"] = mock_auth_user.email
+            # expires_at intentionally omitted
 
-            with patch(
-                "app.middleware.auth.get_user_from_session",
-                return_value=None,
-            ):
-                from app.middleware.auth import load_user
-                load_user()
+            from app.middleware.auth import load_user
+            load_user()
 
-                assert g.user is None
+            assert g.user is None
 
 
 # ---------------------------------------------------------------------------

@@ -8,7 +8,9 @@ Session shape written to flask.session on login:
     user_id      str   Supabase Auth UUID
     email        str   user's email address (stored for display only)
     expires_at   str   ISO-8601 UTC datetime string
-    refresh_token str  opaque token; treated as a secret — never logged
+
+The refresh_token is stored server-side in user_sessions (ADR-0006),
+NOT in the cookie. Routes and middleware read it from the DB.
 
 ADR-0001: all datetimes stored as UTC ISO-8601 strings in the session.
 """
@@ -17,7 +19,16 @@ import logging
 
 from flask import Blueprint, g, redirect, render_template, request, session, url_for
 
-from app.auth.services import AuthError, sign_in, sign_out, sign_up, initiate_password_reset
+from app.auth.services import (
+    AuthError,
+    delete_refresh_token,
+    get_refresh_token,
+    initiate_password_reset,
+    sign_in,
+    sign_out,
+    sign_up,
+    store_refresh_token,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,10 +69,12 @@ def login():
 
 @auth_bp.route("/logout", methods=["GET"])
 def logout():
-    refresh_token = session.get("refresh_token")
-    if refresh_token:
-        # Best-effort server-side invalidation; local session cleared regardless.
-        sign_out(refresh_token)
+    user_id = session.get("user_id")
+    if user_id:
+        refresh_token = get_refresh_token(user_id)
+        if refresh_token:
+            sign_out(refresh_token)
+        delete_refresh_token(user_id)
     session.clear()
     return redirect(url_for("auth.login"))
 
@@ -134,5 +147,6 @@ def _write_session(auth_session) -> None:
     session.clear()
     session["user_id"] = auth_session.user.id
     session["email"] = auth_session.user.email
-    session["refresh_token"] = auth_session.refresh_token
     session["expires_at"] = auth_session.expires_at.isoformat()
+    # Refresh token stored server-side only (ADR-0006).
+    store_refresh_token(auth_session.user.id, auth_session.refresh_token, auth_session.expires_at)

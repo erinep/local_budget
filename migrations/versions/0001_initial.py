@@ -42,7 +42,7 @@ def upgrade() -> None:
             server_default=sa.text("gen_random_uuid()"),
             nullable=False,
         ),
-        sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False, unique=True),
         sa.Column("refresh_token", sa.Text(), nullable=False),
         sa.Column(
             "created_at",

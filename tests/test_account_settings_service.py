@@ -18,6 +18,8 @@ from datetime import datetime, timezone
 
 import pytest
 
+from app import create_app
+
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 pytestmark = pytest.mark.skipif(
@@ -30,6 +32,15 @@ pytestmark = pytest.mark.skipif(
 # Helpers
 # ---------------------------------------------------------------------------
 
+@pytest.fixture(scope="module")
+def app_ctx():
+    """Module-scoped Flask app context so service calls have current_app available."""
+    app = create_app()
+    app.config["TESTING"] = True
+    with app.app_context():
+        yield
+
+
 def _new_user_id() -> str:
     """Return a UUID string that is guaranteed to have no saved category map."""
     return str(uuid.uuid4())
@@ -40,7 +51,7 @@ def _new_user_id() -> str:
 # ---------------------------------------------------------------------------
 
 class TestGetCategoryMap:
-    def test_returns_default_map_for_unknown_user(self):
+    def test_returns_default_map_for_unknown_user(self, app_ctx):
         """A user_id with no saved row must return a non-empty dict (the
         generic default map), not None and not an empty dict.
         Account Settings owns the default; the service must supply it."""
@@ -51,7 +62,7 @@ class TestGetCategoryMap:
         assert isinstance(result, dict)
         assert len(result) > 0, "Default category map must contain at least one category"
 
-    def test_returns_saved_map_for_known_user(self):
+    def test_returns_saved_map_for_known_user(self, app_ctx):
         """After save_category_map is called for a user, get_category_map must
         return exactly the map that was saved — not the default."""
         from app.account_settings.services import get_category_map, save_category_map
@@ -64,7 +75,7 @@ class TestGetCategoryMap:
 
         assert result == custom_map
 
-    def test_different_users_get_independent_maps(self):
+    def test_different_users_get_independent_maps(self, app_ctx):
         """Two distinct user_ids must not share or cross-contaminate their
         category maps.  This is the user-isolation invariant."""
         from app.account_settings.services import get_category_map, save_category_map
@@ -87,7 +98,7 @@ class TestGetCategoryMap:
 # ---------------------------------------------------------------------------
 
 class TestSaveCategoryMap:
-    def test_insert_when_no_row_exists(self):
+    def test_insert_when_no_row_exists(self, app_ctx):
         """First call for a new user_id must persist the map so that a
         subsequent get returns it."""
         from app.account_settings.services import get_category_map, save_category_map
@@ -99,7 +110,7 @@ class TestSaveCategoryMap:
 
         assert get_category_map(user_id) == new_map
 
-    def test_upsert_replaces_existing_row(self):
+    def test_upsert_replaces_existing_row(self, app_ctx):
         """A second call for the same user_id must overwrite the previous map
         entirely — this is the single write path contract (architecture.md).
         There must be no accumulation of old entries."""
@@ -114,7 +125,7 @@ class TestSaveCategoryMap:
 
         assert get_category_map(user_id) == second_map
 
-    def test_save_sets_updated_at_to_utc_timestamp(self):
+    def test_save_sets_updated_at_to_utc_timestamp(self, app_ctx):
         """Every save must record an updated_at value that is:
         1. A datetime (not None, not a string)
         2. UTC-aware (ADR-0001: all timestamps stored in UTC)

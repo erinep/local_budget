@@ -11,6 +11,7 @@ import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+import sqlalchemy as sa
 from supabase import Client, create_client
 
 
@@ -189,6 +190,44 @@ def get_user_from_session(user_id: str) -> AuthUser | None:
         return AuthUser(id=str(response.user.id), email=response.user.email)
     except Exception:
         return None
+
+
+def store_refresh_token(user_id: str, refresh_token: str, expires_at: datetime) -> None:
+    """Upsert a refresh token into user_sessions (ADR-0006: server-side storage)."""
+    from app.db import get_engine
+    with get_engine().begin() as conn:
+        conn.execute(
+            sa.text("""
+                INSERT INTO user_sessions (user_id, refresh_token, expires_at)
+                VALUES (:user_id, :refresh_token, :expires_at)
+                ON CONFLICT (user_id) DO UPDATE
+                    SET refresh_token = EXCLUDED.refresh_token,
+                        expires_at    = EXCLUDED.expires_at,
+                        last_used_at  = now()
+            """),
+            {"user_id": user_id, "refresh_token": refresh_token, "expires_at": expires_at},
+        )
+
+
+def get_refresh_token(user_id: str) -> str | None:
+    """Return the stored refresh token for a user, or None if not found."""
+    from app.db import get_engine
+    with get_engine().connect() as conn:
+        row = conn.execute(
+            sa.text("SELECT refresh_token FROM user_sessions WHERE user_id = :uid"),
+            {"uid": user_id},
+        ).fetchone()
+    return row[0] if row else None
+
+
+def delete_refresh_token(user_id: str) -> None:
+    """Remove the user_sessions row on logout."""
+    from app.db import get_engine
+    with get_engine().begin() as conn:
+        conn.execute(
+            sa.text("DELETE FROM user_sessions WHERE user_id = :uid"),
+            {"uid": user_id},
+        )
 
 
 def initiate_password_reset(email: str) -> None:
