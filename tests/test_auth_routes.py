@@ -33,7 +33,9 @@ import pytest
 # Helpers
 # ---------------------------------------------------------------------------
 
-AUTH_SERVICE_PATH = "app.auth.services"
+# Patch names as bound in the routes module (after `from app.auth.services import ...`).
+# Patching app.auth.services.* would not intercept the already-imported names.
+AUTH_SERVICE_PATH = "app.auth.routes"
 
 VALID_EMAIL = "user@example.com"
 VALID_PASSWORD = "S3cur3P@ssw0rd!"
@@ -79,7 +81,8 @@ class TestGetLogin:
 class TestPostLogin:
     def test_valid_credentials_sets_session_and_redirects(self, client, mock_auth_session):
         """Successful login must write user_id to the session and redirect to /."""
-        with patch(f"{AUTH_SERVICE_PATH}.sign_in", return_value=mock_auth_session):
+        with patch(f"{AUTH_SERVICE_PATH}.sign_in", return_value=mock_auth_session), \
+             patch(f"{AUTH_SERVICE_PATH}.store_refresh_token"):
             response = client.post(
                 "/auth/login",
                 data={"email": VALID_EMAIL, "password": VALID_PASSWORD},
@@ -93,9 +96,10 @@ class TestPostLogin:
         with client.session_transaction() as sess:
             assert sess.get("user_id") == mock_auth_session.user.id
 
-    def test_invalid_credentials_returns_200_no_session(self, client):
-        """Wrong credentials must re-render the login form (200) and must NOT
-        write a user_id into the session."""
+    def test_invalid_credentials_returns_401_no_session(self, client):
+        """Wrong credentials must re-render the login form (401) and must NOT
+        write a user_id into the session. 401 is returned (not 200) to signal
+        the failed auth attempt at the HTTP layer."""
         from app.auth.services import AuthError
         with patch(f"{AUTH_SERVICE_PATH}.sign_in", side_effect=AuthError("invalid")):
             response = client.post(
@@ -104,7 +108,7 @@ class TestPostLogin:
                 follow_redirects=False,
             )
 
-        assert response.status_code == 200
+        assert response.status_code == 401
 
         with client.session_transaction() as sess:
             assert "user_id" not in sess
@@ -126,7 +130,9 @@ class TestPostLogin:
 class TestGetLogout:
     def test_logout_clears_session_and_redirects_to_login(self, authenticated_client):
         """Logout must clear the session (user_id gone) and redirect to /auth/login."""
-        response = authenticated_client.get("/auth/logout", follow_redirects=False)
+        with patch(f"{AUTH_SERVICE_PATH}.get_refresh_token", return_value=None), \
+             patch(f"{AUTH_SERVICE_PATH}.delete_refresh_token"):
+            response = authenticated_client.get("/auth/logout", follow_redirects=False)
 
         assert response.status_code in (302, 301)
         assert "/auth/login" in response.headers.get("Location", "")
@@ -172,7 +178,8 @@ class TestPostSignup:
         4. Redirect to /
         """
         with patch(f"{AUTH_SERVICE_PATH}.sign_up", return_value=mock_auth_user) as mock_up, \
-             patch(f"{AUTH_SERVICE_PATH}.sign_in", return_value=mock_auth_session) as mock_in:
+             patch(f"{AUTH_SERVICE_PATH}.sign_in", return_value=mock_auth_session) as mock_in, \
+             patch(f"{AUTH_SERVICE_PATH}.store_refresh_token"):
             response = client.post(
                 "/auth/signup",
                 data={

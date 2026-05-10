@@ -69,27 +69,8 @@ class TestRootRouteRequiresAuth:
 
 class TestUploadRouteRequiresAuth:
     def test_post_upload_without_session_redirects_to_login(self, client):
-        """POST /upload without a session must redirect to /auth/login.
+        """POST / (the upload endpoint) without a session must redirect to /auth/login.
         An unauthenticated upload must never be processed."""
-        csv_file = make_minimal_csv()
-        response = client.post(
-            "/upload",
-            data={"file": (csv_file, "transactions.csv")},
-            content_type="multipart/form-data",
-            follow_redirects=False,
-        )
-
-        assert response.status_code in (302, 301), (
-            f"Expected redirect, got {response.status_code}"
-        )
-        location = response.headers.get("Location", "")
-        assert "/auth/login" in location, (
-            f"Expected redirect to /auth/login, got Location: {location!r}"
-        )
-
-    def test_post_to_root_without_session_redirects_to_login(self, client):
-        """POST / (the legacy upload path) without a session must also redirect.
-        This covers the case where the upload form posts to / instead of /upload."""
         csv_file = make_minimal_csv()
         response = client.post(
             "/",
@@ -118,13 +99,8 @@ TRANSACTION_ROUTES = [
     ("POST", "/"),
 ]
 
-# If /upload exists as a separate endpoint, include it:
-UPLOAD_ROUTES = [
-    ("POST", "/upload"),
-]
 
-
-@pytest.mark.parametrize("method,path", TRANSACTION_ROUTES + UPLOAD_ROUTES)
+@pytest.mark.parametrize("method,path", TRANSACTION_ROUTES)
 def test_transaction_route_redirects_unauthenticated(client, method, path):
     """Parametrized: every transaction route must redirect to /auth/login
     when the request has no session.  This test will catch any new route
