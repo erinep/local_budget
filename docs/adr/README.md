@@ -11,6 +11,9 @@ One file per non-trivial decision. Append-only.
 | [0003](0003-module-communication-service-layer-only.md) | Module Communication via Service-Layer Interfaces Only | Accepted | 2026-05-10 |
 | [0004](0004-flask-blueprint-layout.md) | Flask Blueprint Layout and Module Boundary Mapping | Accepted | 2026-05-10 |
 | [0005](0005-category-map-dependency-injection.md) | Category Map Dependency Injection Pattern | Accepted | 2026-05-10 |
+| [0006](0006-session-strategy.md) | Session Strategy — Cookie-Based Server-Side Sessions | Accepted | 2026-05-10 |
+| [0007](0007-schema-migration-tooling.md) | Schema Migration Tooling — Alembic | Accepted | 2026-05-10 |
+| [0008](0008-google-oauth-deferred.md) | Google OAuth Deferred to Phase 1.5 | Accepted | 2026-05-10 |
 
 When the first ADR lands, replace the placeholder row with a real entry. Keep entries sorted by number, ascending.
 
