@@ -1,5 +1,9 @@
 import io
+import uuid
+from datetime import UTC, datetime, timedelta
+
 import pytest
+
 from app import create_app
 
 
@@ -13,7 +17,35 @@ def app():
 
 @pytest.fixture
 def client(app):
+    """Unauthenticated test client.
+
+    Routes protected by @login_required will return 302 redirects with this
+    client. Use ``auth_client`` for tests that need an authenticated session.
+    """
     return app.test_client()
+
+
+@pytest.fixture
+def auth_client(app):
+    """Authenticated test client with a pre-populated Flask session.
+
+    Injects a fake session so that load_user() populates g.user without
+    hitting Supabase. The user_id and email are test fixtures only.
+
+    Tests that exercise auth-protected routes (including the upload route)
+    should use this fixture.
+    """
+    client = app.test_client()
+
+    # Build a session cookie that load_user() will accept.
+    expires_at = datetime.now(UTC) + timedelta(hours=1)
+    with client.session_transaction() as sess:
+        sess["user_id"] = "00000000-0000-0000-0000-000000000001"
+        sess["email"] = "test@example.invalid"
+        sess["expires_at"] = expires_at.isoformat()
+        # refresh_token is stored server-side in user_sessions (ADR-0006), not in the cookie.
+
+    return client
 
 
 def make_csv(rows: list[dict]) -> io.BytesIO:
@@ -25,3 +57,45 @@ def make_csv(rows: list[dict]) -> io.BytesIO:
     buf = io.BytesIO(content)
     buf.name = "transactions.csv"
     return buf
+
+
+# ---------------------------------------------------------------------------
+# Phase 1 fixtures
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def mock_auth_user():
+    """Returns a sample AuthUser dataclass instance for use in tests."""
+    from app.auth.services import AuthUser
+    return AuthUser(
+        id=str(uuid.uuid4()),
+        email="testuser@example.com",
+    )
+
+
+@pytest.fixture
+def mock_auth_session(mock_auth_user):
+    """Returns a sample AuthSession dataclass instance for use in tests."""
+    from app.auth.services import AuthSession
+    return AuthSession(
+        user=mock_auth_user,
+        access_token="test-access-token-abc123",
+        refresh_token="test-refresh-token-xyz789",
+        expires_at=datetime.now(UTC) + timedelta(hours=1),
+    )
+
+
+@pytest.fixture
+def authenticated_client(client, mock_auth_user):
+    """Test client with a valid session pre-populated (user_id, email, expires_at in the future).
+
+    Expiry is set 1 hour ahead so the 5-minute silent-refresh window in
+    load_user() does not fire — no DB call for get_refresh_token is made.
+    Tests that specifically exercise the refresh path must mock
+    app.auth.services.get_refresh_token and store_refresh_token.
+    """
+    with client.session_transaction() as sess:
+        sess["user_id"] = mock_auth_user.id
+        sess["email"] = mock_auth_user.email
+        sess["expires_at"] = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
+    return client
