@@ -36,6 +36,7 @@
 
         {% if error %}<p class="upload-error">{{ error }}</p>{% endif %}
         <form method="post" enctype="multipart/form-data" class="upload-form">
+            {{ csrf_token() }}
             <label class="file-input">
                 <span>Choose transaction file</span>
                 <input type="file" name="file" accept=".csv" required>
