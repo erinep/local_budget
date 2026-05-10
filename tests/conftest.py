@@ -1,4 +1,5 @@
 import io
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -56,3 +57,41 @@ def make_csv(rows: list[dict]) -> io.BytesIO:
     buf = io.BytesIO(content)
     buf.name = "transactions.csv"
     return buf
+
+
+# ---------------------------------------------------------------------------
+# Phase 1 fixtures
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def mock_auth_user():
+    """Returns a sample AuthUser dataclass instance for use in tests."""
+    from app.auth.services import AuthUser
+    return AuthUser(
+        id=str(uuid.uuid4()),
+        email="testuser@example.com",
+    )
+
+
+@pytest.fixture
+def mock_auth_session(mock_auth_user):
+    """Returns a sample AuthSession dataclass instance for use in tests."""
+    from app.auth.services import AuthSession
+    return AuthSession(
+        user=mock_auth_user,
+        access_token="test-access-token-abc123",
+        refresh_token="test-refresh-token-xyz789",
+        expires_at=datetime.now(UTC) + timedelta(hours=1),
+    )
+
+
+@pytest.fixture
+def authenticated_client(client, mock_auth_user):
+    """Test client with a valid session pre-populated (user_id, email, expires_at in the future)."""
+    with client.session_transaction() as sess:
+        sess["user_id"] = mock_auth_user.id
+        sess["email"] = mock_auth_user.email
+        sess["expires_at"] = (
+            datetime.now(UTC) + timedelta(hours=1)
+        ).isoformat()
+    return client
