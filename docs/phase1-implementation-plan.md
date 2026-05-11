@@ -1,6 +1,6 @@
 # Phase 1 — Persistence & Authentication: Implementation Plan
 
-**Status:** Proposed  
+**Status:** Complete  
 **Date:** 2026-05-10  
 **Governing ADRs:** 0001, 0002, 0003, 0004, 0005, 0006, 0007  
 **Exit criteria:** Users can sign up, log in, and continue to use the existing CSV report flow. Custom categories persist between sessions.
