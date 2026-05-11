@@ -1,6 +1,6 @@
 # Phase 1 Amendment A — Auth Flow Fixes and UI Polish
 
-**Status:** In progress  
+**Status:** Complete
 **Date:** 2026-05-10  
 **Context:** After deploying the Phase 1 implementation, five gaps were found through manual testing. This amendment tracks the fixes before Phase 1 is considered done.
 
@@ -140,8 +140,8 @@ If seeding is not working, the fix is in `app/account_settings/services.py` in `
 
 ## Exit criteria for Amendment A
 
-- [ ] A user can sign up, land on the upload page, and use the app
-- [ ] A user can log out and be redirected to the login page
-- [ ] A user who forgot their password can reset it end-to-end without hitting a 404
-- [ ] On first login, `custom_categories` table has a row with the user's category map
-- [ ] Auth pages are readable and not embarrassing
+- [X] A user can sign up, land on the upload page, and use the app
+- [X] A user can log out and be redirected to the login page
+- [X] A user who forgot their password can reset it end-to-end without hitting a 404
+- [X] On first login, `custom_categories` table has a row with the user's category map
+- [X] Auth pages are readable and not embarrassing

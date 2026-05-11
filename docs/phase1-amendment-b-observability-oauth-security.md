@@ -1,6 +1,6 @@
 # Phase 1 Amendment B — Observability, Google OAuth, and Security Audit
 
-**Status:** Planning  
+**Status:** In Progress (See Item 3-4)  
 **Date:** 2026-05-10  
 **Context:** After Amendment A closes the five auth-flow gaps, the following Phase 1 and Phase 1.5 work items remain before Phase 2 can begin. This document tracks them in priority order.
 
@@ -187,7 +187,7 @@ Add a "Sign in with Google" button to `login.html` and `signup.html` pointing to
 
 ## Exit criteria for Amendment B
 
-- [ ] Sentry receives error events from the production app
+- [X] Sentry receives error events from the production app
 - [ ] Log lines are valid JSON with no PII visible
 - [ ] A user can sign up and sign in with a Google account
 - [ ] All security checklist items are checked; blockers resolved
