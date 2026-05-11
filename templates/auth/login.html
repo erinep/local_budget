@@ -4,6 +4,10 @@
 <div class="auth-card">
     <h1 class="auth-title">Sign In</h1>
 
+    {% if request.args.get('message') == 'password_reset' %}
+    <p class="auth-success" role="status">Your password has been updated. Please sign in.</p>
+    {% endif %}
+
     {% if error %}
     <p class="auth-error" role="alert">{{ error }}</p>
     {% endif %}

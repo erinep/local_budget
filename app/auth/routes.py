@@ -28,6 +28,8 @@ from app.auth.services import (
     sign_out,
     sign_up,
     store_refresh_token,
+    update_password,
+    verify_recovery_token,
 )
 
 logger = logging.getLogger(__name__)
@@ -135,6 +137,64 @@ def reset_password():
 
 
 # ---------------------------------------------------------------------------
+# Update password (called from the password-reset email link)
+# ---------------------------------------------------------------------------
+
+@auth_bp.route("/update-password", methods=["GET", "POST"])
+def update_password_view():
+    """Handle the recovery link from Supabase and allow the user to set a new password.
+
+    GET:  Supabase sends ?token_hash=...&type=recovery.  Verify the token,
+          store the access_token in the session for the subsequent POST, and
+          render the update-password form.
+    POST: Read the new password from the form, use the stored access_token to
+          call update_password, then redirect to /auth/login on success.
+    """
+    if request.method == "GET":
+        token_hash = request.args.get("token_hash", "")
+        token_type = request.args.get("type", "")
+
+        if not token_hash or token_type != "recovery":
+            return render_template(
+                "auth/update_password.html",
+                error="Reset link is invalid or has expired.",
+            )
+
+        try:
+            auth_session = verify_recovery_token(token_hash)
+        except AuthError:
+            logger.warning("Password recovery token verification failed.")
+            return render_template(
+                "auth/update_password.html",
+                error="Reset link is invalid or has expired.",
+            )
+
+        # Store the access_token so the POST handler can authenticate with Supabase.
+        # This is a short-lived token used exclusively for the password-update call.
+        session["reset_access_token"] = auth_session.access_token
+        return render_template("auth/update_password.html")
+
+    # POST
+    new_password = request.form.get("new_password", "")
+    access_token = session.get("reset_access_token")
+
+    if not access_token:
+        return redirect(url_for("auth.reset_password"))
+
+    try:
+        update_password(access_token, new_password)
+    except AuthError:
+        logger.warning("Password update failed.")
+        return render_template(
+            "auth/update_password.html",
+            error="Could not update your password. Please request a new reset link.",
+        )
+
+    session.pop("reset_access_token", None)
+    return redirect(url_for("auth.login", message="password_reset"))
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -148,5 +208,7 @@ def _write_session(auth_session) -> None:
     session["user_id"] = auth_session.user.id
     session["email"] = auth_session.user.email
     session["expires_at"] = auth_session.expires_at.isoformat()
-    # Refresh token stored server-side only (ADR-0006).
-    store_refresh_token(auth_session.user.id, auth_session.refresh_token, auth_session.expires_at)
+    try:
+        store_refresh_token(auth_session.user.id, auth_session.refresh_token, auth_session.expires_at)
+    except Exception:
+        logger.warning("Could not persist refresh token; silent refresh will not be available.")

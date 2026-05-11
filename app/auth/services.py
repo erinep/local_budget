@@ -242,3 +242,58 @@ def initiate_password_reset(email: str) -> None:
         client.auth.reset_password_email(email)
     except Exception as exc:
         raise AuthError(f"Password reset failed: {exc}") from exc
+
+
+def verify_recovery_token(token_hash: str) -> "AuthSession":
+    """Exchange a password-reset token_hash for an active session.
+
+    Raises AuthError if the token is invalid or expired.
+    Uses supabase.auth.verify_otp with type='recovery'.
+    Returns an AuthSession built from the response.
+
+    The token_hash is a secret credential; it must not appear in logs.
+    """
+    try:
+        client = _get_client()
+        response = client.auth.verify_otp({"token_hash": token_hash, "type": "recovery"})
+        if response.session is None or response.user is None:
+            raise AuthError("Recovery token verification failed: no session returned.")
+
+        sess = response.session
+        user = response.user
+        expires_at = datetime.fromtimestamp(sess.expires_at, tz=UTC)
+
+        return AuthSession(
+            user=AuthUser(id=str(user.id), email=user.email),
+            access_token=sess.access_token,
+            refresh_token=sess.refresh_token,
+            expires_at=expires_at,
+        )
+    except AuthError:
+        raise
+    except Exception as exc:
+        raise AuthError(f"Recovery token verification failed: {exc}") from exc
+
+
+def update_password(access_token: str, new_password: str) -> None:
+    """Set a new password for the authenticated user.
+
+    Uses supabase.auth.set_session to authenticate the client with the
+    provided access_token, then calls update_user to set the new password.
+    Raises AuthError on failure.
+
+    The access_token is a secret credential; it must not appear in logs.
+    """
+    try:
+        client = _get_client()
+        # Authenticate the client with the recovery session's access token.
+        # An empty string is passed for the refresh_token because we only
+        # need the access_token to perform this single update operation.
+        client.auth.set_session(access_token, "")
+        response = client.auth.update_user({"password": new_password})
+        if response.user is None:
+            raise AuthError("Password update failed: no user returned.")
+    except AuthError:
+        raise
+    except Exception as exc:
+        raise AuthError(f"Password update failed: {exc}") from exc
