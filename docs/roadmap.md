@@ -6,8 +6,8 @@ Phases, work items, and exit criteria. Updated as phases ship.
 
 | Phase | Title | Status | Target | Shipped |
 |---|---|---|---|---|
-| 0 | Foundation Hardening | In progress | 1–2 weeks | — |
-| 1 | Persistence & Authentication | Not started | 2–3 weeks | — |
+| 0 | Foundation Hardening | Shipped | 1–2 weeks | 2026-05-10 |
+| 1 | Persistence & Authentication | In progress | 2–3 weeks | — |
 | 2 | Account Settings Service | Not started | 1–2 weeks | — |
 | 3a | Transaction Engine — Persistence | Not started | 2 weeks | — |
 | 3b | Transaction Engine — History & Editing | Not started | 1–2 weeks | — |

@@ -6,8 +6,8 @@ This file is the orientation entry point. It is intentionally short. Detail live
 
 ## Status
 
-- **Current phase:** Phase 0 — Foundation Hardening
-- **Last updated:** 2026-05-09
+- **Current phase:** Phase 1 — Persistence & Authentication
+- **Last updated:** 2026-05-10
 
 Update both fields when a phase ships.
 
