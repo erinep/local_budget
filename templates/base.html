@@ -13,6 +13,12 @@
                 <span class="brand-mark">BP</span>
                 <span class="brand-text">Budget Parser</span>
             </a>
+            {% if g.user %}
+            <nav class="site-nav">
+                <span class="nav-email">{{ g.user.email }}</span>
+                <a class="nav-link" href="{{ url_for('auth.logout') }}">Sign out</a>
+            </nav>
+            {% endif %}
         </header>
 
         <main class="page-content">
