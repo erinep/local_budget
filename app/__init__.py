@@ -107,9 +107,14 @@ def create_app(config=None):
     # Structured logging with PII scrubber (Phase 0 foundation).
     # Architecture doc (cross-cutting concerns / Observability) requires
     # structured logging from Phase 0 onward.
+    try:
+        from pythonjsonlogger.json import JsonFormatter as _JsonFormatter
+    except ImportError:
+        from pythonjsonlogger import jsonlogger as _jl
+        _JsonFormatter = _jl.JsonFormatter
     handler = logging.StreamHandler()
     handler.addFilter(PIIScrubber())
-    handler.setFormatter(logging.Formatter(
+    handler.setFormatter(_JsonFormatter(
         "%(asctime)s %(levelname)s %(name)s %(message)s"
     ))
     app.logger.addHandler(handler)
@@ -117,7 +122,8 @@ def create_app(config=None):
 
     # Sentry error tracking (Phase 1).
     # Only initialised when SENTRY_DSN is set so local dev without credentials
-    # works without modification.
+    # works without modification. send_default_pii=False is explicit: we never
+    # want Sentry capturing user IPs, cookies, or request bodies.
     sentry_dsn = os.environ.get("SENTRY_DSN")
     if sentry_dsn:
         import sentry_sdk
@@ -126,6 +132,7 @@ def create_app(config=None):
             dsn=sentry_dsn,
             integrations=[FlaskIntegration()],
             traces_sample_rate=0.1,
+            send_default_pii=False,
         )
 
     # Register blueprints. ADR-0004.
