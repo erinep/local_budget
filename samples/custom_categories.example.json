@@ -1,0 +1,25 @@
+{
+  "Food": [
+    "LOBLAWS",
+    "METRO",
+    "SOBEYS"
+  ],
+  "Pets": [
+    "PETSMART"
+  ],
+  "Entertainment": [
+    "Spotify"
+  ],
+  "Transport": [
+    "Petro-Canada",
+    "Esso",
+    "Uber"
+  ],
+  "Personal Care": [
+    "Shoppers Drug Mart"
+  ],
+  "Education": [
+    "Udemy",
+    "Coursera"
+  ]
+}

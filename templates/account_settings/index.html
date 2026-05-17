@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Settings — Budget Parser{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-copy">
+        <p class="eyebrow">Settings</p>
+        <h1>Configure your account.</h1>
+        <p class="hero-text">
+            Manage how Budget Parser behaves for you — category rules today, more controls soon.
+        </p>
+    </div>
+
+    <div class="requirements-grid">
+        <a class="card" href="{{ url_for('account_settings.categories_list') }}" style="text-decoration: none; color: inherit; display: block;">
+            <h2>Categories</h2>
+            <p class="section-text">Add, rename, and delete categories or their keywords. Import a JSON map if you have one.</p>
+        </a>
+
+        <a class="card" href="{{ url_for('account_settings.account') }}" style="text-decoration: none; color: inherit; display: block;">
+            <h2>Account Details</h2>
+            <p class="section-text">View your account email and sign out. More controls are on the way.</p>
+        </a>
+    </div>
+</section>
+{% endblock %}

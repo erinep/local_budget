@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Home — Budget Parser{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-copy">
+        <p class="eyebrow">Dashboard</p>
+        <h1>Welcome back.</h1>
+        <p class="hero-text">
+            Jump into uploading a new transaction file or manage how your categories are configured.
+        </p>
+    </div>
+
+    <div class="requirements-grid">
+        <a class="card" href="{{ url_for('transactions.upload') }}" style="text-decoration: none; color: inherit; display: block;">
+            <h2>Upload transactions</h2>
+            <p class="section-text">Drop in a CSV export to categorize transactions and generate a monthly spending report.</p>
+        </a>
+
+        <a class="card" href="{{ url_for('account_settings.categories_list') }}" style="text-decoration: none; color: inherit; display: block;">
+            <h2>Manage categories</h2>
+            <p class="section-text">Add, rename, and delete categories or their keywords. Import a JSON map if you have one.</p>
+        </a>
+    </div>
+</section>
+{% endblock %}

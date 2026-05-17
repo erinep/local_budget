@@ -9,12 +9,13 @@
 <body>
     <div class="page-shell">
         <header class="site-header">
-            <a class="brand" href="{{ url_for('transactions.upload') }}">
+            <a class="brand" href="{{ url_for('home.index') }}">
                 <span class="brand-mark">BP</span>
                 <span class="brand-text">Budget Parser</span>
             </a>
             {% if g.user %}
             <nav class="site-nav">
+                <a class="nav-link" href="{{ url_for('account_settings.index') }}">Settings</a>
                 <span class="nav-email">{{ g.user.email }}</span>
                 <a class="nav-link" href="{{ url_for('auth.logout') }}">Sign out</a>
             </nav>
