@@ -191,6 +191,39 @@ def list_categories(user_id: str) -> list:
     return result
 
 
+def get_category_detail(user_id: str, category_id: str) -> "dict | None":
+    """Return a single category with full keyword dicts (id + keyword string).
+
+    Used by the edit route, which needs keyword IDs to build remove-button URLs.
+    Returns None if the category doesn't exist or doesn't belong to user_id.
+
+    Result shape: {"id": str, "name": str, "keywords": [{"id": str, "keyword": str}]}
+    """
+    engine = get_engine()
+    with engine.connect() as conn:
+        cat_row = conn.execute(
+            text(
+                "SELECT id, name FROM public.categories"
+                " WHERE id = :cid AND user_id = :uid"
+            ),
+            {"cid": category_id, "uid": user_id},
+        ).fetchone()
+        if cat_row is None:
+            return None
+        kw_rows = conn.execute(
+            text(
+                "SELECT id, keyword FROM public.category_keywords"
+                " WHERE category_id = :cid ORDER BY keyword ASC"
+            ),
+            {"cid": category_id},
+        ).fetchall()
+    return {
+        "id": str(cat_row[0]),
+        "name": cat_row[1],
+        "keywords": [{"id": str(r[0]), "keyword": r[1]} for r in kw_rows],
+    }
+
+
 def get_category_map(user_id: str) -> dict:
     """Return {category_name: [keyword, ...]} for user_id.
 
