@@ -454,6 +454,15 @@ class TestPostRemoveKeyword:
 # ---------------------------------------------------------------------------
 
 class TestGetImport:
+    @pytest.fixture(autouse=True)
+    def _empty_categories(self):
+        """Import is gated on the user having no categories; default the
+        list_categories call in import_form/import_upload to an empty list
+        for the existing happy-path tests in this class. The refused-when-
+        non-empty contract lives in its own class below."""
+        with patch(f"{SVC}.list_categories", return_value=[]):
+            yield
+
     def test_authenticated_returns_200(self, authenticated_client):
         """Authenticated GET to /account-settings/import must return 200."""
         response = authenticated_client.get(
@@ -473,6 +482,11 @@ class TestGetImport:
 # ---------------------------------------------------------------------------
 
 class TestPostImport:
+    @pytest.fixture(autouse=True)
+    def _empty_categories(self):
+        with patch(f"{SVC}.list_categories", return_value=[]):
+            yield
+
     def test_valid_json_file_calls_import_and_redirects(
         self, authenticated_client, mock_auth_user
     ):
@@ -564,6 +578,84 @@ class TestPostImport:
             )
         assert response.status_code == 200
         assert b"Invalid" in response.data or b"format" in response.data
+
+
+# ---------------------------------------------------------------------------
+# Import gated on empty-categories — destructive replace footgun guard
+# ---------------------------------------------------------------------------
+#
+# import_from_json replaces the user's entire category set (save_category_map
+# deletes then inserts). Re-importing after editing in the UI would silently
+# wipe edits, so the route refuses the import unless the user has zero
+# categories. The user is expected to delete all categories first if they
+# want to import a new map.
+
+
+class TestImportRefusedWhenCategoriesExist:
+    def test_post_refused_with_409_when_user_has_categories(
+        self, authenticated_client, mock_auth_user
+    ):
+        """POST /account-settings/import must return 409 and NOT call
+        import_from_json when the user already has at least one category."""
+        existing = [{"id": "c-1", "name": "Food", "keywords": ["PIZZA"]}]
+        payload = json.dumps({"Transport": ["UBER"]}).encode()
+        data = {"file": (io.BytesIO(payload), "categories.json")}
+
+        with patch(f"{SVC}.list_categories", return_value=existing), \
+             patch(f"{SVC}.import_from_json") as mock_import:
+            response = authenticated_client.post(
+                "/account-settings/import",
+                data=data,
+                content_type="multipart/form-data",
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 409
+        mock_import.assert_not_called()
+        assert b"delete" in response.data.lower() or b"existing" in response.data.lower()
+
+    def test_post_refusal_skips_validation_short_circuits_early(
+        self, authenticated_client
+    ):
+        """The empty-categories gate runs before file/JSON validation: a POST
+        with a non-empty category list must 409 even when the file is missing
+        or malformed."""
+        with patch(f"{SVC}.list_categories", return_value=[{"id": "c-1", "name": "Food", "keywords": []}]), \
+             patch(f"{SVC}.import_from_json") as mock_import:
+            response = authenticated_client.post(
+                "/account-settings/import",
+                data={},
+                content_type="multipart/form-data",
+                follow_redirects=False,
+            )
+
+        assert response.status_code == 409
+        mock_import.assert_not_called()
+
+    def test_get_form_shows_warning_when_user_has_categories(
+        self, authenticated_client
+    ):
+        """GET /account-settings/import must render a warning when the user
+        already has categories — the form is unusable in that state, so the
+        user needs to know why before they try to upload."""
+        existing = [{"id": "c-1", "name": "Food", "keywords": []}]
+        with patch(f"{SVC}.list_categories", return_value=existing):
+            response = authenticated_client.get("/account-settings/import")
+
+        assert response.status_code == 200
+        body = response.data.lower()
+        assert b"already have categories" in body or b"delete" in body
+
+    def test_get_form_no_warning_when_user_has_no_categories(
+        self, authenticated_client
+    ):
+        """Negative regression guard: the warning must NOT appear for a
+        clean-slate user — the form should be usable."""
+        with patch(f"{SVC}.list_categories", return_value=[]):
+            response = authenticated_client.get("/account-settings/import")
+
+        assert response.status_code == 200
+        assert b"already have categories" not in response.data.lower()
 
 
 # ---------------------------------------------------------------------------

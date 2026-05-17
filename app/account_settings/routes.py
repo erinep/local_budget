@@ -236,8 +236,18 @@ def keywords_remove(category_id: str, keyword_id: str):
 @account_settings_bp.route("/import", methods=["GET"])
 @login_required
 def import_form():
-    """Render the JSON import form."""
-    return render_template("account_settings/import.html", error=None)
+    """Render the JSON import form.
+
+    If the user already has categories, render the form in a disabled state
+    with a clear warning — import is a destructive replace and is only
+    available from a clean slate.
+    """
+    has_existing = bool(list_categories(g.user.id))
+    return render_template(
+        "account_settings/import.html",
+        error=None,
+        has_existing_categories=has_existing,
+    )
 
 
 @account_settings_bp.route("/import", methods=["POST"])
@@ -247,14 +257,29 @@ def import_upload():
 
     File size is already capped at 5 MB by MAX_CONTENT_LENGTH in the app factory.
     Validates JSON structure before calling import_from_json().
+
+    Refused (409) when the user already has any categories: import_from_json
+    is a destructive replace, so the caller must delete existing categories
+    first. This guards against accidental wipes via a re-import.
     """
     user_id = g.user.id
+
+    if list_categories(user_id):
+        return render_template(
+            "account_settings/import.html",
+            error=(
+                "You already have categories. Import replaces everything — "
+                "delete your existing categories first to use the import tool."
+            ),
+            has_existing_categories=True,
+        ), 409
 
     file = request.files.get("file")
     if file is None or file.filename == "":
         return render_template(
             "account_settings/import.html",
             error="No file selected.",
+            has_existing_categories=False,
         )
 
     raw_bytes = file.read()

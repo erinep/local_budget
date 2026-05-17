@@ -5,10 +5,16 @@
     <p class="eyebrow">Account Settings</p>
     <h1 class="auth-title">Import Categories from JSON</h1>
 
-    <p class="auth-hint">Upload a JSON file to replace all your current categories and keywords. This cannot be undone.</p>
+    <p class="auth-hint">Upload a JSON file to seed your categories and keywords. Import is only available when you have no existing categories — it would otherwise overwrite them.</p>
 
     {% if error %}
     <p class="auth-error" role="alert">{{ error }}</p>
+    {% endif %}
+
+    {% if has_existing_categories %}
+    <p class="auth-error" role="alert">
+        You already have categories. Delete all of them first if you want to import a new map.
+    </p>
     {% endif %}
 
     <form method="post" action="{{ url_for('account_settings.import_upload') }}" enctype="multipart/form-data" novalidate>
@@ -17,9 +23,9 @@
         <div class="upload-form" style="margin-top: 0;">
             <label class="file-input">
                 <span>Choose JSON file</span>
-                <input type="file" name="file" accept=".json" required>
+                <input type="file" name="file" accept=".json" required {% if has_existing_categories %}disabled{% endif %}>
             </label>
-            <button type="submit" class="button-primary">Import</button>
+            <button type="submit" class="button-primary" {% if has_existing_categories %}disabled{% endif %}>Import</button>
         </div>
     </form>
 
