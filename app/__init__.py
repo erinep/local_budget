@@ -86,9 +86,13 @@ def create_app(config=None):
 
     app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # 5 MB
 
-    # Load category maps from JSON files. These are kept in app.config as the
-    # generic fallback; per-user overrides are loaded from the database via
-    # the Account Settings service at request time (ADR-0005).
+    # Load the generic category map from disk. This feeds `seed_defaults` on
+    # first login (docs/phase2-contract.md §2.11); per-user category data lives
+    # in the database via the Account Settings service (ADR-0005).
+    #
+    # Per-user custom maps are no longer loaded from a JSON file. Users with an
+    # existing `custom_categories.json` migrate via POST /account-settings/import.
+    # See samples/custom_categories.example.json for the expected shape.
     base_dir = os.path.dirname(os.path.abspath(__file__))
     repo_root = os.path.dirname(base_dir)
 
@@ -99,7 +103,6 @@ def create_app(config=None):
         with open(path, "r") as f:
             return json.load(f)
 
-    app.config["CUSTOM_CATEGORY_MAP"] = _load_json("custom_categories.json")
     app.config["GENERIC_CATEGORY_MAP"] = _load_json("generic_categories.json")
 
     # Apply any caller-supplied overrides (e.g. test fixtures injecting
@@ -143,6 +146,9 @@ def create_app(config=None):
     # redirect (url_for("auth.login")) resolves when load_user() runs.
     from app.auth.routes import auth_bp
     app.register_blueprint(auth_bp)
+
+    from app.home.routes import home_bp
+    app.register_blueprint(home_bp)
 
     from app.account_settings.routes import account_settings_bp
     app.register_blueprint(account_settings_bp)

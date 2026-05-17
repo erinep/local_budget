@@ -55,6 +55,33 @@ account_settings_bp = Blueprint(
 
 
 # ---------------------------------------------------------------------------
+# Settings landing — index / account
+# ---------------------------------------------------------------------------
+
+@account_settings_bp.route("/", methods=["GET"])
+@login_required
+def index():
+    """Render the Settings landing page with sub-section cards.
+
+    Per ADR-0011: no dropdown, no JS — Settings is its own landing page
+    that surfaces configuration sub-sections as cards.
+    """
+    return render_template("account_settings/index.html")
+
+
+@account_settings_bp.route("/account", methods=["GET"])
+@login_required
+def account():
+    """Render the Account Details stub.
+
+    Per Phase 2 Amendment A: shows email + sign-out + "more coming soon".
+    Password/email change and account deletion are explicitly parked
+    (separate ADR required — touches Supabase Auth directly).
+    """
+    return render_template("account_settings/account.html")
+
+
+# ---------------------------------------------------------------------------
 # Categories — list
 # ---------------------------------------------------------------------------
 

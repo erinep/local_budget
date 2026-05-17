@@ -26,10 +26,20 @@ Upload a CSV export from your bank. The app categorizes each transaction, filter
 
 Matching is substring-based and case-insensitive.
 
-- `generic_categories.json` contains shared keyword rules
-- `custom_categories.json` contains personal overrides and is checked first (not committed)
+- `generic_categories.json` contains shared keyword rules and seeds new accounts on first login (see `seed_defaults` in `app/account_settings/services.py`).
+- Per-user category overrides live in the database and are managed entirely through the Account Settings UI (`/account-settings/categories`).
 
 Examples: `NO FRILLS` → Food, `AIRBNB` → Travel, `UBER` → Transport. Anything unmatched falls back to Slush Fund.
+
+### Migrating an existing `custom_categories.json`
+
+Phase 1 and earlier loaded a `custom_categories.json` file at the repo root. That file is no longer read at startup. If you have one, import it via the UI:
+
+1. Sign in.
+2. Go to `/account-settings/categories` and use the **Import** action (`POST /account-settings/import`).
+3. Upload the JSON file. It is merged into your existing categories.
+
+A reference file showing the expected shape lives at `samples/custom_categories.example.json`.
 
 ## Development
 

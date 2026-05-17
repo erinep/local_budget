@@ -21,7 +21,7 @@ from app.transactions.services import (
 transactions_bp = Blueprint("transactions", __name__)
 
 
-@transactions_bp.route("/", methods=["GET", "POST"])
+@transactions_bp.route("/upload", methods=["GET", "POST"])
 @login_required
 def upload():
     if request.method == "POST":
