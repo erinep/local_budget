@@ -40,6 +40,7 @@ from app.account_settings.services import (
     add_keyword,
     create_category,
     delete_category,
+    get_category_detail,
     import_from_json,
     list_categories,
     remove_keyword,
@@ -51,23 +52,6 @@ logger = logging.getLogger(__name__)
 account_settings_bp = Blueprint(
     "account_settings", __name__, url_prefix="/account-settings"
 )
-
-
-# ---------------------------------------------------------------------------
-# Helper: resolve a category from the user's list, or 404
-# ---------------------------------------------------------------------------
-
-def _get_category_or_404(user_id: str, category_id: str) -> dict:
-    """Return the category dict for category_id if it belongs to user_id.
-
-    Aborts with 404 if not found.  Uses list_categories() so the result is
-    cache-warm; no extra DB call for subsequent service operations.
-    """
-    categories = list_categories(user_id)
-    for cat in categories:
-        if cat["id"] == category_id:
-            return cat
-    abort(404)
 
 
 # ---------------------------------------------------------------------------
@@ -124,7 +108,9 @@ def categories_create():
 def categories_edit(category_id: str):
     """Render the edit form for an existing category."""
     user_id = g.user.id
-    category = _get_category_or_404(user_id, category_id)
+    category = get_category_detail(user_id, category_id)
+    if category is None:
+        abort(404)
     return render_template(
         "account_settings/category_edit.html",
         category=category,
@@ -145,8 +131,9 @@ def categories_update(category_id: str):
         error_msg = str(exc)
         if "not found" in error_msg.lower():
             abort(404)
-        # Re-fetch category for the re-render (cache may have been invalidated).
-        category = _get_category_or_404(user_id, category_id)
+        category = get_category_detail(user_id, category_id)
+        if category is None:
+            abort(404)
         return render_template(
             "account_settings/category_edit.html",
             category=category,
@@ -187,7 +174,9 @@ def keywords_add(category_id: str):
         error_msg = str(exc)
         if "not found" in error_msg.lower():
             abort(404)
-        category = _get_category_or_404(user_id, category_id)
+        category = get_category_detail(user_id, category_id)
+        if category is None:
+            abort(404)
         return render_template(
             "account_settings/category_edit.html",
             category=category,
