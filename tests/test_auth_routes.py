@@ -113,6 +113,38 @@ class TestPostLogin:
         with client.session_transaction() as sess:
             assert "user_id" not in sess
 
+    def test_login_invokes_seed_defaults_for_user(self, client, mock_auth_session):
+        """Login must call seed_defaults(user_id) so first-time and pre-Phase-2
+        accounts get their generic categories back-filled on next sign-in
+        (Gap 4 fix). seed_defaults is itself idempotent — see service tests."""
+        with patch(f"{AUTH_SERVICE_PATH}.sign_in", return_value=mock_auth_session), \
+             patch(f"{AUTH_SERVICE_PATH}.store_refresh_token"), \
+             patch("app.account_settings.services.seed_defaults") as mock_seed:
+            client.post(
+                "/auth/login",
+                data={"email": VALID_EMAIL, "password": VALID_PASSWORD},
+                follow_redirects=False,
+            )
+
+        mock_seed.assert_called_once_with(mock_auth_session.user.id)
+
+    def test_login_succeeds_when_seed_defaults_raises(self, client, mock_auth_session):
+        """A seed_defaults failure must not break login — the user still
+        gets a session and a redirect; an empty Categories UI is recoverable
+        via the import flow."""
+        with patch(f"{AUTH_SERVICE_PATH}.sign_in", return_value=mock_auth_session), \
+             patch(f"{AUTH_SERVICE_PATH}.store_refresh_token"), \
+             patch("app.account_settings.services.seed_defaults", side_effect=RuntimeError("DB down")):
+            response = client.post(
+                "/auth/login",
+                data={"email": VALID_EMAIL, "password": VALID_PASSWORD},
+                follow_redirects=False,
+            )
+
+        assert response.status_code in (302, 301)
+        with client.session_transaction() as sess:
+            assert sess.get("user_id") == mock_auth_session.user.id
+
     def test_post_login_without_csrf_token_returns_400(self, csrf_client):
         """A POST to /auth/login without a valid CSRF token must be rejected
         with HTTP 400 (Flask-WTF enforcement per ADR-0006)."""

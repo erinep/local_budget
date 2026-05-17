@@ -270,3 +270,11 @@ def _write_session(auth_session) -> None:
         store_refresh_token(auth_session.user.id, auth_session.refresh_token, auth_session.expires_at)
     except Exception:
         logger.warning("Could not persist refresh token; silent refresh will not be available.")
+    # Idempotent seed: no-op when the user already has categories. Runs on every
+    # login so pre-Phase-2 accounts (created before seed_defaults existed) get
+    # back-filled on next sign-in without a separate migration.
+    try:
+        from app.account_settings.services import seed_defaults
+        seed_defaults(auth_session.user.id)
+    except Exception:
+        logger.warning("Could not seed default categories; user may see an empty Categories UI until they import.")
