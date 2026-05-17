@@ -14,6 +14,8 @@ One file per non-trivial decision. Append-only.
 | [0006](0006-session-strategy.md) | Session Strategy — Cookie-Based Server-Side Sessions | Accepted | 2026-05-10 |
 | [0007](0007-schema-migration-tooling.md) | Schema Migration Tooling — Alembic | Accepted | 2026-05-10 |
 | [0008](0008-google-oauth-deferred.md) | Google OAuth Deferred to Phase 1.5 | Accepted | 2026-05-10 |
+| [0009](0009-account-settings-schema-normalization.md) | Account Settings Schema Normalization — JSONB to Relational Tables | Accepted | 2026-05-16 |
+| [0010](0010-account-settings-caching.md) | Account Settings Caching — Request-Scoped Cache via flask.g | Accepted | 2026-05-16 |
 
 When the first ADR lands, replace the placeholder row with a real entry. Keep entries sorted by number, ascending.
 

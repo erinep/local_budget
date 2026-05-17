@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Edit: {{ category.name }} — Budget Parser{% endblock %}
+{% block content %}
+{#
+  ASSUMPTION: For the edit page, the route passes `category.keywords` as a list of
+  dicts with shape {id, keyword} rather than plain strings, so that remove buttons
+  can POST to the keywords_remove endpoint with a keyword_id. This is necessary
+  because the remove route requires a keyword_id. The categories_list view uses
+  plain strings (list[str]), but the categories_edit route is expected to enrich
+  the keyword list before rendering this template.
+#}
+<div class="section-stack" style="max-width: 640px;">
+    <div>
+        <p class="eyebrow">Account Settings / Categories</p>
+        <h1 style="font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif; font-size: clamp(1.6rem, 4vw, 2.2rem); letter-spacing: -0.03em; margin: 8px 0 0;">Edit: {{ category.name }}</h1>
+    </div>
+
+    {% if error %}
+    <p class="auth-error" role="alert">{{ error }}</p>
+    {% endif %}
+
+    {# Rename section #}
+    <div class="card">
+        <h2 style="font-size: 1.1rem; margin-bottom: 18px;">Rename category</h2>
+        <form method="post" action="{{ url_for('account_settings.categories_update', category_id=category.id) }}" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="name">Category name</label>
+                <input type="text" id="name" name="name" value="{{ category.name }}" required autocomplete="off">
+            </div>
+            <button type="submit" class="button-primary">Save name</button>
+        </form>
+    </div>
+
+    {# Keywords section #}
+    <div class="card">
+        <h2 style="font-size: 1.1rem; margin-bottom: 4px;">Keywords</h2>
+        <p class="section-text" style="margin: 0 0 18px; font-size: 0.9rem;">Transactions whose description contains any of these keywords will be categorised as <strong>{{ category.name }}</strong>.</p>
+
+        {% if category.keywords %}
+        <ul style="list-style: none; margin: 0 0 20px; padding: 0; display: flex; flex-direction: column; gap: 8px;">
+            {% for kw in category.keywords %}
+            <li style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: rgba(255,255,255,0.55);">
+                <span style="font-size: 0.95rem; font-weight: 600;">{{ kw.keyword }}</span>
+                <form method="post" action="{{ url_for('account_settings.keywords_remove', category_id=category.id, keyword_id=kw.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" style="display: inline-flex; align-items: center; min-height: 30px; padding: 0 12px; border: 1px solid rgba(220,38,38,0.28); border-radius: 999px; background: rgba(220,38,38,0.06); color: #b91c1c; font: inherit; font-size: 0.8rem; font-weight: 700; cursor: pointer;">Remove</button>
+                </form>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p style="color: var(--muted); font-size: 0.9rem; margin: 0 0 20px;">No keywords yet. Add one below.</p>
+        {% endif %}
+
+        <form method="post" action="{{ url_for('account_settings.keywords_add', category_id=category.id) }}" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div style="display: flex; gap: 10px; align-items: flex-end;">
+                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                    <label for="keyword">Add keyword</label>
+                    <input type="text" id="keyword" name="keyword" required autocomplete="off" placeholder="e.g. LOBLAWS">
+                </div>
+                <button type="submit" class="button-primary" style="flex-shrink: 0; margin-bottom: 0;">Add</button>
+            </div>
+        </form>
+    </div>
+
+    {# Navigation and danger zone #}
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+        <a class="button-secondary" href="{{ url_for('account_settings.categories_list') }}">Back to Categories</a>
+
+        <form method="post" action="{{ url_for('account_settings.categories_delete', category_id=category.id) }}" onsubmit="return confirm('Delete category &quot;{{ category.name }}&quot; and all its keywords? This cannot be undone.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border: 1px solid rgba(220,38,38,0.35); border-radius: 999px; background: rgba(220,38,38,0.07); color: #b91c1c; font: inherit; font-weight: 800; cursor: pointer; transition: background 160ms ease, border-color 160ms ease;">Delete category</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
