@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}New Category — Budget Parser{% endblock %}
+{% block content %}
+<div class="auth-card" style="max-width: 520px;">
+    <p class="eyebrow">Account Settings</p>
+    <h1 class="auth-title">New Category</h1>
+
+    {% if error %}
+    <p class="auth-error" role="alert">{{ error }}</p>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('account_settings.categories_create') }}" novalidate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="form-group">
+            <label for="name">Category name</label>
+            <input type="text" id="name" name="name" required autocomplete="off" placeholder="e.g. Groceries">
+        </div>
+
+        <button type="submit" class="btn-primary">Create Category</button>
+    </form>
+
+    <p class="auth-links">
+        <a href="{{ url_for('account_settings.categories_list') }}">Cancel</a>
+    </p>
+</div>
+{% endblock %}
