@@ -6,8 +6,8 @@ This file is the orientation entry point. It is intentionally short. Detail live
 
 ## Status
 
-- **Current phase:** Phase 1 — Persistence & Authentication
-- **Last updated:** 2026-05-10
+- **Current phase:** Phase 2 — Account Settings Service 
+- **Last updated:** 2026-05-16
 
 Update both fields when a phase ships.
 

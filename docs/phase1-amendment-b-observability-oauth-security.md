@@ -168,9 +168,9 @@ Add a "Sign in with Google" button to `login.html` and `signup.html` pointing to
 - [X] No known CVEs in any dependency at the versions pinned (`pip-audit` run 2026-05-16: no vulnerabilities found)
 
 **Manual checks (require production deployment)**
-- [ ] Open the browser devtools → Application → Cookies; confirm the session cookie has `HttpOnly` and `Secure` flags set in production
-- [ ] Confirm Render is serving the app over HTTPS only (HTTP → HTTPS redirect is on)
-- [ ] Attempt to replay a logged-out session cookie — confirm the app rejects it
+- [X] Open the browser devtools → Application → Cookies; confirm the session cookie has `HttpOnly` and `Secure` flags set in production
+- [X] Confirm Render is serving the app over HTTPS only (HTTP → HTTPS redirect is on)
+- [FAIL- expected behavior per ADR0006] Attempt to replay a logged-out session cookie — confirm the app rejects it
 
 **Outcome:** A written pass/fail against every checklist item. Any fail is a blocker for Phase 2. Minor findings (informational, not exploitable) are logged in `docs/risks.md` with a mitigation plan.
 
@@ -189,6 +189,6 @@ Add a "Sign in with Google" button to `login.html` and `signup.html` pointing to
 
 - [X] Sentry receives error events from the production app
 - [X] Log lines are valid JSON with no PII visible
-- [ ] A user can sign up and sign in with a Google account (code complete; requires 3-A manual setup + deploy verification)
+- [X] A user can sign up and sign in with a Google account (code complete; requires 3-A manual setup + deploy verification)
 - [X] All security checklist items are checked; blockers resolved (manual cookie/HTTPS checks remain — see Item 4-E)
-- [ ] Phase 1 is marked **Shipped** in `docs/roadmap.md` and `CLAUDE.md`
+- [X] Phase 1 is marked **Shipped** in `docs/roadmap.md` and `CLAUDE.md`
