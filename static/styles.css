@@ -741,6 +741,46 @@ h3 {
     transform: translateY(0);
 }
 
+.auth-divider {
+    display: flex;
+    align-items: center;
+    margin: 16px 0;
+    color: var(--muted);
+    font-size: 0.85rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid var(--border);
+}
+
+.auth-divider span {
+    padding: 0 0.75rem;
+}
+
+.btn-google {
+    display: block;
+    width: 100%;
+    padding: 0.625rem 1rem;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text);
+    text-decoration: none;
+    transition: background 0.15s, border-color 0.15s;
+    box-sizing: border-box;
+}
+
+.btn-google:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+}
+
 /* ---------------------------------------------------------------------------
  * Site nav (logout button in header)
  * --------------------------------------------------------------------------- */

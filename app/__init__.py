@@ -79,6 +79,9 @@ def create_app(config=None):
     app.config["SECRET_KEY"] = os.environ.get(
         "SECRET_KEY", "dev-secret-key-change-in-prod"
     )
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    app.config["SESSION_COOKIE_SECURE"] = not app.debug  # True in prod, False on localhost
     csrf.init_app(app)
 
     app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # 5 MB
