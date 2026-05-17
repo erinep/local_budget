@@ -17,6 +17,7 @@ One file per non-trivial decision. Append-only.
 | [0009](0009-account-settings-schema-normalization.md) | Account Settings Schema Normalization — JSONB to Relational Tables | Accepted | 2026-05-16 |
 | [0010](0010-account-settings-caching.md) | Account Settings Caching — Request-Scoped Cache via flask.g | Accepted | 2026-05-16 |
 | [0011](0011-navigation-and-landing-page-contract.md) | Navigation and Landing Page Contract | Accepted | 2026-05-17 |
+| [0012](0012-supabase-mocking-in-unit-tests.md) | Supabase Mocking in Unit Tests | Accepted | 2026-05-17 |
 
 When the first ADR lands, replace the placeholder row with a real entry. Keep entries sorted by number, ascending.
 

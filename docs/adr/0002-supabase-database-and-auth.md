@@ -88,3 +88,5 @@ The "Supabase platform risk (pricing, availability, lock-in)" row in risks.md ca
 The free-tier pause behavior is distinct from the platform risk and worth naming separately: it is not a financial or lock-in risk, it is an availability nuisance that affects day-to-day development. It does not appear as its own row in risks.md as of this writing; if it becomes a recurring problem during Phase 1 development it should be added.
 
 The decision to resolve both DB and auth with one provider was deliberate. A two-provider arrangement (Option C) would require managing two billing relationships, two failure domains, and a more complex token-validation integration — costs that are not justified at personal-project scale.
+
+**See also:** ADR-0012 (Supabase Mocking in Unit Tests) modifies the testing strategy for this decision. While ADR-0002 specifies that Supabase is the platform choice, ADR-0012 relaxes the requirement that unit tests call real Supabase—mocks are appropriate for fast, reliable unit test coverage; real integration tests are deferred. This does not change the portability constraint; it only clarifies how the boundary is tested.
