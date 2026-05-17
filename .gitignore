@@ -22,6 +22,7 @@ static/*.png
 # Claude Code — track project scaffolding, exclude personal permissions
 .claude/settings.local.json
 .mcp.json
+.claude/worktrees/
 
 # OS files
 .DS_Store

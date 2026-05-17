@@ -47,7 +47,7 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 def login():
     # Redirect already-authenticated users.
     if g.user is not None:
-        return redirect(url_for("transactions.upload"))
+        return redirect(url_for("home.index"))
 
     if request.method == "POST":
         email = request.form.get("email", "").strip()
@@ -62,7 +62,7 @@ def login():
             return render_template("auth/login.html", error="Invalid email or password."), 401
 
         _write_session(auth_session)
-        return redirect(url_for("transactions.upload"))
+        return redirect(url_for("home.index"))
 
     return render_template("auth/login.html")
 
@@ -90,7 +90,7 @@ def logout():
 @auth_bp.route("/signup", methods=["GET", "POST"])
 def signup():
     if g.user is not None:
-        return redirect(url_for("transactions.upload"))
+        return redirect(url_for("home.index"))
 
     if request.method == "POST":
         email = request.form.get("email", "").strip()
@@ -108,7 +108,7 @@ def signup():
             ), 400
 
         _write_session(auth_session)
-        return redirect(url_for("transactions.upload"))
+        return redirect(url_for("home.index"))
 
     return render_template("auth/signup.html")
 
@@ -126,7 +126,7 @@ def google_login():
     redirect URL.
     """
     if g.user is not None:
-        return redirect(url_for("transactions.upload"))
+        return redirect(url_for("home.index"))
 
     try:
         callback_url = url_for("auth.oauth_callback", _external=True)
@@ -166,7 +166,7 @@ def oauth_callback():
         return render_template("auth/login.html", error="Google sign-in failed. Please try again."), 401
 
     _write_session(auth_session)
-    return redirect(url_for("transactions.upload"))
+    return redirect(url_for("home.index"))
 
 
 # ---------------------------------------------------------------------------

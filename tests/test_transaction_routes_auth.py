@@ -33,14 +33,15 @@ def make_minimal_csv() -> io.BytesIO:
 
 
 # ---------------------------------------------------------------------------
-# GET / — upload/report landing page
+# GET /upload — upload/report landing page
 # ---------------------------------------------------------------------------
 
-class TestRootRouteRequiresAuth:
-    def test_get_root_without_session_redirects_to_login(self, client):
-        """GET / without a session must redirect to /auth/login.
-        The root route is the main user-facing surface and must be protected."""
-        response = client.get("/", follow_redirects=False)
+class TestUploadGetRouteRequiresAuth:
+    def test_get_upload_without_session_redirects_to_login(self, client):
+        """GET /upload without a session must redirect to /auth/login.
+        The upload route is the main user-facing surface for the Transaction
+        Engine and must be protected."""
+        response = client.get("/upload", follow_redirects=False)
 
         assert response.status_code in (302, 301), (
             f"Expected redirect, got {response.status_code}"
@@ -50,12 +51,12 @@ class TestRootRouteRequiresAuth:
             f"Expected redirect to /auth/login, got Location: {location!r}"
         )
 
-    def test_get_root_with_valid_session_is_not_redirected_to_login(
+    def test_get_upload_with_valid_session_is_not_redirected_to_login(
         self, authenticated_client
     ):
         """An authenticated client must NOT be redirected to /auth/login
-        when accessing GET /."""
-        response = authenticated_client.get("/", follow_redirects=False)
+        when accessing GET /upload."""
+        response = authenticated_client.get("/upload", follow_redirects=False)
         location = response.headers.get("Location", "")
         assert "/auth/login" not in location, (
             f"Authenticated client was unexpectedly redirected to login; "
@@ -69,11 +70,11 @@ class TestRootRouteRequiresAuth:
 
 class TestUploadRouteRequiresAuth:
     def test_post_upload_without_session_redirects_to_login(self, client):
-        """POST / (the upload endpoint) without a session must redirect to /auth/login.
+        """POST /upload (the upload endpoint) without a session must redirect to /auth/login.
         An unauthenticated upload must never be processed."""
         csv_file = make_minimal_csv()
         response = client.post(
-            "/",
+            "/upload",
             data={"file": (csv_file, "transactions.csv")},
             content_type="multipart/form-data",
             follow_redirects=False,
@@ -93,10 +94,10 @@ class TestUploadRouteRequiresAuth:
 # ---------------------------------------------------------------------------
 
 # These are the routes known to exist in the Transaction Engine blueprint as of
-# Phase 1.  Add new routes here as they are added to the blueprint.
+# Phase 2.  Add new routes here as they are added to the blueprint.
 TRANSACTION_ROUTES = [
-    ("GET", "/"),
-    ("POST", "/"),
+    ("GET", "/upload"),
+    ("POST", "/upload"),
 ]
 
 

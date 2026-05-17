@@ -56,6 +56,8 @@ class TestUnauthenticatedAccess:
     """Every account-settings route must return 302 for unauthenticated access."""
 
     UNAUTHENTICATED_ROUTES = [
+        ("GET",  "/account-settings/"),
+        ("GET",  "/account-settings/account"),
         ("GET",  "/account-settings/categories"),
         ("GET",  "/account-settings/categories/new"),
         ("POST", "/account-settings/categories"),
@@ -562,3 +564,123 @@ class TestPostImport:
             )
         assert response.status_code == 200
         assert b"Invalid" in response.data or b"format" in response.data
+
+
+# ---------------------------------------------------------------------------
+# Phase 2 Amendment A — Ticket 2: Settings landing + Account Details stub
+# ---------------------------------------------------------------------------
+#
+# Contract source: ADR-0011 — Navigation and Landing Page Contract.
+#
+#   - GET /account-settings/        renders the Settings landing page (cards).
+#   - GET /account-settings/account renders the Account Details stub.
+#   - Both routes require authentication.
+#   - The Settings landing page links to the Categories list and to the
+#     Account Details page.
+#   - The Account Details page renders the user's email and a sign-out control.
+#   - The header on any authenticated page links to /account-settings/.
+#   - The header does NOT contain a "Budget" link — per ADR-0011 point 3 and
+#     §3 of the amendment, Budget is a peer top-level module deferred to
+#     Phase 4, NOT a Settings sub-section.
+# ---------------------------------------------------------------------------
+
+
+class TestGetSettingsIndex:
+    """GET /account-settings/ — Settings landing page (ADR-0011)."""
+
+    def test_authenticated_returns_200(self, authenticated_client):
+        """Authenticated GET /account-settings/ must return 200."""
+        response = authenticated_client.get(
+            "/account-settings/",
+            follow_redirects=False,
+        )
+        assert response.status_code == 200
+
+    def test_links_to_categories_list(self, authenticated_client):
+        """The landing page must surface a link to the Categories list URL.
+
+        Asserts on the URL (the contract), not on the card copy.
+        """
+        response = authenticated_client.get("/account-settings/")
+        assert b"/account-settings/categories" in response.data
+
+    def test_links_to_account_details(self, authenticated_client):
+        """The landing page must surface a link to the Account Details stub
+        (account_settings.account → /account-settings/account)."""
+        response = authenticated_client.get("/account-settings/")
+        assert b"/account-settings/account" in response.data
+
+
+class TestGetAccountDetails:
+    """GET /account-settings/account — Account Details stub (ADR-0011 + amendment §Q2c)."""
+
+    def test_authenticated_returns_200(self, authenticated_client):
+        """Authenticated GET /account-settings/account must return 200."""
+        response = authenticated_client.get(
+            "/account-settings/account",
+            follow_redirects=False,
+        )
+        assert response.status_code == 200
+
+    def test_renders_user_email(self, authenticated_client, mock_auth_user):
+        """The stub must show the user's email (from g.user.email)."""
+        response = authenticated_client.get("/account-settings/account")
+        assert mock_auth_user.email.encode() in response.data
+
+    def test_contains_sign_out_control(self, authenticated_client):
+        """The stub must provide a sign-out control — the page is honest
+        about what exists, and sign-out is the one thing it ships with."""
+        response = authenticated_client.get("/account-settings/account")
+        # The sign-out control is a link/button targeting /auth/logout.
+        assert b"/auth/logout" in response.data
+
+
+class TestHeaderNav:
+    """Header composition (ADR-0011 point 2) — asserted against a rendered
+    authenticated page so the full base.html header is exercised."""
+
+    def test_authenticated_page_header_links_to_settings(self, authenticated_client):
+        """Any authenticated page header must include a link to the Settings
+        landing page at /account-settings/. ADR-0011 point 2."""
+        # Use the dashboard as a representative authenticated page; base.html
+        # renders the same header on every authenticated page.
+        response = authenticated_client.get("/")
+        # The header link's href must be exactly /account-settings/ (the
+        # Settings landing). Bare /account-settings/categories does not
+        # satisfy the contract — Settings is its own landing.
+        assert b'href="/account-settings/"' in response.data, (
+            "Authenticated header must include a link to /account-settings/ "
+            "per ADR-0011 point 2."
+        )
+
+    def test_authenticated_header_does_not_contain_budget_link(self, authenticated_client):
+        """Negative assertion — the header must NOT contain a 'Budget' link
+        anywhere. ADR-0011 explicitly defers Budget to Phase 4 as a peer
+        top-level module; it is not a Settings sub-section. If a Budget link
+        appears here, the classification rule has been violated.
+
+        Match case-insensitively on a word boundary so we do not false-match
+        on substrings like 'budgeting' inside an unrelated string.
+        """
+        import re
+        response = authenticated_client.get("/")
+        body = response.data.decode("utf-8")
+        # Extract just the header section to avoid matching <title> etc.
+        # The header is between <header ...> and </header>.
+        m = re.search(r"<header[^>]*>(.*?)</header>", body, re.DOTALL | re.IGNORECASE)
+        assert m is not None, "Authenticated page must render a <header> block."
+        header_html = m.group(1)
+        # No "Budget" as an anchor label anywhere in the header. The brand
+        # text "Budget Parser" is the app name, not a nav link, so we scope
+        # the negative assertion to <a>…</a> link text only.
+        # Match all <a> tags with their attributes and inner text. Skip the
+        # brand link, whose label is the app name "Budget Parser" — not a
+        # nav destination.
+        anchors = re.findall(r"<a\b([^>]*)>(.*?)</a>", header_html, re.DOTALL | re.IGNORECASE)
+        for attrs, text in anchors:
+            if re.search(r'class\s*=\s*"[^"]*\bbrand\b[^"]*"', attrs):
+                continue
+            assert not re.search(r"\bBudget\b", text), (
+                "Header must not contain a 'Budget' nav link — ADR-0011 defers "
+                "Budget to Phase 4 as a top-level module, not a Settings link."
+            )

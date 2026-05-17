@@ -249,3 +249,34 @@ These are sized for individual implementation-agent runs. Each assumes decisions
 - **Account Details scope:** password change, email change, account deletion all touch Supabase Auth directly. Each needs its own decision and likely an ADR.
 - **Dashboard content beyond links:** counts, recent activity, anomalies — Intelligence-layer territory (Phase 5). The Phase 2 dashboard is intentionally inert.
 - **Mobile nav:** the current header is desktop-shaped. A responsive treatment is a separate styling pass, not an IA decision.
+
+---
+
+## Gap 4 — Investigation findings (2026-05-17)
+
+### Consumers of `GENERIC_CATEGORY_MAP`
+
+1. [app/account_settings/services.py:470](app/account_settings/services.py#L470) — `seed_defaults` reads it to populate a new user's `categories` / `category_keywords` rows. Idempotent: no-op if the user already has any category, no-op if the map is empty/unset.
+2. [app/transactions/routes.py:40](app/transactions/routes.py#L40) — the upload route reads it **every request** and passes it to `make_categorizer` as the fallback map alongside the per-user custom map. This is the masking path hypothesized in option (4): categorization at upload time works even if the user's DB rows are empty, because the generic map is consulted directly from `app.config`.
+
+### `seed_defaults` lifecycle
+
+The function exists and is well-tested ([tests/test_account_settings_service.py:731-806](tests/test_account_settings_service.py#L731)), but it is **never called anywhere in production code** — not in `auth/routes.py` (login, signup, oauth_callback) and not in any middleware. Its only call sites are the four tests. The phase2-contract.md §2.11 specifies its behavior but no PR ever wired it into the auth flow.
+
+### File state
+
+`generic_categories.json` exists at the repo root (~69 lines, ~9 categories: Food, Transport, Travel, Utilities, etc., each a list of merchant-name keyword strings). Loaded fine by `_load_json` at startup.
+
+### Most likely cause (ranked)
+
+1. **Seeding never wired up.** `seed_defaults` is dead code in the auth path. No user — new or existing — has ever had it run against their account. The Categories UI reads from the DB; the DB is empty for every user; the UI shows nothing. This is the dominant cause.
+2. **Pre-Phase-2 account.** Even if seeding were wired today, the current account predates Phase 2 and wouldn't be back-filled by the existing idempotency guard (it would still be a no-op once any custom category exists, but for a wholly empty account it would seed — so this collapses into cause 1).
+3. Categorizer fallback path (transactions/routes.py:40) explains why uploads still classify correctly despite the empty UI — the generic map is consulted directly, masking the missing DB rows during the upload→report flow. Not a bug per se, but it hides the seeding gap.
+
+### Recommended remediation
+
+- Wire `seed_defaults(user_id)` into the post-login session-write path (`_write_session` in [app/auth/routes.py:259](app/auth/routes.py#L259)) so it runs on every login as a cheap no-op for already-seeded users and a back-fill for both pre-Phase-2 and new accounts. Single call site covers email/password, signup, and OAuth.
+- Alternatively (or additionally), expose a "Seed from defaults" button on the Categories UI that calls `seed_defaults` for the logged-in user — gives users a manual recovery path and an obvious affordance.
+- Decide whether the categorizer should keep consulting `GENERIC_CATEGORY_MAP` directly post-seeding, or whether seeded users should rely solely on their DB map. Current dual-path behavior is convenient but means the file and the DB can drift.
+
+**Follow-up ticket needed: yes.** This is implementation work (auth-flow change + likely a small test), not a doc update. Recommend a new "Ticket 6 — Wire `seed_defaults` into post-login session write" in this amendment.

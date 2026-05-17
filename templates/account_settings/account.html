@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Account Details — Budget Parser{% endblock %}
+
+{% block content %}
+<div class="section-stack">
+    <div class="page-intro">
+        <div class="section-heading">
+            <p class="eyebrow">Settings</p>
+            <h1 style="font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif; font-size: clamp(1.8rem, 4vw, 2.6rem); letter-spacing: -0.03em; max-width: none;">Account Details</h1>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2 style="margin-top: 0;">Signed in as</h2>
+        <p class="section-text" style="font-weight: 600;">{{ g.user.email }}</p>
+        <p style="margin-top: 20px;">
+            <a class="button-secondary" href="{{ url_for('auth.logout') }}">Sign out</a>
+        </p>
+    </div>
+
+    <div class="card" style="text-align: center; padding: 32px 24px;">
+        <p style="color: var(--muted); margin: 0 0 6px; font-weight: 700;">More coming soon.</p>
+        <p style="color: var(--muted); margin: 0; font-size: 0.92rem;">
+            Password and email management, plus account deletion, will land in a future update.
+        </p>
+    </div>
+</div>
+{% endblock %}
