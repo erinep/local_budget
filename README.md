@@ -35,13 +35,13 @@ Examples: `NO FRILLS` → Food, `AIRBNB` → Travel, `UBER` → Transport. Anyth
 
 **Install dependencies**
 ```powershell
-.\venv\Scripts\Activate.ps1
+.\venv\Scripts\Activate.ps1 # activate virtual environment (if created - otherwise 'run python3 -m venv venv' to create it)
 pip install -r requirements-dev.txt
 ```
 
-**Run locally**
+**Run locally (with venv active)**
 ```powershell
-python app.py
+flask --app wsgi:app run
 ```
 Then open `http://127.0.0.1:5000`.
 
