@@ -22,9 +22,11 @@ from flask import Blueprint, g, redirect, render_template, request, session, url
 from app.auth.services import (
     AuthError,
     delete_refresh_token,
+    exchange_oauth_code,
     get_refresh_token,
     initiate_password_reset,
     sign_in,
+    sign_in_with_google,
     sign_out,
     sign_up,
     store_refresh_token,
@@ -109,6 +111,62 @@ def signup():
         return redirect(url_for("transactions.upload"))
 
     return render_template("auth/signup.html")
+
+
+# ---------------------------------------------------------------------------
+# Google OAuth (Phase 1.5 — ADR-0008)
+# ---------------------------------------------------------------------------
+
+@auth_bp.route("/google")
+def google_login():
+    """Redirect the user to Google's OAuth consent screen via Supabase.
+
+    GET-only; no CSRF token required. PKCE (handled by the Supabase SDK)
+    provides OAuth CSRF protection via the code challenge embedded in the
+    redirect URL.
+    """
+    if g.user is not None:
+        return redirect(url_for("transactions.upload"))
+
+    try:
+        callback_url = url_for("auth.oauth_callback", _external=True)
+        oauth_url = sign_in_with_google(callback_url)
+    except AuthError:
+        logger.warning("Google OAuth initiation failed.")
+        return render_template("auth/login.html", error="Google sign-in is unavailable. Please try again."), 503
+
+    return redirect(oauth_url)
+
+
+@auth_bp.route("/callback")
+def oauth_callback():
+    """Handle the OAuth callback from Supabase after Google authentication.
+
+    Supabase redirects here with ?code=... (PKCE flow). The code is exchanged
+    for a Supabase session via exchange_oauth_code(), then written to the Flask
+    signed cookie session using _write_session() — same path as email/password.
+
+    GET-only; no CSRF token required — this endpoint only receives a code from
+    Supabase, not a form submission.
+    """
+    error = request.args.get("error")
+    if error:
+        logger.warning("OAuth callback received an error from provider.")
+        return render_template("auth/login.html", error="Google sign-in was cancelled or failed."), 400
+
+    auth_code = request.args.get("code")
+    if not auth_code:
+        logger.warning("OAuth callback received no code parameter.")
+        return render_template("auth/login.html", error="Google sign-in failed: no authorization code received."), 400
+
+    try:
+        auth_session = exchange_oauth_code(auth_code)
+    except AuthError:
+        logger.warning("OAuth code exchange failed.")
+        return render_template("auth/login.html", error="Google sign-in failed. Please try again."), 401
+
+    _write_session(auth_session)
+    return redirect(url_for("transactions.upload"))
 
 
 # ---------------------------------------------------------------------------

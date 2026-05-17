@@ -28,6 +28,9 @@
         <button type="submit" class="btn-primary">Sign In</button>
     </form>
 
+    <div class="auth-divider"><span>or</span></div>
+    <a href="{{ url_for('auth.google_login') }}" class="btn-google">Sign in with Google</a>
+
     <p class="auth-links">
         <a href="{{ url_for('auth.reset_password') }}">Forgot password?</a>
         &nbsp;&middot;&nbsp;

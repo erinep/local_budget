@@ -130,6 +130,60 @@ def sign_in(email: str, password: str) -> AuthSession:
         raise AuthError(f"Sign-in failed: {exc}") from exc
 
 
+def sign_in_with_google(callback_url: str) -> str:
+    """Initiate Google OAuth sign-in via Supabase.
+
+    Returns the Supabase-generated OAuth redirect URL. Caller must redirect
+    the user to this URL. Supabase handles the Google handshake and redirects
+    back to callback_url with a ?code= query parameter.
+
+    The PKCE code verifier is generated and stored in the Supabase client's
+    in-memory storage (module-level singleton). The same process must handle
+    the /auth/callback request — correct for single-worker Gunicorn (Render
+    free tier) but would break under multi-worker setups (ADR-0008).
+    """
+    try:
+        client = _get_client()
+        response = client.auth.sign_in_with_oauth({
+            "provider": "google",
+            "options": {"redirect_to": callback_url},
+        })
+        return response.url
+    except Exception as exc:
+        raise AuthError(f"Google OAuth initiation failed: {exc}") from exc
+
+
+def exchange_oauth_code(auth_code: str) -> AuthSession:
+    """Exchange an OAuth authorization code for a Supabase session.
+
+    Called from /auth/callback after Supabase redirects back with ?code=.
+    The SDK reads the PKCE code verifier from its in-memory storage
+    (set during sign_in_with_google) and sends it to Supabase's token endpoint.
+
+    Raises AuthError on failure (expired code, PKCE mismatch, etc.).
+    """
+    try:
+        client = _get_client()
+        response = client.auth.exchange_code_for_session({"auth_code": auth_code})
+        if response.session is None or response.user is None:
+            raise AuthError("OAuth code exchange failed: no session returned.")
+
+        session = response.session
+        user = response.user
+        expires_at = datetime.fromtimestamp(session.expires_at, tz=UTC)
+
+        return AuthSession(
+            user=AuthUser(id=str(user.id), email=user.email),
+            access_token=session.access_token,
+            refresh_token=session.refresh_token,
+            expires_at=expires_at,
+        )
+    except AuthError:
+        raise
+    except Exception as exc:
+        raise AuthError(f"OAuth code exchange failed: {exc}") from exc
+
+
 def sign_out(refresh_token: str) -> None:
     """Invalidate a session via Supabase Auth.
 

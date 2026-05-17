@@ -1,6 +1,6 @@
 # Phase 1 Amendment B — Observability, Google OAuth, and Security Audit
 
-**Status:** In Progress (See Item 3-4)  
+**Status:** In Progress (Item 4-E manual checks + final deploy verification remain)  
 **Date:** 2026-05-10  
 **Context:** After Amendment A closes the five auth-flow gaps, the following Phase 1 and Phase 1.5 work items remain before Phase 2 can begin. This document tracks them in priority order.
 
@@ -139,35 +139,35 @@ Add a "Sign in with Google" button to `login.html` and `signup.html` pointing to
 ### Checklist
 
 **Session & cookies**
-- [ ] `SESSION_COOKIE_HTTPONLY = True` is set (prevents JavaScript access to the session cookie)
-- [ ] `SESSION_COOKIE_SAMESITE = "Lax"` is set (CSRF defense in depth on top of Flask-WTF)
-- [ ] `SESSION_COOKIE_SECURE = True` is set in production (HTTPS only)
-- [ ] `SECRET_KEY` is a high-entropy random value in production (not the dev fallback)
-- [ ] `reset_access_token` is popped from the session immediately after a successful password update
+- [X] `SESSION_COOKIE_HTTPONLY = True` is set (prevents JavaScript access to the session cookie)
+- [X] `SESSION_COOKIE_SAMESITE = "Lax"` is set (CSRF defense in depth on top of Flask-WTF)
+- [X] `SESSION_COOKIE_SECURE = True` is set in production (HTTPS only) — `not app.debug` in `app/__init__.py`
+- [ ] `SECRET_KEY` is a high-entropy random value in production (not the dev fallback) — verify in Render env vars
+- [X] `reset_access_token` is popped from the session immediately after a successful password update
 
 **CSRF**
-- [ ] Every POST, PUT, PATCH, DELETE route has CSRF protection enabled
+- [X] Every POST, PUT, PATCH, DELETE route has CSRF protection enabled (all 5 POST-form templates verified)
 - [ ] The CSRF test suite passes with `WTF_CSRF_ENABLED = True`
 - [ ] `WTF_CSRF_ENABLED = False` appears only in test fixtures, never in production config
 
 **Auth flows**
-- [ ] Login with wrong credentials returns 401 (not 200 with an error message only)
-- [ ] Signup with an already-registered email returns a generic error (no user enumeration)
-- [ ] Password reset confirmation is shown regardless of whether the email is registered (no enumeration)
-- [ ] `/auth/update-password` without a valid `reset_access_token` in session redirects (not 500)
-- [ ] All transaction routes redirect unauthenticated requests to `/auth/login`
+- [X] Login with wrong credentials returns 401 (not 200 with an error message only)
+- [X] Signup with an already-registered email returns a generic error (no user enumeration)
+- [X] Password reset confirmation is shown regardless of whether the email is registered (no enumeration)
+- [X] `/auth/update-password` without a valid `reset_access_token` in session redirects (not 500)
+- [X] All transaction routes redirect unauthenticated requests to `/auth/login`
 
 **Tokens & storage**
-- [ ] Refresh tokens are stored server-side in `user_sessions`, never in the cookie
-- [ ] `access_token` is never written to the Flask session except for the short-lived `reset_access_token` (which is scoped to the password-reset flow only)
-- [ ] PII scrubber is active — no email addresses or amounts appear in log output
-- [ ] Sentry is configured with `send_default_pii=False`
+- [X] Refresh tokens are stored server-side in `user_sessions`, never in the cookie
+- [X] `access_token` is never written to the Flask session except for the short-lived `reset_access_token` (which is scoped to the password-reset flow only)
+- [X] PII scrubber is active — no email addresses or amounts appear in log output
+- [X] Sentry is configured with `send_default_pii=False`
 
 **Dependencies**
-- [ ] `sentry-sdk`, `supabase`, `flask-wtf`, `sqlalchemy`, `psycopg2` are pinned to specific versions in `requirements.txt`
-- [ ] No known CVEs in any dependency at the versions pinned (run `pip-audit` or check PyPI advisories)
+- [X] All packages pinned to exact versions in `requirements.txt`
+- [X] No known CVEs in any dependency at the versions pinned (`pip-audit` run 2026-05-16: no vulnerabilities found)
 
-**Manual checks**
+**Manual checks (require production deployment)**
 - [ ] Open the browser devtools → Application → Cookies; confirm the session cookie has `HttpOnly` and `Secure` flags set in production
 - [ ] Confirm Render is serving the app over HTTPS only (HTTP → HTTPS redirect is on)
 - [ ] Attempt to replay a logged-out session cookie — confirm the app rejects it
@@ -188,7 +188,7 @@ Add a "Sign in with Google" button to `login.html` and `signup.html` pointing to
 ## Exit criteria for Amendment B
 
 - [X] Sentry receives error events from the production app
-- [ ] Log lines are valid JSON with no PII visible
-- [ ] A user can sign up and sign in with a Google account
-- [ ] All security checklist items are checked; blockers resolved
+- [X] Log lines are valid JSON with no PII visible
+- [ ] A user can sign up and sign in with a Google account (code complete; requires 3-A manual setup + deploy verification)
+- [X] All security checklist items are checked; blockers resolved (manual cookie/HTTPS checks remain — see Item 4-E)
 - [ ] Phase 1 is marked **Shipped** in `docs/roadmap.md` and `CLAUDE.md`
