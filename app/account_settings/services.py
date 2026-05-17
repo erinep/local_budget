@@ -44,11 +44,17 @@ logger = logging.getLogger(__name__)
 def _cache_get(user_id: str) -> "list[dict] | None":
     """Return cached category list for user_id, or None on miss / no context."""
     try:
-        from flask import g, has_request_context
+        from flask import g, has_request_context, request
         if not has_request_context():
             return None
+        # Check if the cache exists and is still valid for this request.
+        # Store request._get_current_object() as a marker to detect when
+        # test_request_context creates a new context but leaves g._category_cache
+        # from a previous context (ADR-0010, test isolation).
         cache = getattr(g, "_category_cache", None)
-        if cache is None:
+        cache_request_id = getattr(g, "_category_cache_request_id", None)
+        current_request_id = id(request._get_current_object())
+        if cache is None or cache_request_id != current_request_id:
             return None
         return cache.get(user_id)
     except RuntimeError:
@@ -58,11 +64,12 @@ def _cache_get(user_id: str) -> "list[dict] | None":
 def _cache_set(user_id: str, categories: list) -> None:
     """Store categories in the per-request cache if a request context exists."""
     try:
-        from flask import g, has_request_context
+        from flask import g, has_request_context, request
         if not has_request_context():
             return
         if not hasattr(g, "_category_cache"):
             g._category_cache = {}
+            g._category_cache_request_id = id(request._get_current_object())
         g._category_cache[user_id] = categories
     except RuntimeError:
         pass
