@@ -202,9 +202,9 @@ class TestGetCategoryEdit:
         """Editing a category that belongs to the authenticated user must
         return 200."""
         cat_id = str(uuid.uuid4())
-        cats = [_cat("Groceries", cat_id=cat_id)]
+        cat = _cat("Groceries", cat_id=cat_id)
 
-        with patch(f"{SVC}.list_categories", return_value=cats):
+        with patch(f"{SVC}.get_category_detail", return_value=cat):
             response = authenticated_client.get(
                 f"/account-settings/categories/{cat_id}/edit",
                 follow_redirects=False,
@@ -212,9 +212,9 @@ class TestGetCategoryEdit:
         assert response.status_code == 200
 
     def test_category_not_in_users_list_returns_404(self, authenticated_client):
-        """A category_id that does not appear in the user's list_categories
-        result must return 404 — not 200 or 403."""
-        with patch(f"{SVC}.list_categories", return_value=[]):
+        """A category_id that does not belong to the user must return 404
+        — not 200 or 403."""
+        with patch(f"{SVC}.get_category_detail", return_value=None):
             response = authenticated_client.get(
                 f"/account-settings/categories/{uuid.uuid4()}/edit",
                 follow_redirects=False,
@@ -263,11 +263,11 @@ class TestPostCategoryRename:
         """ValueError for a name conflict must re-render the form (200) with
         the error message."""
         cat_id = str(uuid.uuid4())
+        cat = _cat("Food", cat_id=cat_id)
 
-        with patch(
-            f"{SVC}.rename_category",
-            side_effect=ValueError("Category 'Food' already exists"),
-        ):
+        with patch(f"{SVC}.rename_category",
+                   side_effect=ValueError("Category 'Food' already exists")), \
+             patch(f"{SVC}.get_category_detail", return_value=cat):
             response = authenticated_client.post(
                 f"/account-settings/categories/{cat_id}",
                 data={"name": "Food"},
@@ -277,11 +277,11 @@ class TestPostCategoryRename:
     def test_empty_name_returns_200_with_error(self, authenticated_client):
         """ValueError('Category name cannot be empty') must re-render (200)."""
         cat_id = str(uuid.uuid4())
+        cat = _cat("Food", cat_id=cat_id)
 
-        with patch(
-            f"{SVC}.rename_category",
-            side_effect=ValueError("Category name cannot be empty"),
-        ):
+        with patch(f"{SVC}.rename_category",
+                   side_effect=ValueError("Category name cannot be empty")), \
+             patch(f"{SVC}.get_category_detail", return_value=cat):
             response = authenticated_client.post(
                 f"/account-settings/categories/{cat_id}",
                 data={"name": ""},
@@ -367,11 +367,11 @@ class TestPostAddKeyword:
     def test_duplicate_keyword_returns_200_with_error(self, authenticated_client):
         """add_keyword raising a duplicate ValueError must re-render (200)."""
         cat_id = str(uuid.uuid4())
+        cat = _cat("Food", cat_id=cat_id)
 
-        with patch(
-            f"{SVC}.add_keyword",
-            side_effect=ValueError("Keyword 'PIZZA' already exists in this category"),
-        ):
+        with patch(f"{SVC}.add_keyword",
+                   side_effect=ValueError("Keyword 'PIZZA' already exists in this category")), \
+             patch(f"{SVC}.get_category_detail", return_value=cat):
             response = authenticated_client.post(
                 f"/account-settings/categories/{cat_id}/keywords",
                 data={"keyword": "PIZZA"},
@@ -382,11 +382,11 @@ class TestPostAddKeyword:
         """add_keyword raising ValueError('Keyword cannot be empty') must
         re-render (200)."""
         cat_id = str(uuid.uuid4())
+        cat = _cat("Food", cat_id=cat_id)
 
-        with patch(
-            f"{SVC}.add_keyword",
-            side_effect=ValueError("Keyword cannot be empty"),
-        ):
+        with patch(f"{SVC}.add_keyword",
+                   side_effect=ValueError("Keyword cannot be empty")), \
+             patch(f"{SVC}.get_category_detail", return_value=cat):
             response = authenticated_client.post(
                 f"/account-settings/categories/{cat_id}/keywords",
                 data={"keyword": ""},
