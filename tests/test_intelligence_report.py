@@ -59,7 +59,7 @@ _PATCH_VIEW_MODEL = "app.intelligence.routes.build_report_view_model"
 _FAKE_VIEW_MODEL = {
     "overall_chart_data": [],
     "trend_chart_data": {"labels": [], "datasets": []},
-    "monthly_data": [],
+    "monthly": [],
     "merchants": [],
     "report_date_range": {"start": "Jan 01, 2026", "end": "Apr 30, 2026"},
 }
@@ -168,12 +168,12 @@ class TestBuildReportViewModelShape:
             return build_report_view_model(_USER_ID)
 
     def test_returns_dict_with_required_keys(self):
-        # Behavior: result contains all five documented top-level keys
+        # Behavior: result contains all five documented top-level keys (monthly, not monthly_data)
         result = self._run_with_one_transaction()
         assert result is not None
         assert "overall_chart_data" in result
         assert "trend_chart_data" in result
-        assert "monthly_data" in result
+        assert "monthly" in result
         assert "merchants" in result
         assert "report_date_range" in result
 
@@ -250,7 +250,7 @@ class TestBuildReportViewModelShape:
             assert "values" in ds
 
     def test_monthly_data_ordered_chronologically(self):
-        # Behavior: monthly_data list is in ascending month order (oldest first)
+        # Behavior: monthly list is in ascending month order (oldest first)
         # Use multiple months: Jan and Mar of 2026
         tx_jan = _make_transaction(amount=Decimal("-50.00"), tx_date=date(2026, 1, 10))
         tx_mar = _make_transaction(amount=Decimal("-80.00"), tx_date=date(2026, 3, 5))
@@ -263,13 +263,13 @@ class TestBuildReportViewModelShape:
             result = build_report_view_model(_USER_ID)
 
         assert result is not None
-        monthly = result["monthly_data"]
+        monthly = result["monthly"]
         assert isinstance(monthly, list)
         if len(monthly) >= 2:
             # Verify ascending order by comparing consecutive month labels
             for i in range(len(monthly) - 1):
                 assert monthly[i]["month"] <= monthly[i + 1]["month"], (
-                    f"monthly_data not in chronological order: "
+                    f"monthly not in chronological order: "
                     f"{monthly[i]['month']} > {monthly[i+1]['month']}"
                 )
 
@@ -288,7 +288,7 @@ class TestBuildReportViewModelShape:
 
         assert result is not None
         merchants = result["merchants"]
-        descriptions = [m["description"] if isinstance(m, dict) else m for m in merchants]
+        descriptions = [m["Description 1"] for m in merchants]
         assert len(descriptions) == len(set(descriptions)), (
             "merchants list must not contain duplicate descriptions"
         )
