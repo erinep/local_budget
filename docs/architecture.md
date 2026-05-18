@@ -34,9 +34,9 @@ Three modules plus a read-only intelligence layer. Each module owns its data and
 | Account Settings | Category rules, user preferences | — | Own data |
 | Transaction Engine | Raw transactions, categorization output | Account Settings | Own data |
 | Budgeting Module | Budget targets, period configurations, actual-vs-budget computation | Transaction Engine (ongoing, via read API) | Own data |
-| Intelligence Layer | — | Transaction Engine + Budgeting Module | Alerts, insight artifacts |
+| Intelligence Layer | — | Transaction Engine + Budgeting Module | Report view-models, dashboard layouts |
 
-The Intelligence Layer is intentionally a **read layer** — it produces language and surfaces anomalies, but does not own canonical data and is not on the critical path for core features. It is reserved for genuine interpretation work: narrative summaries, trend analysis, anomaly detection, smart categorization. This keeps it additive and replaceable.
+The Intelligence Layer is intentionally a **read layer** — it owns the read-only presentation and exploration surface (reports, visualizations, and stretch-goal user-configurable dashboards) on top of the Transaction Engine and Budgeting Module. It does not own canonical data, does not run background jobs, and does not make outbound LLM calls in Phase 5. Anomaly detection, narrative summaries, alerting, and natural-language queries are explicitly out of scope for this phase and deferred to a hypothetical Phase 6 with no commitment. This keeps the layer additive, replaceable, and shippable on the current hosting tier.
 
 Budgeting reads from the Transaction Engine because actual-vs-budget tracking is core to what a budget feature is — without spending data alongside targets, it is only a wishlist. Keeping that arithmetic inside the Budgeting Module lets it ship independently of the Intelligence Layer. The read API on the Transaction Engine is a service boundary, consumed the way any external integration would consume it, which is consistent with "one job per module."
 
@@ -75,13 +75,14 @@ The "Propose a budget" feature uses `get_spend_history` to suggest realistic tar
 
 ### Intelligence Layer
 
-Owns no canonical data. Reads from Transaction Engine and Budgeting Module. Produces:
+Owns no canonical data. Reads from Transaction Engine and Budgeting Module via the documented service-layer APIs. Produces:
 
-- **Alerts** — threshold-driven (e.g., "80% of food budget"), surfaced in-app. Stored so they can be acknowledged or dismissed; not derivable from transactions alone because state changes (dismissal) are user-driven.
-- **Insight artifacts** — narrative summaries (monthly), anomaly notes. Stored to avoid recomputing LLM output, but always regeneratable from the source modules.
-- **Smart categorization fallback** — when keyword categorization fails, the Intelligence Layer proposes a category. User corrections flow back to Account Settings via the Account Settings write path; the Intelligence Layer does not own learned rules.
+- **Report view-models** — typed data structures assembled from `get_spend_by_category` and `get_spend_history`, rendered as the `/intelligence/report` page (see [ADR-0024](adr/0024-intelligence-layer-report-ownership.md)). Regeneratable from the source modules; no canonical state owned.
+- **Dashboard layouts (Phase 5d stretch)** — per-user widget arrangement, persisted as `dashboard_layouts (user_id, layout JSON)`. User-driven state; the data behind each widget is still owned by the source modules.
 
-Because everything the Intelligence Layer produces is either regeneratable or user-driven state, the layer can be paused, rebuilt, or replaced without touching core features.
+Categorization (including smart-categorization fallback) is **not** owned by the Intelligence Layer. The categorizer lives in the Transaction Engine and is fed rules from Account Settings ([ADR-0005](adr/0005-category-map-dependency-injection.md), [ADR-0009](adr/0009-account-settings-schema-normalization.md)). Phase 5b expands the categorizer in place rather than moving it.
+
+Because everything the Intelligence Layer produces is either regeneratable from the source modules or user-driven layout state, the layer can be paused, rebuilt, or replaced without touching core features.
 
 ## Guiding principles
 
@@ -100,7 +101,7 @@ Because everything the Intelligence Layer produces is either regeneratable or us
 - HTTPS enforced (Render handles this; verify in middleware).
 - Password hashing via Argon2 or bcrypt (Supabase handles this).
 - CSRF protection on all state-changing routes, including upload (Flask-WTF or equivalent).
-- Rate limiting on auth endpoints from Phase 1; on LLM-backed endpoints from Phase 5.
+- Rate limiting on auth endpoints from Phase 1. If outbound LLM endpoints are ever reintroduced (deferred past Phase 5), per-user caps and a circuit breaker apply before any such endpoint ships.
 - Audit log for sensitive actions (data export, account deletion).
 - One owner per change to the auth surface. Security review required before public launch.
 

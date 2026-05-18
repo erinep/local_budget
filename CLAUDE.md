@@ -6,7 +6,7 @@ This file is the orientation entry point. It is intentionally short. Detail live
 
 ## Status
 
-- **Current phase:** Phase 5 — Intelligence Layer
+- **Current phase:** Phase 5 — replan landed; 5b (Categorizer v2) starts next
 - **Last updated:** 2026-05-18
 
 Update both fields when a phase ships.
