@@ -27,6 +27,7 @@ One file per non-trivial decision. Append-only.
 | [0019](0019-history-view-route-and-pagination.md) | History View Route, Filter Subset, and Pagination Contract | Accepted | 2026-05-18 |
 | [0020](0020-recategorize-ui-flow.md) | Recategorize UI Flow — Edit Page, Apply-Forward Checkbox, Redirect | Accepted | 2026-05-18 |
 | [0021](0021-upload-file-management-route-ownership.md) | Upload File Management Route Ownership — Transaction Engine Blueprint | Accepted | 2026-05-18 |
+| [0022](0022-uploads-live-transaction-count.md) | Uploads: Replace Stored Row Count with Live Transaction Count | Accepted | 2026-05-18 |
 
 When the first ADR lands, replace the placeholder row with a real entry. Keep entries sorted by number, ascending.
 

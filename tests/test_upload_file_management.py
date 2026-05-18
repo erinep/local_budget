@@ -57,14 +57,14 @@ _UPLOAD_1 = Upload(
     id=uuid.UUID("00000000-0000-0000-0000-000000000010"),
     filename="jan_2026.csv",
     uploaded_at=datetime(2026, 1, 15, 10, 0, tzinfo=timezone.utc),
-    row_count=42,
+    transaction_count=42,
 )
 
 _UPLOAD_2 = Upload(
     id=uuid.UUID("00000000-0000-0000-0000-000000000020"),
     filename="feb_2026.csv",
     uploaded_at=datetime(2026, 2, 1, 9, 0, tzinfo=timezone.utc),
-    row_count=18,
+    transaction_count=18,
 )
 
 # ---------------------------------------------------------------------------
@@ -81,17 +81,17 @@ class TestUploadType:
 
     def test_has_required_fields(self):
         field_names = {f.name for f in dataclasses.fields(Upload)}
-        assert field_names == {"id", "filename", "uploaded_at", "row_count"}
+        assert field_names == {"id", "filename", "uploaded_at", "transaction_count"}
 
     def test_is_immutable(self):
         u = Upload(
             id=uuid.uuid4(),
             filename="test.csv",
             uploaded_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
-            row_count=5,
+            transaction_count=5,
         )
         with pytest.raises((dataclasses.FrozenInstanceError, AttributeError)):
-            u.row_count = 99  # type: ignore[misc]
+            u.transaction_count = 99  # type: ignore[misc]
 
 
 class TestUploadNotFoundType:
@@ -137,7 +137,6 @@ def _uid() -> str:
 def _insert_upload(
     user_id: str,
     filename: str = "test.csv",
-    row_count: int = 5,
     uploaded_at: datetime | None = None,
 ) -> tuple[str, str]:
     """Insert account + upload rows, return (account_id_str, upload_id_str)."""
@@ -157,7 +156,6 @@ def _insert_upload(
             "acid": str(account_id),
             "fn": filename,
             "fhash": hashlib.sha256(f"{uuid.uuid4()}".encode()).digest(),
-            "rc": row_count,
         }
         if uploaded_at is not None:
             params["uploaded_at"] = uploaded_at
@@ -165,8 +163,8 @@ def _insert_upload(
         upload_id = conn.execute(
             sa.text(
                 f"INSERT INTO public.uploads"
-                f" (user_id, account_id, filename, file_hash, row_count, uploaded_at)"
-                f" VALUES (:uid, :acid, :fn, :fhash, :rc, {ts_clause})"
+                f" (user_id, account_id, filename, file_hash, uploaded_at)"
+                f" VALUES (:uid, :acid, :fn, :fhash, {ts_clause})"
                 f" RETURNING id"
             ),
             params,
@@ -222,13 +220,13 @@ class TestGetUploads:
 
     def test_returns_upload_for_user(self, app_ctx):
         user_id = _uid()
-        _, upload_id = _insert_upload(user_id, filename="myfile.csv", row_count=10)
+        _, upload_id = _insert_upload(user_id, filename="myfile.csv")
         result = get_uploads(user_id)
         assert len(result) == 1
         u = result[0]
         assert str(u.id) == upload_id
         assert u.filename == "myfile.csv"
-        assert u.row_count == 10
+        assert u.transaction_count == 0  # no transactions linked yet
         assert isinstance(u.uploaded_at, datetime)
 
     def test_scoped_to_user(self, app_ctx):
