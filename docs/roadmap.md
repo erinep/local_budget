@@ -114,12 +114,10 @@ Three vertical slices, each independently shippable, with PRs sized for review a
 - Schema: `budgets` (id, user_id, category_id, amount) — global standing targets per category (ADR-0026).
 - Budget configuration UI (`/budgets/configure`) — set and delete standing targets.
 - Actual-vs-budget progress view (`/budgets/`) — monthly navigation, UNDER / NEAR / OVER status indicators.
+- Propose-Budgets engine (`/budgets/propose`) — reads 3 months of spend history and suggests targets per category; gaps-only or replace-all apply modes.
 - Budgets read aggregate data from the Transaction Engine via `get_spend_by_category` (ADR-0025 / ADR-0026).
 
-**Deferred (ADR-0027).**
-- Propose-Budgets engine (`propose_budgets`, `apply_proposed_budgets`) — implemented and in the codebase, but pulled from Phase 4 exit criteria. The categorization strategy underlying proposals (keyword vs. embeddings vs. LLM) is under review and will be decided before this feature is formally shipped. See ADR-0027.
-
-**Exit criteria met.** Users can configure monthly budget targets per category and see actual-vs-budget progress in real time.
+**Exit criteria met.** Users can configure monthly budget targets per category, see actual-vs-budget progress in real time, and generate proposals from spend history.
 
 ## Phase 5 — Intelligence Layer (3–4 weeks, ongoing)
 
@@ -141,11 +139,11 @@ Work is ordered by priority. Each item ships independently before the next is st
 
 ### 3. Smart categorization and categorizer overhaul
 
-- Decide categorization strategy: keyword search (current), embeddings-based similarity, LLM classification (Claude Haiku), or hybrid. Write an ADR before implementation. Key trade-offs are cost, latency, and accuracy on novel merchant names. See ADR-0027 for context.
+- Decide categorization strategy: keyword search (current), embeddings-based similarity, LLM classification (Claude Haiku), or hybrid. Write an ADR before implementation. Key trade-offs are cost, latency, and accuracy on novel merchant names.
 - Replace or augment the current keyword fallback with the chosen approach.
 - Capture user corrections; route them back through Account Settings' single write path.
 - Cost control: cache merchant → category mappings aggressively.
-- Revisit the deferred Propose-Budgets engine (ADR-0027) once the categorization model is settled.
+- Better categorization directly improves Propose-Budgets proposal quality (already shipped in Phase 4).
 
 ### 4. Natural language queries (stretch goal)
 
