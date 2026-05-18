@@ -41,6 +41,15 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
 
+      - name: Bootstrap auth schema for CI
+        run: |
+          psql postgresql://postgres:postgres@localhost:5432/budget_test -c "
+            CREATE SCHEMA IF NOT EXISTS auth;
+            CREATE TABLE IF NOT EXISTS auth.users (
+              id UUID PRIMARY KEY DEFAULT gen_random_uuid()
+            );
+          "
+
       - name: Run database migrations
         run: alembic upgrade head
 
