@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Edit Transaction — Budget Parser{% endblock %}
+
+{% block content %}
+<div class="section-stack" style="max-width: 640px;">
+    <div>
+        <p class="eyebrow">Transaction History</p>
+        <h1 style="font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif; font-size: clamp(1.6rem, 4vw, 2.2rem); letter-spacing: -0.03em; margin: 8px 0 0;">Edit Transaction</h1>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+        <p class="auth-{{ 'error' if category == 'error' else ('warning' if category == 'warning' else 'success') }}" role="{{ 'alert' if category in ('error', 'warning') else 'status' }}">{{ message }}</p>
+        {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    {# Read-only transaction details #}
+    <div class="card">
+        <h2 style="font-size: 1.1rem; margin-bottom: 16px;">Transaction details</h2>
+        <dl style="display: grid; grid-template-columns: 130px 1fr; gap: 8px 16px; margin: 0;">
+            <dt style="font-weight: 700; color: var(--muted); font-size: 0.88rem;">Date</dt>
+            <dd style="margin: 0;">{{ txn.date.strftime('%B %d, %Y') }}</dd>
+            <dt style="font-weight: 700; color: var(--muted); font-size: 0.88rem;">Description</dt>
+            <dd style="margin: 0;">{{ txn.description }}</dd>
+            <dt style="font-weight: 700; color: var(--muted); font-size: 0.88rem;">Amount</dt>
+            <dd style="margin: 0; font-variant-numeric: tabular-nums;">{{ "%.2f"|format(txn.amount|float) }}</dd>
+        </dl>
+    </div>
+
+    {# Recategorize form #}
+    <div class="card">
+        <h2 style="font-size: 1.1rem; margin-bottom: 18px;">Recategorize</h2>
+        <form method="post" action="{{ url_for('transactions.edit_post', id=txn.id) }}" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="form-group">
+                <label for="category_id">Category</label>
+                <select id="category_id" name="category_id">
+                    <option value="">No category</option>
+                    {% for cat in categories %}
+                    <option value="{{ cat.id }}" {% if txn.category_id and txn.category_id|string == cat.id %}selected{% endif %}>{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group" style="margin-top: 4px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 600;">
+                    <input type="checkbox" name="apply_forward" value="1" style="width: auto; margin: 0;">
+                    Apply this rule going forward
+                </label>
+                <p class="section-text" style="margin: 6px 0 0; font-size: 0.88rem;">When checked, the keyword below will be saved to the selected category so future transactions with this description are categorized automatically.</p>
+            </div>
+
+            <div class="form-group">
+                <label for="keyword">Keyword</label>
+                <input type="text" id="keyword" name="keyword" value="{{ txn.description }}" autocomplete="off">
+                <p class="section-text" style="margin: 4px 0 0; font-size: 0.85rem;">You may edit this to a shorter keyword (e.g., the merchant name). Only used when "Apply this rule going forward" is checked.</p>
+            </div>
+
+            <div style="display: flex; gap: 12px; align-items: center; margin-top: 8px;">
+                <button type="submit" class="button-primary">Save</button>
+                <a class="button-secondary" href="{{ url_for('transactions.history') }}">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

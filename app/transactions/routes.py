@@ -1,4 +1,4 @@
-"""Transaction Engine routes — upload and report.
+"""Transaction Engine routes — upload, report, history, and recategorize.
 
 All routes require authentication (ADR-0006). The category map is loaded from
 the Account Settings service, injecting the per-user map via the same factory
@@ -7,23 +7,42 @@ source of the map has moved from a JSON file to the database.
 
 Phase 3a: the upload POST handler writes to the database via _process_upload
 and renders the report from DB data via get_transactions (ADR-0016, ADR-0017).
+
+Phase 3b: adds GET /transactions (history), GET/POST /transactions/<id>/edit
+(recategorize UI) per ADR-0019 and ADR-0020.
 """
 
 import io
+import uuid as _uuid_mod
 from collections import defaultdict
 from decimal import Decimal
+from math import ceil
 
 import pandas as pd
-from flask import Blueprint, current_app, g, render_template, request
+from flask import (
+    Blueprint,
+    abort,
+    current_app,
+    flash,
+    g,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 
-from app.account_settings.services import get_category_map
+from app.account_settings.services import get_category_map, list_categories
 from app.middleware.auth import login_required
 from app.transactions.services import (
+    CategoryNotFound,
     TransactionFilters,
+    TransactionNotFound,
     _process_upload,
+    get_transaction,
     get_transactions,
     make_categorizer,
     net_amount,
+    recategorize_transaction,
 )
 
 transactions_bp = Blueprint("transactions", __name__)
@@ -265,3 +284,203 @@ def upload():
         return render_template("report.html", **report_vars)
 
     return render_template("upload.html")
+
+
+# ---------------------------------------------------------------------------
+# Phase 3b: Transaction history view (ADR-0019)
+# ---------------------------------------------------------------------------
+
+@transactions_bp.route("/transactions", endpoint="history")
+@login_required
+def history():
+    """Render the paginated transaction history view with filters.
+
+    Query parameters (all optional, silently ignored if invalid):
+      date_from   — ISO date string (YYYY-MM-DD)
+      date_to     — ISO date string (YYYY-MM-DD)
+      category_id — UUID string
+      search      — free-text substring search
+      page        — positive integer, default 1
+    """
+    import datetime
+
+    # --- Parse query params (silently ignore invalid values) ---
+    date_from = None
+    raw_date_from = request.args.get("date_from", "").strip()
+    if raw_date_from:
+        try:
+            date_from = datetime.date.fromisoformat(raw_date_from)
+        except ValueError:
+            pass
+
+    date_to = None
+    raw_date_to = request.args.get("date_to", "").strip()
+    if raw_date_to:
+        try:
+            date_to = datetime.date.fromisoformat(raw_date_to)
+        except ValueError:
+            pass
+
+    category_id = None
+    raw_cat = request.args.get("category_id", "").strip()
+    if raw_cat:
+        try:
+            category_id = _uuid_mod.UUID(raw_cat)
+        except ValueError:
+            pass
+
+    search = request.args.get("search", "").strip() or None
+
+    page = 1
+    raw_page = request.args.get("page", "").strip()
+    if raw_page:
+        try:
+            page = max(1, int(raw_page))
+        except ValueError:
+            pass
+
+    limit = 50
+    offset = (page - 1) * limit
+
+    # --- Build filters and fetch ---
+    filters = TransactionFilters(
+        date_from=date_from,
+        date_to=date_to,
+        category_id=category_id,
+        search=search,
+        limit=limit,
+        offset=offset,
+    )
+    page_result = get_transactions(g.user.id, filters)
+    categories = list_categories(g.user.id)
+
+    total_count = page_result.total_count
+    total_pages = max(1, ceil(total_count / limit))
+    page = min(page, total_pages)
+
+    has_prev = page > 1
+    has_next = page < total_pages
+
+    # Build active filter kwargs for URL generation (only non-None / non-empty).
+    active_filters = {}
+    if date_from is not None:
+        active_filters["date_from"] = date_from.isoformat()
+    if date_to is not None:
+        active_filters["date_to"] = date_to.isoformat()
+    if category_id is not None:
+        active_filters["category_id"] = str(category_id)
+    if search:
+        active_filters["search"] = search
+
+    prev_url = url_for("transactions.history", page=page - 1, **active_filters) if has_prev else None
+    next_url = url_for("transactions.history", page=page + 1, **active_filters) if has_next else None
+
+    if total_count == 0:
+        showing_from = 0
+        showing_to = 0
+    else:
+        showing_from = offset + 1
+        showing_to = min(offset + limit, total_count)
+
+    return render_template(
+        "transactions/history.html",
+        transactions=page_result.items,
+        total_count=total_count,
+        categories=categories,
+        page=page,
+        total_pages=total_pages,
+        has_prev=has_prev,
+        has_next=has_next,
+        prev_url=prev_url,
+        next_url=next_url,
+        showing_from=showing_from,
+        showing_to=showing_to,
+        # active filter values for re-populating the form
+        date_from=date_from.isoformat() if date_from else "",
+        date_to=date_to.isoformat() if date_to else "",
+        selected_category_id=str(category_id) if category_id else "",
+        search=search or "",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Phase 3b: Recategorize edit page (ADR-0020)
+# ---------------------------------------------------------------------------
+
+@transactions_bp.route("/transactions/<id>/edit", endpoint="edit", methods=["GET"])
+@login_required
+def edit(id):
+    """Render the recategorize edit page for a single transaction."""
+    try:
+        transaction_id = _uuid_mod.UUID(id)
+    except ValueError:
+        abort(400)
+
+    try:
+        txn = get_transaction(g.user.id, transaction_id)
+    except TransactionNotFound:
+        abort(404)
+
+    categories = list_categories(g.user.id)
+    return render_template("transactions/edit.html", txn=txn, categories=categories)
+
+
+@transactions_bp.route("/transactions/<id>/edit", endpoint="edit_post", methods=["POST"])
+@login_required
+def edit_post(id):
+    """Handle the recategorize form submission."""
+    try:
+        transaction_id = _uuid_mod.UUID(id)
+    except ValueError:
+        abort(400)
+
+    # --- Parse form fields ---
+    raw_cat = request.form.get("category_id", "").strip()
+    if raw_cat:
+        try:
+            category_id = _uuid_mod.UUID(raw_cat)
+        except ValueError:
+            abort(400)
+    else:
+        category_id = None
+
+    apply_forward = request.form.get("apply_forward") == "1"
+    keyword_raw = request.form.get("keyword", "")
+    apply_forward_keyword = keyword_raw.strip() if apply_forward and keyword_raw.strip() else None
+
+    try:
+        result = recategorize_transaction(
+            user_id=g.user.id,
+            transaction_id=transaction_id,
+            category_id=category_id,
+            apply_forward_keyword=apply_forward_keyword,
+        )
+    except TransactionNotFound:
+        abort(404)
+    except CategoryNotFound:
+        # Re-render the form with the original transaction data.
+        try:
+            txn = get_transaction(g.user.id, transaction_id)
+        except TransactionNotFound:
+            abort(404)
+        categories = list_categories(g.user.id)
+        flash("Category not found or no longer available.", "error")
+        return render_template("transactions/edit.html", txn=txn, categories=categories)
+    except Exception:
+        # Keyword write failed after transaction was already committed (partial success).
+        flash(
+            "Transaction recategorized, but the keyword rule could not be saved."
+            " You can add it manually in Category Settings.",
+            "warning",
+        )
+        return redirect(url_for("transactions.history"))
+
+    # --- Flash success message ---
+    if result.keyword_written:
+        flash("Transaction recategorized and keyword rule saved.", "success")
+    elif result.keyword_conflict:
+        flash("Transaction recategorized. (Keyword rule already existed.)", "success")
+    else:
+        flash("Transaction recategorized.", "success")
+
+    return redirect(url_for("transactions.history"))
