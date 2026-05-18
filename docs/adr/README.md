@@ -32,6 +32,7 @@ One file per non-trivial decision. Append-only.
 | [0024](0024-intelligence-layer-report-ownership.md) | Intelligence Layer Report Ownership — Module Assignment, URL Structure, and Rendering Architecture | Accepted | 2026-05-18 |
 | [0025](0025-budgeting-module.md) | Budgeting Module — Schema, Service API, and Route Design | Partially superseded by ADR-0026 | 2026-05-18 |
 | [0026](0026-budgets-global-targets.md) | Budgets — Global Targets, Not Month-Specific Rows | Accepted | 2026-05-18 |
+| [0027](0027-propose-budgets-deferred.md) | Propose-Budgets Feature Deferred from Phase 4 | Accepted | 2026-05-18 |
 
 When the first ADR lands, replace the placeholder row with a real entry. Keep entries sorted by number, ascending.
 
