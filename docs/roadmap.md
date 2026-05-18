@@ -13,7 +13,11 @@ Phases, work items, and exit criteria. Updated as phases ship.
 | 3b | Transaction Engine — History & Editing | Shipped | 1–2 weeks | 2026-05-18 |
 | 3c | Transaction Engine — Aggregation API | Shipped | 1 week | 2026-05-18 |
 | 4 | Budgeting Module | Shipped | 2–3 weeks | 2026-05-18 |
-| 5 | Intelligence Layer | Not started | 3–4 weeks, ongoing | — |
+| 5a | Intelligence Layer — Report Page | Shipped | (delivered with 3c) | 2026-05-18 |
+| 5b | Categorizer v2 | Not started | 2–3 weeks | — |
+| 5c | Account Management & User Settings | Not started | 1–2 weeks | — |
+| 5d | Reporting Overhaul | Not started | 3–4 weeks | — |
+| 5e | Public-Release Hardening | Not started | 3–4 weeks | — |
 
 Update the Status, Target, and Shipped columns when a phase moves. Update the **Current phase** field in [`../CLAUDE.md`](../CLAUDE.md) when a phase ships.
 
@@ -119,41 +123,103 @@ Three vertical slices, each independently shippable, with PRs sized for review a
 
 **Exit criteria met.** Users can configure monthly budget targets per category, see actual-vs-budget progress in real time, and generate proposals from spend history.
 
-## Phase 5 — Intelligence Layer (3–4 weeks, ongoing)
+## Phase 5 — Intelligence Layer & Platform Maturity
 
-**Goal.** Produce language and surface anomalies that wouldn't be visible from raw data alone.
+Phase 5 is split into four independently-shippable sub-phases, sequenced 5b → 5c → 5d → 5e. Phase 5a (the report page) shipped alongside Phase 3c per [ADR-0024](adr/0024-intelligence-layer-report-ownership.md).
 
-Work is ordered by priority. Each item ships independently before the next is started.
+The Intelligence Layer's charter is narrowed for Phase 5: read-only presentation and exploration only. No background jobs, no outbound LLM calls, no alerting, no anomaly detection. The "AI question" survives only inside 5b, evaluated against measured value vs. cost. Anomaly detection and narrative summaries are deferred to a hypothetical Phase 6, with no commitment.
 
-### 1. Alerting framework
+### Phase 5a — Report Page ✓ Shipped 2026-05-18
 
-- Schema: `alerts` (id, user_id, type, payload, created_at, dismissed_at).
-- Rule engine for threshold alerts ("80% of food budget", "unusual transaction").
-- In-app notification surface; email delivery deferred to post-launch.
+Delivered as part of Phase 3c. Stable GET route at `/intelligence/report`, view-model assembled from the Phase 3c aggregation API, chart rendering via the existing `report_charts.js`. See [ADR-0024](adr/0024-intelligence-layer-report-ownership.md). This sub-phase is the structural placement of the Intelligence Layer; the **product** redesign of the report happens in 5d.
 
-### 2. Monthly insight summaries
+### Phase 5b — Categorizer v2 (2–3 weeks)
 
-- Claude API integration for generating narrative summaries.
-- Background job that runs at month-end and writes to an `insights` table.
-- Display in dashboard.
+**Goal.** Replace the current uppercase-substring categorizer with a layered system that uses the user's own correction history as the source of truth, and reduces the burden of maintaining keyword lists.
 
-### 3. Smart categorization and categorizer overhaul
+**Architectural ground rules.**
 
-- Decide categorization strategy: keyword search (current), embeddings-based similarity, LLM classification (Claude Haiku), or hybrid. Write an ADR before implementation. Key trade-offs are cost, latency, and accuracy on novel merchant names.
-- Replace or augment the current keyword fallback with the chosen approach.
-- Capture user corrections; route them back through Account Settings' single write path.
-- Cost control: cache merchant → category mappings aggressively.
-- Better categorization directly improves Propose-Budgets proposal quality (already shipped in Phase 4).
+- Description normalization lives in the categorizer factory (`app/transactions/services.py`). The normalization function is also exported as a standalone helper for the history view's render layer.
+- Account Settings owns categorization rules. Categories own their keywords (existing, [ADR-0009](adr/0009-account-settings-schema-normalization.md)) and own their merchant aliases (new). Single write path preserved ([ADR-0005](adr/0005-category-map-dependency-injection.md)).
+- Local embeddings (Tier 6 below) are gated on a measured residual from the test harness. Hosted embeddings and LLM classification are out of scope for this sub-phase.
 
-### 4. Natural language queries (stretch goal)
+**Work items.**
 
-- "How much did I spend on food last quarter?"
-- Translate to SQL via Claude with strict query templates.
-- Defer until earlier phases are stable.
+1. Tiered categorizer:
+   - Tier 1 — Description normalization (strip processor prefixes like `SQ *`, `PAYPAL *`, `TST*`; strip trailing store numbers; strip city/state suffixes; collapse whitespace).
+   - Tier 2 — Merchant memory: exact match against a `merchant_aliases` table.
+   - Tier 3 — Token-overlap (Jaccard or TF-IDF cosine) against the user's past categorized transactions.
+   - Tier 4 — Existing keyword list, retained for bootstrap and explicit overrides.
+   - Tier 5 — Confidence threshold → `Uncategorized` (no guessing).
+   - Tier 6 — Local embeddings (deferred; in scope only if Tiers 1–5 leave an unacceptable residual on the harness).
+2. `merchant_aliases` schema under Account Settings.
+3. Alias write path — the Phase 3b recategorize flow writes aliases automatically when the user opts into "apply going forward."
+4. Categorization test harness — a labeled fixture set so changes can be measured rather than vibes-tested. Baseline the current accuracy before any rewrite.
+5. Backfill behavior on categorizer upgrade (see open decisions).
 
-**Exit criteria.** Users receive proactive alerts and a monthly summary written in plain language. Smart categorization handles new merchants without keyword updates.
+**ADRs needed.** Categorizer strategy ADR (the fallback chain + the measurement gate for Tier 6); `merchant_aliases` schema ADR; backfill / re-categorization ADR.
 
-**Hosting prerequisite.** Background jobs are required by item 2 and not available on the current Render free tier. The hosting decision must be resolved before Phase 4 ends — see [Open decisions](#open-decisions).
+**Exit criteria.** Novel merchant names get a confident category without manual keyword maintenance. The test harness exists and reports a measured accuracy number that beats the pre-rewrite baseline.
+
+**Open decisions to resolve in ADRs.**
+
+- **Cold-start strategy.** The app should categorize well from the first upload, not only after the user has trained it. Options: invest in a richer curated seed keyword list; ship a curated generic merchant corpus that pre-populates `merchant_aliases` for new users; or accept iterative training and design the first-upload UX accordingly.
+- **Backfill on categorizer upgrade.** Do existing stored transactions get re-categorized when the categorizer changes? Options: never; on user demand; one-time automatic on upgrade.
+- **Confidence threshold value.** Quantitative; punt to the harness.
+
+### Phase 5c — Account Management & User Settings (1–2 weeks)
+
+**Goal.** Surface the already-persisted accounts to the user and consolidate settings into a single navigable area.
+
+**Work items.**
+
+1. Account management UI — list, rename, archive accounts. No hard delete in v1 (cross-module purge belongs to 5e).
+2. Settings consolidation page — single `/settings` entry point with sub-pages: Profile, Categories (existing, link in), Accounts (new), Security (password change, sessions).
+3. Profile management — display name, email change with verification.
+
+**ADRs needed.** Account lifecycle ADR — archive vs. delete semantics; archived-account visibility in reports and budgets.
+
+**Exit criteria.** A user can manage their accounts and identity entirely through the UI without touching the database.
+
+**Open decisions.** Archived-account visibility in reports/budgets (hidden by default, toggle, or hard-excluded). Resolved in the lifecycle ADR.
+
+### Phase 5d — Reporting Overhaul (3–4 weeks)
+
+**Goal.** Rebuild the report from the ground up. The 5a report was a structural placement exercise; 5d is a designed product. The Intelligence Layer's narrowed charter is the starting point.
+
+**Work items.**
+
+1. Information-architecture pass first. Define what questions the report should answer ("Where did my money go last month?", "How does this month compare to last?", "Which categories are trending up?"). Output is a design note in `docs/`, not an ADR.
+2. Widget contract — typed view-model shape per widget type, extending [ADR-0024](adr/0024-intelligence-layer-report-ownership.md)'s hybrid rendering decision so new chart types extend rather than rewrite.
+3. Widget catalog — at minimum: category breakdown (donut), trend (line/area), MoM and YoY comparison, top-N merchants per category, budget progress, savings rate. Decide v1 vs. later.
+4. Report controls — custom date range, category include/exclude filter, period granularity.
+5. Drilldown — clicking any chart slice routes to `/transactions` with prefilled filters. Reuses Phase 3b APIs.
+6. Export — CSV of the current report view. PDF deferred.
+7. Stretch: custom dashboard builder. Persisted as `dashboard_layouts (user_id, layout JSON)`. Feature-flagged until the widget catalog is stable.
+
+**ADRs needed.** Widget contract ADR (extends [ADR-0024](adr/0024-intelligence-layer-report-ownership.md)); chart library decision ADR (ADR-0024 deferred this; 5d forces it); dashboard-layout schema ADR (if stretch ships).
+
+**Exit criteria.** Report answers a defined set of questions, charts are drilldown-enabled, the user can scope to any period. The current report page is replaced, not extended.
+
+**Open decisions.** Chart library — keep extending `static/report_charts.js`, or adopt Chart.js / Observable Plot / similar. Drop or migrate the existing `report.html`. Dashboard-builder scope (stretch vs. promote to in-scope).
+
+### Phase 5e — Public-Release Hardening (3–4 weeks)
+
+**Goal.** Technical readiness gate before the app could accept external signups. The decision to actually open signups is separate from this work.
+
+**Work items.**
+
+1. **Security audit** (~1 week) — threat model the system; dependency scan (`pip-audit`, Dependabot) to zero high/critical; secrets management review; OWASP Top 10 walkthrough; rate-limit all auth endpoints; security headers (CSP, HSTS, X-Frame-Options); resolve deferred risks from [`risks.md`](risks.md) that the public-release bar requires (GET-logout CSRF, PKCE-under-multi-worker, un-skip DB-gated upload-dedup integration tests).
+2. **Operational hardening** (~1 week) — first quarterly restore drill; uptime monitoring; Sentry alerting rules that actually page; final hosting decision (resolves the long-standing open decision).
+3. **Account tier foundation** (~3–5 days) — schema only: `plans (id, code, name, limits JSON)`, `user_plans (user_id, plan_id, started_at)`. Default everyone to "free." Feature-flag-by-tier helper exists; no features gated yet. No tiers actually defined.
+4. **Payment processing foundation** (~3–5 days) — Stripe scaffolding: webhook receiver with signed verification, `stripe_customer_id` column on users. No checkout, no SKUs. Test mode only.
+5. **Account-deletion compliance** (~3 days) — implement the cross-module purge job referenced in [`risks.md`](risks.md). Soft-delete + nightly purge. Data-export endpoint (`/settings/export` → ZIP of CSVs).
+
+**ADRs needed (4–6).** Threat model summary; hosting decision; account-tier schema; Stripe boundary; account-deletion runbook; data-export contract.
+
+**Exit criteria.** No known critical security or compliance gap. The app *could* be opened to external signups.
+
+**Open decisions.** All audit findings become decisions of their own. Stripe scaffolding in 5e vs. deferred — revisit at packet start.
 
 ## Open decisions
 
@@ -166,8 +232,8 @@ These should be resolved before the phases that depend on them. Each becomes an 
 | Idempotency strategy for re-uploads (hash-based vs date+amount+description) | Phase 3a starts | Affects schema and dedup logic. |
 | Multi-account-per-user — design for it now? | Phase 3a starts | Designing for it now is cheap; bolting it on later is expensive. Recommendation: yes, design schema for it even if UI ships later. |
 | Data retention policy — what happens when a user deletes their account | Phase 3a starts | Affects the cross-module deletion runbook. |
-| Hosting platform after Phase 2 | Phase 4 ends | Render free tier is fine through Phase 2 but not sufficient for Phase 5's background jobs. Options: Render paid, Fly.io, or split into Render web + separate worker. |
-| Public launch — personal use vs open to others | Before any public signup flow | Changes the security and compliance bar significantly. |
+| Hosting platform | Phase 5e | Render free tier is fine through 5d; multi-worker / paid plan needed once 5e opens the door to external signups. Options: Render paid, Fly.io, or split into Render web + separate worker. Phase 5's narrowed charter (no background jobs, no LLM endpoints) removes the prior forcing function but the public-release bar still requires resolving this. |
+| Public launch — personal use vs open to others | Before any public signup flow | Changes the security and compliance bar significantly. 5e produces the technical readiness gate; this decision is the product gate. |
 | Mobile experience — PWA vs React Native vs none | By Phase 3 | Affects how the API is shaped. |
 
 ## Out of scope
