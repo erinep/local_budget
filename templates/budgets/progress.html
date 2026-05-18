@@ -36,7 +36,7 @@
 
     {# Action links #}
     <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-        <a class="btn btn-primary" href="{{ url_for('budgets.configure_budgets', year=year, month=month) }}">Configure Budgets</a>
+        <a class="btn btn-primary" href="{{ url_for('budgets.configure_budgets') }}">Configure Budgets</a>
         <a class="btn btn-secondary" href="{{ url_for('budgets.propose_budget_preview', year=year, month=month) }}">Propose Budgets</a>
     </div>
 
@@ -108,7 +108,7 @@
     <div class="card">
         <p style="color: #6b7280;">No budgets or spend data for this month.</p>
         <p>
-            <a href="{{ url_for('budgets.configure_budgets', year=year, month=month) }}">Set up budgets</a>
+            <a href="{{ url_for('budgets.configure_budgets') }}">Set up budgets</a>
             or
             <a href="{{ url_for('budgets.propose_budget_preview', year=year, month=month) }}">let us propose some based on your history</a>.
         </p>

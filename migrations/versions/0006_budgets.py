@@ -1,12 +1,11 @@
-"""Create public.budgets table for Phase 4 Budgeting Module (ADR-0025).
+"""Create public.budgets table for Phase 4 Budgeting Module (ADR-0026).
 
-Stores one monthly budget target per user per category. The period is encoded
-as (budget_year SMALLINT, budget_month SMALLINT) to map directly to
-DateRange.for_month(year, month) with no lossy conversion (ADR-0025, Decision 1).
+Stores one standing budget target per user per category (global, not month-specific).
+ADR-0026 supersedes ADR-0025 Decisions 1 and 2: budget_year and budget_month are
+dropped in favour of a single row per (user_id, category_id).
 
-A UNIQUE constraint on (user_id, category_id, budget_year, budget_month) enforces
-one budget per category per month. An additional three-column index on
-(user_id, budget_year, budget_month) covers the primary monthly-fetch read pattern.
+A UNIQUE constraint on (user_id, category_id) enforces one target per category.
+An index on (user_id) covers the primary fetch read pattern.
 
 Foreign keys:
   - user_id  -> auth.users(id) ON DELETE CASCADE  (ADR-0015)
@@ -35,25 +34,23 @@ def upgrade() -> None:
             user_id      UUID          NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
             category_id  UUID          NOT NULL REFERENCES public.categories(id) ON DELETE CASCADE,
             amount       NUMERIC(12,2) NOT NULL CHECK (amount >= 0),
-            budget_year  SMALLINT      NOT NULL CHECK (budget_year  BETWEEN 2000 AND 2100),
-            budget_month SMALLINT      NOT NULL CHECK (budget_month BETWEEN 1    AND 12),
             created_at   TIMESTAMPTZ   NOT NULL DEFAULT now(),
             updated_at   TIMESTAMPTZ   NOT NULL DEFAULT now(),
-            UNIQUE (user_id, category_id, budget_year, budget_month)
+            UNIQUE (user_id, category_id)
         )
     """)
 
     op.create_index(
-        "idx_budgets_user_month",
+        "idx_budgets_user",
         "budgets",
-        ["user_id", "budget_year", "budget_month"],
+        ["user_id"],
         schema="public",
     )
 
 
 def downgrade() -> None:
     op.drop_index(
-        "idx_budgets_user_month",
+        "idx_budgets_user",
         table_name="budgets",
         schema="public",
     )

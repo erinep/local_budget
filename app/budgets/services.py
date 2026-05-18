@@ -56,8 +56,6 @@ class Budget:
     category_id: UUID
     category_name: str           # denormalized from categories table for display
     amount: Decimal              # the budget target; always >= 0
-    budget_year: int
-    budget_month: int
 
 
 @dataclass(frozen=True)
@@ -118,26 +116,22 @@ def _lookback_months(target_year: int, target_month: int, n: int) -> list[tuple[
 # Read functions
 # ---------------------------------------------------------------------------
 
-def get_budgets(user_id: str, year: int, month: int) -> list[Budget]:
-    """Return all budget targets for a user in a given month.
+def get_budgets(user_id: str) -> list[Budget]:
+    """Return all standing budget targets for a user, ordered by category_name ASC.
 
     Returns an empty list if no budgets are set. Never raises on missing data.
-    Ordered by category_name ASC.
     """
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(
             text(
-                "SELECT b.id, b.user_id, b.category_id, c.name,"
-                " b.amount, b.budget_year, b.budget_month"
+                "SELECT b.id, b.user_id, b.category_id, c.name, b.amount"
                 " FROM public.budgets b"
                 " JOIN public.categories c ON c.id = b.category_id"
                 " WHERE b.user_id = :uid"
-                " AND b.budget_year = :y"
-                " AND b.budget_month = :m"
                 " ORDER BY c.name ASC"
             ),
-            {"uid": user_id, "y": year, "m": month},
+            {"uid": user_id},
         ).fetchall()
 
     return [
@@ -147,8 +141,6 @@ def get_budgets(user_id: str, year: int, month: int) -> list[Budget]:
             category_id=UUID(str(row[2])),
             category_name=row[3],
             amount=Decimal(str(row[4])),
-            budget_year=int(row[5]),
-            budget_month=int(row[6]),
         )
         for row in rows
     ]
@@ -177,7 +169,7 @@ def get_budget_progress(user_id: str, year: int, month: int) -> list[BudgetProgr
 
     period = DateRange.for_month(year, month)
     spend_rows = get_spend_by_category(user_id, period)
-    budget_rows = get_budgets(user_id, year, month)
+    budget_rows = get_budgets(user_id)
 
     # Index budgets by category_id for O(1) lookup
     budget_by_cat: dict[UUID, Budget] = {b.category_id: b for b in budget_rows}
@@ -323,45 +315,37 @@ def upsert_budget(
     user_id: str,
     category_id: UUID,
     amount: Decimal,
-    year: int,
-    month: int,
 ) -> Budget:
-    """Create or update the budget target for a category in a given month.
+    """Create or update the standing budget target for a category.
 
     Uses INSERT ... ON CONFLICT DO UPDATE so double-submits are idempotent.
 
-    Raises ValueError if amount < 0, month not in 1..12, or year not in 2000..2100.
+    Raises ValueError if amount < 0.
     Propagates DB exceptions (e.g. FK violation) without wrapping.
     Returns the persisted Budget row after upsert.
     """
     if amount < Decimal("0"):
         raise ValueError("amount must be >= 0")
-    if not (1 <= month <= 12):
-        raise ValueError("month must be between 1 and 12")
-    if not (2000 <= year <= 2100):
-        raise ValueError("year must be between 2000 and 2100")
 
     engine = get_engine()
     with engine.begin() as conn:
         conn.execute(
             text(
                 "INSERT INTO public.budgets"
-                " (user_id, category_id, amount, budget_year, budget_month)"
-                " VALUES (:uid, :cid, :amount, :year, :month)"
-                " ON CONFLICT (user_id, category_id, budget_year, budget_month)"
+                " (user_id, category_id, amount)"
+                " VALUES (:uid, :cid, :amount)"
+                " ON CONFLICT (user_id, category_id)"
                 " DO UPDATE SET amount = EXCLUDED.amount, updated_at = now()"
             ),
             {
                 "uid": user_id,
                 "cid": str(category_id),
                 "amount": str(amount),
-                "year": year,
-                "month": month,
             },
         )
 
     # Re-query to return the full persisted row with category_name
-    rows = get_budgets(user_id, year, month)
+    rows = get_budgets(user_id)
     for b in rows:
         if b.category_id == category_id:
             return b
@@ -391,15 +375,13 @@ def delete_budget(user_id: str, budget_id: UUID) -> None:
 def apply_proposed_budgets(
     user_id: str,
     proposals: list[ProposedBudget],
-    year: int,
-    month: int,
     replace_existing: bool = False,
 ) -> int:
-    """Persist a list of proposed budgets for the given month.
+    """Persist a list of proposed budget targets as standing global targets.
 
     If replace_existing is False (default), skips any proposal for a category
-    that already has a budget row for (year, month). If replace_existing is
-    True, overwrites existing rows via upsert.
+    that already has a standing budget target. If replace_existing is True,
+    overwrites existing rows via upsert.
 
     All writes run in a single database transaction. Either all proposed
     budgets land or none do.
@@ -411,7 +393,7 @@ def apply_proposed_budgets(
         return 0
 
     # Determine existing budgets once, outside the transaction
-    existing_budgets = get_budgets(user_id, year, month)
+    existing_budgets = get_budgets(user_id)
     existing_cat_ids: set[UUID] = {b.category_id for b in existing_budgets}
 
     engine = get_engine()
@@ -420,22 +402,20 @@ def apply_proposed_budgets(
     with engine.begin() as conn:
         for proposal in proposals:
             if not replace_existing and proposal.category_id in existing_cat_ids:
-                continue  # skip — already has a budget for this month
+                continue  # skip — already has a standing budget for this category
 
             conn.execute(
                 text(
                     "INSERT INTO public.budgets"
-                    " (user_id, category_id, amount, budget_year, budget_month)"
-                    " VALUES (:uid, :cid, :amount, :year, :month)"
-                    " ON CONFLICT (user_id, category_id, budget_year, budget_month)"
+                    " (user_id, category_id, amount)"
+                    " VALUES (:uid, :cid, :amount)"
+                    " ON CONFLICT (user_id, category_id)"
                     " DO UPDATE SET amount = EXCLUDED.amount, updated_at = now()"
                 ),
                 {
                     "uid": user_id,
                     "cid": str(proposal.category_id),
                     "amount": str(proposal.proposed_amount),
-                    "year": year,
-                    "month": month,
                 },
             )
             written += 1

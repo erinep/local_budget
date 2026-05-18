@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Configure Budgets — {{ year }}-{{ "%02d"|format(month) }} — Budget Parser{% endblock %}
+{% block title %}Configure Budgets — Budget Parser{% endblock %}
 
 {% block content %}
 <div class="section-stack">
@@ -11,9 +11,7 @@
             </h1>
         </div>
         <p style="color: #6b7280; margin-top: 4px;">
-            {{ ["January","February","March","April","May","June",
-                "July","August","September","October","November","December"][month - 1] }}
-            {{ year }}
+            Set a standing monthly target per category. Targets apply to every month you view.
         </p>
     </div>
 
@@ -27,17 +25,15 @@
     {% endwith %}
 
     <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-        <a class="btn btn-secondary" href="{{ url_for('budgets.budget_progress', year=year, month=month) }}">&larr; Back to Progress</a>
-        <a class="btn btn-secondary" href="{{ url_for('budgets.propose_budget_preview', year=year, month=month) }}">Propose Budgets</a>
+        <a class="btn btn-secondary" href="{{ url_for('budgets.budget_progress') }}">&larr; Back to Progress</a>
+        <a class="btn btn-secondary" href="{{ url_for('budgets.propose_budget_preview') }}">Propose Budgets</a>
     </div>
 
     {# Add / edit budget form #}
     <div class="card">
-        <h2 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 16px;">Add or Update Budget</h2>
+        <h2 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 16px;">Add or Update Budget Target</h2>
         <form method="post" action="{{ url_for('budgets.save_budget') }}" novalidate>
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="year" value="{{ year }}">
-            <input type="hidden" name="month" value="{{ month }}">
             <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end;">
                 <div class="form-group" style="flex: 2; min-width: 180px; margin-bottom: 0;">
                     <label for="category_id">Category</label>
@@ -59,19 +55,15 @@
         </form>
     </div>
 
-    {# Existing budgets for this month #}
+    {# Existing budget targets #}
     {% if budgets %}
     <div class="card">
-        <h2 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 16px;">
-            Budgets for {{ ["January","February","March","April","May","June",
-                "July","August","September","October","November","December"][month - 1] }}
-            {{ year }}
-        </h2>
+        <h2 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 16px;">Standing Targets</h2>
         <table style="width: 100%; border-collapse: collapse;">
             <thead>
                 <tr style="border-bottom: 2px solid var(--border, #e5e7eb);">
                     <th style="text-align: left; padding: 8px 12px;">Category</th>
-                    <th style="text-align: right; padding: 8px 12px;">Target</th>
+                    <th style="text-align: right; padding: 8px 12px;">Monthly Target</th>
                     <th style="padding: 8px 12px;"></th>
                 </tr>
             </thead>
@@ -85,8 +77,6 @@
                               style="display: inline;"
                               onsubmit="return confirm('Delete this budget target?');">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <input type="hidden" name="year" value="{{ year }}">
-                            <input type="hidden" name="month" value="{{ month }}">
                             <button type="submit" class="btn btn-danger" style="padding: 4px 10px; font-size: 0.8rem;">Delete</button>
                         </form>
                     </td>
@@ -97,7 +87,7 @@
     </div>
     {% else %}
     <div class="card">
-        <p style="color: #6b7280;">No budgets set for this month yet. Use the form above to add one.</p>
+        <p style="color: #6b7280;">No budget targets set yet. Use the form above to add one.</p>
     </div>
     {% endif %}
 </div>

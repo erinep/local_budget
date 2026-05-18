@@ -1,17 +1,18 @@
 """Budgeting Module routes — Phase 4.
 
-ADR-0025, Decision 9: Blueprint prefix /budgets.
+ADR-0025 (Decision 9) / ADR-0026: Blueprint prefix /budgets.
 
 Route table:
-  GET  /budgets/                    budget_progress       Actual-vs-budget view
-  GET  /budgets/configure           configure_budgets     List & form to add/edit
-  POST /budgets/configure           save_budget           Create or update one budget
-  POST /budgets/<uuid>/delete       delete_budget_route   Hard delete a budget row
-  GET  /budgets/propose             propose_budget_preview  Preview proposed budgets
-  POST /budgets/propose             apply_proposed_budgets_route  Write proposed budgets
+  GET  /budgets/                    budget_progress              Actual-vs-budget for selected month
+  GET  /budgets/configure           configure_budgets            List & form to add/edit global targets
+  POST /budgets/configure           save_budget                  Create or update one target
+  POST /budgets/<uuid>/delete       delete_budget_route          Hard delete a budget target
+  GET  /budgets/propose             propose_budget_preview       Preview proposed targets
+  POST /budgets/propose             apply_proposed_budgets_route Write proposed targets
 
 All routes require authentication. All POST routes follow PRG (Post-Redirect-Get).
-Period defaults to current UTC month; ?year=YYYY&month=MM overrides.
+Progress view defaults to current UTC month; ?year=YYYY&month=MM overrides.
+Configure view is month-agnostic (global targets per ADR-0026).
 
 ADR-0003: this blueprint calls Budgeting service functions only; no direct DB access.
 ADR-0004: registered in app factory.
@@ -129,32 +130,27 @@ def budget_progress():
 @budgets_bp.route("/configure", methods=["GET"])
 @login_required
 def configure_budgets():
-    """List existing budgets for the selected month; show form to add/edit."""
+    """List standing budget targets; show form to add/edit."""
     user_id = g.user.id
-    year, month = _parse_period(request)
 
-    budgets = get_budgets(user_id, year, month)
+    budgets = get_budgets(user_id)
     categories = list_categories(user_id)
 
     return render_template(
         "budgets/configure.html",
         budgets=budgets,
         categories=categories,
-        year=year,
-        month=month,
     )
 
 
 @budgets_bp.route("/configure", methods=["POST"])
 @login_required
 def save_budget():
-    """Create or update a single budget entry (PRG)."""
+    """Create or update a single standing budget target (PRG)."""
     user_id = g.user.id
 
     raw_category_id = request.form.get("category_id", "").strip()
     raw_amount = request.form.get("amount", "").strip()
-    raw_year = request.form.get("year", "").strip()
-    raw_month = request.form.get("month", "").strip()
 
     try:
         category_id = UUID(raw_category_id)
@@ -168,18 +164,12 @@ def save_budget():
         return redirect(url_for("budgets.configure_budgets"))
 
     try:
-        year = int(raw_year)
-        month = int(raw_month)
-    except (ValueError, TypeError):
-        abort(400)
-
-    try:
-        upsert_budget(user_id, category_id, amount, year, month)
+        upsert_budget(user_id, category_id, amount)
         flash("Budget saved.", "success")
     except ValueError as exc:
         flash(str(exc), "error")
 
-    return redirect(url_for("budgets.configure_budgets", year=year, month=month))
+    return redirect(url_for("budgets.configure_budgets"))
 
 
 # ---------------------------------------------------------------------------
@@ -189,17 +179,8 @@ def save_budget():
 @budgets_bp.route("/<uuid:budget_id>/delete", methods=["POST"])
 @login_required
 def delete_budget_route(budget_id: UUID):
-    """Hard-delete a budget row (PRG)."""
+    """Hard-delete a budget target (PRG)."""
     user_id = g.user.id
-
-    # Capture the period from form data so we can redirect back to the right month
-    raw_year = request.form.get("year", "").strip()
-    raw_month = request.form.get("month", "").strip()
-    try:
-        year = int(raw_year)
-        month = int(raw_month)
-    except (ValueError, TypeError):
-        year, month = _current_year_month()
 
     try:
         delete_budget(user_id, budget_id)
@@ -207,7 +188,7 @@ def delete_budget_route(budget_id: UUID):
     except ValueError:
         abort(404)
 
-    return redirect(url_for("budgets.configure_budgets", year=year, month=month))
+    return redirect(url_for("budgets.configure_budgets"))
 
 
 # ---------------------------------------------------------------------------
@@ -234,7 +215,7 @@ def propose_budget_preview():
 @budgets_bp.route("/propose", methods=["POST"])
 @login_required
 def apply_proposed_budgets_route():
-    """Write proposed budgets — gaps-only or replace-all (PRG)."""
+    """Write proposed targets — gaps-only or replace-all (PRG)."""
     user_id = g.user.id
 
     raw_year = request.form.get("year", "").strip()
@@ -250,11 +231,11 @@ def apply_proposed_budgets_route():
     proposals = propose_budgets(user_id, year, month)
 
     try:
-        written = apply_proposed_budgets(user_id, proposals, year, month, replace_existing)
+        written = apply_proposed_budgets(user_id, proposals, replace_existing)
         if written == 0:
-            flash("No new budgets applied (all categories already have budgets for this month).", "info")
+            flash("No new budgets applied (all categories already have standing targets).", "info")
         else:
-            flash(f"{written} budget(s) applied.", "success")
+            flash(f"{written} budget target(s) set.", "success")
     except Exception as exc:
         logger.error("apply_proposed_budgets failed: %s", type(exc).__name__)
         flash("An error occurred while applying proposed budgets.", "error")
