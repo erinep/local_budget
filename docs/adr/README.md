@@ -23,6 +23,9 @@ One file per non-trivial decision. Append-only.
 | [0015](0015-data-retention-on-account-deletion.md) | Data Retention on Account Deletion — Hard Cascade, No Grace Period | Accepted | 2026-05-17 |
 | [0016](0016-transactions-uploads-accounts-schema.md) | Phase 3a Schema — accounts, uploads, transactions in One Migration | Accepted | 2026-05-17 |
 | [0017](0017-transaction-engine-read-api.md) | Transaction Engine Read API — get_transactions, get_transaction | Accepted | 2026-05-17 |
+| [0018](0018-transaction-engine-write-api.md) | Transaction Engine Write API — recategorize_transaction | Accepted | 2026-05-18 |
+| [0019](0019-history-view-route-and-pagination.md) | History View Route, Filter Subset, and Pagination Contract | Accepted | 2026-05-18 |
+| [0020](0020-recategorize-ui-flow.md) | Recategorize UI Flow — Edit Page, Apply-Forward Checkbox, Redirect | Accepted | 2026-05-18 |
 
 When the first ADR lands, replace the placeholder row with a real entry. Keep entries sorted by number, ascending.
 

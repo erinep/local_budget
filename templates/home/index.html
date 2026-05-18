@@ -16,6 +16,7 @@
         <a class="card" href="{{ url_for('transactions.upload') }}" style="text-decoration: none; color: inherit; display: block;">
             <h2>Upload transactions</h2>
             <p class="section-text">Drop in a CSV export to categorize transactions and generate a monthly spending report.</p>
+            <p style="margin: 12px 0 0; font-size: 0.9rem;"><a href="{{ url_for('transactions.history') }}" style="color: var(--muted);">View history &rarr;</a></p>
         </a>
 
         <a class="card" href="{{ url_for('account_settings.categories_list') }}" style="text-decoration: none; color: inherit; display: block;">

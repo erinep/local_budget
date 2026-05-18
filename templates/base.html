@@ -15,6 +15,7 @@
             </a>
             {% if g.user %}
             <nav class="site-nav">
+                <a class="nav-link" href="{{ url_for('transactions.history') }}">Transactions</a>
                 <a class="nav-link" href="{{ url_for('account_settings.index') }}">Settings</a>
                 <span class="nav-email">{{ g.user.email }}</span>
                 <a class="nav-link" href="{{ url_for('auth.logout') }}">Sign out</a>
