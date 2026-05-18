@@ -1,21 +1,26 @@
 {% extends "base.html" %}
 
-{% block title %}Settings — Budget Parser{% endblock %}
+{% block title %}Configure — Budget Parser{% endblock %}
 
 {% block content %}
 <section class="hero">
     <div class="hero-copy">
-        <p class="eyebrow">Settings</p>
-        <h1>Configure your account.</h1>
+        <p class="eyebrow">Configure</p>
+        <h1>Your settings.</h1>
         <p class="hero-text">
-            Manage how Budget Parser behaves for you — category rules today, more controls soon.
+            Manage category rules, review uploaded files, and control your account.
         </p>
     </div>
 
-    <div class="requirements-grid">
+    <div class="requirements-grid" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
         <a class="card" href="{{ url_for('account_settings.categories_list') }}" style="text-decoration: none; color: inherit; display: block;">
             <h2>Categories</h2>
             <p class="section-text">Add, rename, and delete categories or their keywords. Import a JSON map if you have one.</p>
+        </a>
+
+        <a class="card" href="{{ url_for('transactions.files') }}" style="text-decoration: none; color: inherit; display: block;">
+            <h2>Files</h2>
+            <p class="section-text">Review and delete uploaded transaction files. Deleting a file permanently removes all its transactions.</p>
         </a>
 
         <a class="card" href="{{ url_for('account_settings.account') }}" style="text-decoration: none; color: inherit; display: block;">

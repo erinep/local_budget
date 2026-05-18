@@ -16,6 +16,8 @@ Route table:
   GET  /account-settings/import                        import_form
   POST /account-settings/import                        import_upload
 
+File management routes moved to transactions_bp per ADR-0021.
+
 ADR-0003: this blueprint calls Account Settings service functions only;
           no direct DB access.
 ADR-0004: blueprint registered in app factory at /account-settings.
@@ -61,10 +63,11 @@ account_settings_bp = Blueprint(
 @account_settings_bp.route("/", methods=["GET"])
 @login_required
 def index():
-    """Render the Settings landing page with sub-section cards.
+    """Render the Configure landing page with sub-section cards.
 
-    Per ADR-0011: no dropdown, no JS — Settings is its own landing page
-    that surfaces configuration sub-sections as cards.
+    Per ADR-0011: no dropdown, no JS — Configure is its own landing page
+    that surfaces configuration sub-sections as cards. File management
+    moved to transactions_bp per ADR-0021.
     """
     return render_template("account_settings/index.html")
 

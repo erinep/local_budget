@@ -10,11 +10,15 @@ Public API (ADR-0017, ADR-0018):
   TransactionFilters    — filter dataclass for get_transactions
   TransactionPage       — paginated result container
   Transaction           — single exported row shape
+  Upload                — single exported upload row shape
   TransactionNotFound   — raised when no row matches (user_id, transaction_id)
+  UploadNotFound        — raised by delete_upload when upload_id does not belong to user_id
   CategoryNotFound      — raised by recategorize_transaction when category_id does not belong to user_id
   RecategorizationResult — result type for recategorize_transaction
   get_transactions(user_id, filters) -> TransactionPage
   get_transaction(user_id, transaction_id) -> Transaction
+  get_uploads(user_id) -> list[Upload]
+  delete_upload(user_id, upload_id) -> None
   recategorize_transaction(user_id, transaction_id, category_id, apply_forward_keyword) -> RecategorizationResult
 
 Internal columns never exported to callers:
@@ -183,6 +187,10 @@ class TransactionNotFound(Exception):
     There is no Forbidden variant — cross-user lookups are indistinguishable
     from non-existent rows by design (ADR-0017, tenant isolation).
     """
+
+
+class UploadNotFound(Exception):
+    """Raised by delete_upload when upload_id does not belong to user_id or does not exist."""
 
 
 class CategoryNotFound(Exception):
@@ -687,3 +695,66 @@ def recategorize_transaction(
         keyword_written=keyword_written,
         keyword_conflict=keyword_conflict,
     )
+
+
+# ---------------------------------------------------------------------------
+# Upload read/delete API
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class Upload:
+    """A single exported upload row. Excludes internal file_hash."""
+    id: UUID
+    filename: str
+    uploaded_at: datetime  # UTC
+    row_count: int
+
+
+def get_uploads(user_id: str) -> "list[Upload]":
+    """Return all uploads for user_id, most-recent first.
+
+    Scoped to the user's accounts so cross-user access is impossible.
+    """
+    engine = get_engine()
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT u.id, u.filename, u.uploaded_at, u.row_count"
+                " FROM public.uploads u"
+                " JOIN public.accounts a ON a.id = u.account_id"
+                " WHERE a.user_id = :uid"
+                " ORDER BY u.uploaded_at DESC"
+            ),
+            {"uid": user_id},
+        ).fetchall()
+
+    return [
+        Upload(
+            id=UUID(str(row[0])),
+            filename=row[1],
+            uploaded_at=row[2],
+            row_count=int(row[3]),
+        )
+        for row in rows
+    ]
+
+
+def delete_upload(user_id: str, upload_id: UUID) -> None:
+    """Delete an upload and its transactions (cascade via FK).
+
+    Raises:
+        UploadNotFound: if upload_id does not exist or belongs to a different user.
+    """
+    engine = get_engine()
+    with engine.begin() as conn:
+        result = conn.execute(
+            text(
+                "DELETE FROM public.uploads"
+                " WHERE id = :uid AND account_id IN ("
+                "   SELECT id FROM public.accounts WHERE user_id = :user_id"
+                " )"
+            ),
+            {"uid": str(upload_id), "user_id": user_id},
+        )
+        if result.rowcount == 0:
+            raise UploadNotFound("Upload not found or belongs to a different user.")

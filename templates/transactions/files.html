@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Files — Budget Parser{% endblock %}
+
+{% block content %}
+<section class="page-intro" style="grid-template-columns: 1fr; margin-bottom: 8px;">
+    <div>
+        <p class="eyebrow">Files</p>
+        <h1>Uploaded files.</h1>
+        <p class="hero-text">
+            Delete a file to permanently remove it and all of its transactions.
+            This cannot be undone.
+        </p>
+    </div>
+</section>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div style="margin-bottom: 16px;">
+        {% for category, message in messages %}
+        <div style="padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: 8px;
+            {% if category == 'success' %}background: rgba(15,118,110,0.08); border: 1px solid rgba(15,118,110,0.28); color: var(--accent-strong);
+            {% elif category == 'warning' %}background: rgba(217,119,6,0.08); border: 1px solid rgba(217,119,6,0.28); color: #92400e;
+            {% else %}background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.28); color: #b91c1c;{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+{% endwith %}
+
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="font-size: 1.3rem;">All files</h2>
+        <a class="button-primary" href="{{ url_for('transactions.upload') }}" style="font-size: 0.85rem; min-height: 38px; padding: 0 14px;">
+            Upload new
+        </a>
+    </div>
+
+    {% if uploads %}
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Filename</th>
+                    <th>Uploaded</th>
+                    <th>Rows</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in uploads %}
+                <tr>
+                    <td style="font-weight: 600;">{{ f.filename }}</td>
+                    <td style="color: var(--muted); white-space: nowrap;">
+                        {{ f.uploaded_at.strftime("%b %d, %Y %H:%M") }} UTC
+                    </td>
+                    <td style="color: var(--muted);">{{ f.row_count }}</td>
+                    <td style="text-align: right;">
+                        <form method="POST"
+                              action="{{ url_for('transactions.files_delete', upload_id=f.id) }}"
+                              onsubmit="return confirm('Delete {{ f.filename }} and all {{ f.row_count }} of its transactions? This cannot be undone.');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="button-secondary"
+                                    style="font-size: 0.8rem; min-height: 32px; padding: 0 12px; color: #b91c1c; border-color: rgba(185,28,28,0.28);">
+                                Delete
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="section-text" style="margin: 0;">
+        No files uploaded yet.
+        <a href="{{ url_for('transactions.upload') }}" style="color: var(--accent); font-weight: 700;">Upload your first file.</a>
+    </p>
+    {% endif %}
+</div>
+
+<p style="margin-top: 16px; font-size: 0.88rem; color: var(--muted);">
+    <a href="{{ url_for('account_settings.index') }}">&#8592; Back to Configure</a>
+</p>
+{% endblock %}

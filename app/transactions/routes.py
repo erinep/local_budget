@@ -1,4 +1,4 @@
-"""Transaction Engine routes — upload, report, history, and recategorize.
+"""Transaction Engine routes — upload, report, history, recategorize, files.
 
 All routes require authentication (ADR-0006). The category map is loaded from
 the Account Settings service, injecting the per-user map via the same factory
@@ -9,7 +9,17 @@ Phase 3a: the upload POST handler writes to the database via _process_upload
 and renders the report from DB data via get_transactions (ADR-0016, ADR-0017).
 
 Phase 3b: adds GET /transactions (history), GET/POST /transactions/<id>/edit
-(recategorize UI) per ADR-0019 and ADR-0020.
+(recategorize UI) per ADR-0019 and ADR-0020; GET /files and
+POST /files/<id>/delete (upload file management) per ADR-0021.
+
+Route table:
+  GET  /upload                            upload (GET renders form)
+  POST /upload                            upload (POST processes CSV)
+  GET  /transactions                      history
+  GET  /transactions/<id>/edit            edit
+  POST /transactions/<id>/edit            edit_post
+  GET  /files                             files
+  POST /files/<upload_id>/delete          files_delete
 """
 
 import io
@@ -37,9 +47,12 @@ from app.transactions.services import (
     CategoryNotFound,
     TransactionFilters,
     TransactionNotFound,
+    UploadNotFound,
     _process_upload,
     get_transaction,
     get_transactions,
+    get_uploads,
+    delete_upload,
     make_categorizer,
     net_amount,
     recategorize_transaction,
@@ -484,3 +497,33 @@ def edit_post(id):
         flash("Transaction recategorized.", "success")
 
     return redirect(url_for("transactions.history"))
+
+
+# ---------------------------------------------------------------------------
+# Phase 3b: Upload file management (ADR-0021)
+# ---------------------------------------------------------------------------
+
+@transactions_bp.route("/files", endpoint="files", methods=["GET"])
+@login_required
+def files_list():
+    """List all uploaded files for the authenticated user."""
+    uploads = get_uploads(g.user.id)
+    return render_template("transactions/files.html", uploads=uploads)
+
+
+@transactions_bp.route("/files/<upload_id>/delete", endpoint="files_delete", methods=["POST"])
+@login_required
+def files_delete(upload_id: str):
+    """Delete an upload and cascade-delete all its transactions."""
+    try:
+        uid = _uuid_mod.UUID(upload_id)
+    except (ValueError, AttributeError):
+        abort(400)
+
+    try:
+        delete_upload(g.user.id, uid)
+    except UploadNotFound:
+        abort(404)
+
+    flash("File deleted and all its transactions removed.", "success")
+    return redirect(url_for("transactions.files"))
