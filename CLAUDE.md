@@ -6,8 +6,8 @@ This file is the orientation entry point. It is intentionally short. Detail live
 
 ## Status
 
-- **Current phase:** Phase 3a — Transaction Engine — Persistence
-- **Last updated:** 2026-05-17
+- **Current phase:** Phase 3c — Transaction Engine — Aggregation API
+- **Last updated:** 2026-05-18
 
 Update both fields when a phase ships.
 

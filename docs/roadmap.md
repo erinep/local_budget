@@ -9,8 +9,8 @@ Phases, work items, and exit criteria. Updated as phases ship.
 | 0 | Foundation Hardening | Shipped | 1–2 weeks | 2026-05-10 |
 | 1 | Persistence & Authentication | Shipped | 2–3 weeks | 2026-05-16 |
 | 2 | Account Settings Service | Shipped | 1–2 weeks | 2026-05-17 |
-| 3a | Transaction Engine — Persistence | In Progress | 2 weeks | — |
-| 3b | Transaction Engine — History & Editing | Not started | 1–2 weeks | — |
+| 3a | Transaction Engine — Persistence | Shipped | 2 weeks | 2026-05-18 |
+| 3b | Transaction Engine — History & Editing | Shipped | 1–2 weeks | 2026-05-18 |
 | 3c | Transaction Engine — Aggregation API | Not started | 1 week | — |
 | 4 | Budgeting Module | Not started | 2–3 weeks | — |
 | 5 | Intelligence Layer | Not started | 3–4 weeks, ongoing | — |
@@ -71,7 +71,7 @@ Three vertical slices, each independently shippable, with PRs sized for review a
 **Goal.** Move from in-memory upload processing to a persisted store. Ship a meaningful slice on its own.
 
 **Work items.**
-- Schema: `transactions` (id, user_id, date, description, amount, category_id, source_file_id), `uploads` (id, user_id, filename, uploaded_at, row_count).
+- Schema: `transactions` (id, user_id, date, description, amount, category_id, source_file_id), `uploads` (id, user_id, filename, uploaded_at).
 - Upload writes to DB; existing report reads from DB instead of processing the upload in memory.
 - Deduplication logic — uploading the same CSV twice does not double-count.
 - Minimal read API surface, only what 3a's own consumers need:
