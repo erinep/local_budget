@@ -132,56 +132,63 @@ def test_non_csv_upload_rejected(auth_client):
 # Valid CSV → report
 # ---------------------------------------------------------------------------
 
-def test_valid_csv_returns_report(auth_client):
+def test_valid_csv_redirects_to_report(auth_client):
+    # Behavior: successful upload → PRG redirect to /intelligence/report (ADR-0024 Decision 2)
     csv = make_csv([
         {"date": "2026-01-15", "desc": "TIM HORTONS", "amount": -4.50},
         {"date": "2026-01-20", "desc": "UBER",        "amount": -12.00},
     ])
     with patch("app.transactions.routes.get_category_map", return_value=_MOCK_CATEGORY_MAP), \
-         patch("app.transactions.routes._process_upload", return_value=_MOCK_UPLOAD_RESULT), \
-         patch("app.transactions.routes.get_transactions", return_value=_MOCK_TXN_PAGE):
+         patch("app.transactions.routes._process_upload", return_value=_MOCK_UPLOAD_RESULT):
         data = {"file": (csv, "transactions.csv")}
-        response = auth_client.post("/upload", data=data, content_type="multipart/form-data")
-    assert response.status_code == 200
-    assert b"Spending" in response.data
+        response = auth_client.post("/upload", data=data, content_type="multipart/form-data",
+                                    follow_redirects=False)
+    assert response.status_code == 302
+    assert "/intelligence/report" in response.headers["Location"]
 
 
 # ---------------------------------------------------------------------------
-# Transfers filtered out
+# Transfers: zero-net rows are filtered before DB write
 # ---------------------------------------------------------------------------
 
-def test_transfers_excluded_from_report(auth_client):
+def test_transfers_excluded_before_db_write(auth_client):
+    # Behavior: zero-net rows (e.g. credit card payments) are dropped from the
+    # dataframe before _process_upload is called. The upload still redirects.
     csv = make_csv([
         {"date": "2026-01-15", "desc": "TIM HORTONS",          "amount": -4.50},
         {"date": "2026-01-15", "desc": "CREDIT CARD PAYMENT",  "amount": -500.00},
     ])
+    mock_process = patch("app.transactions.routes._process_upload", return_value=_MOCK_UPLOAD_RESULT)
     with patch("app.transactions.routes.get_category_map", return_value=_MOCK_CATEGORY_MAP), \
-         patch("app.transactions.routes._process_upload", return_value=_MOCK_UPLOAD_RESULT), \
-         patch("app.transactions.routes.get_transactions", return_value=_MOCK_TXN_PAGE_TRANSFERS):
+         mock_process as mock_proc:
         data = {"file": (csv, "transactions.csv")}
-        response = auth_client.post("/upload", data=data, content_type="multipart/form-data")
-    assert response.status_code == 200
-    # Payment should be filtered by the route before DB write;
-    # the mock DB returns only TIM HORTONS, so CREDIT CARD PAYMENT is absent.
-    assert b"CREDIT CARD PAYMENT" not in response.data
+        response = auth_client.post("/upload", data=data, content_type="multipart/form-data",
+                                    follow_redirects=False)
+    assert response.status_code == 302
+    # _process_upload was called — the upload reached the DB write step.
+    mock_proc.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
-# XSS: script tags in merchant names are escaped
+# XSS: script tags in merchant names are escaped by Jinja auto-escaping.
+# The upload route no longer renders HTML — it redirects. XSS safety is now
+# a property of templates/intelligence/report.html (Jinja auto-escape on).
 # ---------------------------------------------------------------------------
 
-def test_xss_merchant_name_is_escaped(auth_client):
+def test_valid_csv_upload_does_not_render_html(auth_client):
+    # Behavior: the upload POST handler never renders the report inline;
+    # it always issues a redirect. Raw user input cannot reach a rendered
+    # response via this route.
     csv = make_csv([
         {"date": "2026-01-15", "desc": "<script>alert(1)</script>", "amount": -10.00},
     ])
     with patch("app.transactions.routes.get_category_map", return_value=_MOCK_CATEGORY_MAP), \
-         patch("app.transactions.routes._process_upload", return_value=_MOCK_UPLOAD_RESULT), \
-         patch("app.transactions.routes.get_transactions", return_value=_MOCK_TXN_PAGE_XSS):
+         patch("app.transactions.routes._process_upload", return_value=_MOCK_UPLOAD_RESULT):
         data = {"file": (csv, "transactions.csv")}
-        response = auth_client.post("/upload", data=data, content_type="multipart/form-data")
-    assert response.status_code == 200
-    assert b"<script>alert(1)</script>" not in response.data
-    assert b"&lt;script&gt;" in response.data
+        response = auth_client.post("/upload", data=data, content_type="multipart/form-data",
+                                    follow_redirects=False)
+    assert response.status_code == 302
+    assert len(response.data) == 0 or b"<script>" not in response.data
 
 
 # ---------------------------------------------------------------------------
