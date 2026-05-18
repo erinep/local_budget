@@ -745,34 +745,28 @@ class TestHeaderNav:
             "per ADR-0011 point 2."
         )
 
-    def test_authenticated_header_does_not_contain_budget_link(self, authenticated_client):
-        """Negative assertion — the header must NOT contain a 'Budget' link
-        anywhere. ADR-0011 explicitly defers Budget to Phase 4 as a peer
-        top-level module; it is not a Settings sub-section. If a Budget link
-        appears here, the classification rule has been violated.
+    def test_authenticated_header_contains_budget_nav_link(self, authenticated_client):
+        """Positive assertion — Phase 4 ships the Budgeting Module (ADR-0025).
+        The header must contain a 'Budget' anchor link (not a stub span) pointing
+        to the budgets blueprint. The old Phase 3 guard that asserted Budget was
+        absent has been superseded now that the module is live.
 
-        Match case-insensitively on a word boundary so we do not false-match
-        on substrings like 'budgeting' inside an unrelated string.
+        Checks that at least one non-brand <a> element in the header has the
+        text "Budget", confirming the stub was replaced with a real nav link.
         """
         import re
         response = authenticated_client.get("/")
         body = response.data.decode("utf-8")
-        # Extract just the header section to avoid matching <title> etc.
-        # The header is between <header ...> and </header>.
         m = re.search(r"<header[^>]*>(.*?)</header>", body, re.DOTALL | re.IGNORECASE)
         assert m is not None, "Authenticated page must render a <header> block."
         header_html = m.group(1)
-        # No "Budget" as an anchor label anywhere in the header. The brand
-        # text "Budget Parser" is the app name, not a nav link, so we scope
-        # the negative assertion to <a>…</a> link text only.
-        # Match all <a> tags with their attributes and inner text. Skip the
-        # brand link, whose label is the app name "Budget Parser" — not a
-        # nav destination.
         anchors = re.findall(r"<a\b([^>]*)>(.*?)</a>", header_html, re.DOTALL | re.IGNORECASE)
-        for attrs, text in anchors:
-            if re.search(r'class\s*=\s*"[^"]*\bbrand\b[^"]*"', attrs):
-                continue
-            assert not re.search(r"\bBudget\b", text), (
-                "Header must not contain a 'Budget' nav link — ADR-0011 defers "
-                "Budget to Phase 4 as a top-level module, not a Settings link."
-            )
+        budget_links = [
+            (attrs, text) for attrs, text in anchors
+            if not re.search(r'class\s*=\s*"[^"]*\bbrand\b[^"]*"', attrs)
+            and re.search(r"\bBudget\b", text)
+        ]
+        assert budget_links, (
+            "Header must contain a 'Budget' nav link — Phase 4 (ADR-0025) ships "
+            "the Budgeting Module as a top-level nav destination."
+        )

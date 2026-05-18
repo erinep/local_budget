@@ -16,7 +16,7 @@
             {% if g.user %}
             <nav class="site-nav">
                 <a class="nav-link" href="{{ url_for('transactions.history') }}">Transactions</a>
-                <span class="nav-link nav-link-stub" title="Coming soon">Budget</span>
+                <a class="nav-link" href="{{ url_for('budgets.budget_progress') }}">Budget</a>
                 <span class="nav-link nav-link-stub" title="Coming soon">Insights</span>
                 <a class="nav-link" href="{{ url_for('account_settings.index') }}">Configure</a>
                 <span class="nav-email">{{ g.user.email }}</span>
