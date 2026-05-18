@@ -719,7 +719,7 @@ def get_uploads(user_id: str) -> "list[Upload]":
     with engine.connect() as conn:
         rows = conn.execute(
             text(
-                "SELECT u.id, u.original_filename, u.uploaded_at, u.row_count"
+                "SELECT u.id, u.filename, u.uploaded_at, u.row_count"
                 " FROM public.uploads u"
                 " JOIN public.accounts a ON a.id = u.account_id"
                 " WHERE a.user_id = :uid"
@@ -756,6 +756,5 @@ def delete_upload(user_id: str, upload_id: UUID) -> None:
             ),
             {"uid": str(upload_id), "user_id": user_id},
         )
-
-    if result.rowcount == 0:
-        raise UploadNotFound("Upload not found or belongs to a different user.")
+        if result.rowcount == 0:
+            raise UploadNotFound("Upload not found or belongs to a different user.")
