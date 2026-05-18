@@ -6,7 +6,7 @@ directly. Cross-module access to transaction data is exclusively through the
 functions exported here. Direct queries from any other module are bugs, not
 shortcuts (ADR-0003, ADR-0004).
 
-Public API (ADR-0017, ADR-0018):
+Public API (ADR-0017, ADR-0018, ADR-0023):
   TransactionFilters    — filter dataclass for get_transactions
   TransactionPage       — paginated result container
   Transaction           — single exported row shape
@@ -15,11 +15,16 @@ Public API (ADR-0017, ADR-0018):
   UploadNotFound        — raised by delete_upload when upload_id does not belong to user_id
   CategoryNotFound      — raised by recategorize_transaction when category_id does not belong to user_id
   RecategorizationResult — result type for recategorize_transaction
+  DateRange             — inclusive date interval; factory for_month(year, month) (ADR-0023)
+  CategorySpend         — aggregated spend total for one category in a period (ADR-0023)
+  PeriodSpend           — aggregated spend across all categories for one DateRange (ADR-0023)
   get_transactions(user_id, filters) -> TransactionPage
   get_transaction(user_id, transaction_id) -> Transaction
   get_uploads(user_id) -> list[Upload]
   delete_upload(user_id, upload_id) -> None
   recategorize_transaction(user_id, transaction_id, category_id, apply_forward_keyword) -> RecategorizationResult
+  get_spend_by_category(user_id, period, account_id) -> list[CategorySpend] (ADR-0023)
+  get_spend_history(user_id, category_id, periods) -> list[PeriodSpend] (ADR-0023)
 
 Internal columns never exported to callers:
   fingerprint    — SHA-256 dedup hash (ADR-0013); internal to upload pipeline
@@ -33,6 +38,7 @@ Referenced ADRs:
   ADR-0016: Phase 3a schema specification
   ADR-0017: Transaction Engine read API contract
   ADR-0018: Transaction Engine write API — recategorize_transaction
+  ADR-0023: aggregation API — get_spend_by_category, get_spend_history
 
 PII discipline: never log raw transaction descriptions, amounts, filenames, or
 fingerprints. Use structured logging with scrubbed keys only.
@@ -760,3 +766,189 @@ def delete_upload(user_id: str, upload_id: UUID) -> None:
         )
         if result.rowcount == 0:
             raise UploadNotFound("Upload not found or belongs to a different user.")
+
+
+# ---------------------------------------------------------------------------
+# Aggregation API (ADR-0023)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class DateRange:
+    """An inclusive date interval.
+
+    Use the for_month factory to build calendar-month ranges.
+    """
+    date_from: date
+    date_to: date  # inclusive
+
+    def __post_init__(self) -> None:
+        if self.date_from > self.date_to:
+            raise ValueError("date_from must be <= date_to")
+
+    @classmethod
+    def for_month(cls, year: int, month: int) -> "DateRange":
+        """Return a DateRange spanning the full calendar month."""
+        import calendar
+        last_day = calendar.monthrange(year, month)[1]
+        return cls(date_from=date(year, month, 1), date_to=date(year, month, last_day))
+
+
+@dataclass(frozen=True)
+class CategorySpend:
+    """Aggregated spend total for one category within a DateRange.
+
+    spend is non-negative; it is the sum of abs(amount) for outflows
+    (amount < 0) in the queried period.
+    """
+    category_id: UUID | None
+    category_name: str | None
+    spend: Decimal              # non-negative; sum of abs(amount) for amount < 0
+    transaction_count: int
+
+
+@dataclass(frozen=True)
+class PeriodSpend:
+    """Aggregated spend across all categories for one DateRange."""
+    period: DateRange
+    categories: list[CategorySpend]
+    total_spend: Decimal
+
+
+def get_spend_by_category(
+    user_id: str,
+    period: DateRange,
+    account_id: UUID | None = None,
+) -> list[CategorySpend]:
+    """Return per-category spend totals for user_id within period.
+
+    Only outflow transactions (amount < 0) are included.
+    Results are ordered by spend DESC, category_name NULLS LAST.
+
+    Args:
+        user_id:    Authenticated user's UUID string.
+        period:     Inclusive date range to aggregate.
+        account_id: If provided, restrict to one account.
+
+    Returns:
+        list[CategorySpend] sorted by spend descending. Empty list when no
+        transactions match — never raises for empty results.
+    """
+    params: dict = {
+        "user_id": user_id,
+        "date_from": period.date_from,
+        "date_to": period.date_to,
+    }
+
+    account_clause = ""
+    if account_id is not None:
+        account_clause = " AND t.account_id = :account_id"
+        params["account_id"] = str(account_id)
+
+    sql = text(
+        "SELECT t.category_id, c.name AS category_name,"
+        " SUM(ABS(t.amount)) AS spend, COUNT(*) AS transaction_count"
+        " FROM public.transactions t"
+        " LEFT JOIN public.categories c ON c.id = t.category_id"
+        " WHERE t.user_id = :user_id"
+        " AND t.date >= :date_from AND t.date <= :date_to"
+        " AND t.amount < 0"
+        f"{account_clause}"
+        " GROUP BY t.category_id, c.name"
+        " ORDER BY spend DESC, category_name NULLS LAST"
+    )
+
+    engine = get_engine()
+    with engine.connect() as conn:
+        rows = conn.execute(sql, params).fetchall()
+
+    return [
+        CategorySpend(
+            category_id=UUID(str(row[0])) if row[0] is not None else None,
+            category_name=row[1],
+            spend=Decimal(str(row[2])),
+            transaction_count=int(row[3]),
+        )
+        for row in rows
+    ]
+
+
+def get_spend_history(
+    user_id: str,
+    category_id: UUID | None,
+    periods: list[DateRange],
+) -> list[PeriodSpend]:
+    """Return per-period spend totals for a single category (or uncategorized).
+
+    Issues one query per period. Periods with no transactions return a
+    PeriodSpend with empty categories and total_spend of Decimal("0").
+
+    Args:
+        user_id:     Authenticated user's UUID string.
+        category_id: Category to filter to, or None for uncategorized transactions.
+        periods:     Non-empty list of DateRange values. Order is preserved.
+
+    Returns:
+        list[PeriodSpend] in the same order as periods.
+
+    Raises:
+        ValueError: if periods is empty.
+    """
+    if not periods:
+        raise ValueError("periods must be non-empty")
+
+    results: list[PeriodSpend] = []
+    engine = get_engine()
+
+    for period in periods:
+        params: dict = {
+            "user_id": user_id,
+            "date_from": period.date_from,
+            "date_to": period.date_to,
+        }
+
+        if category_id is not None:
+            category_clause = " AND t.category_id = :cid"
+            params["cid"] = str(category_id)
+        else:
+            category_clause = " AND t.category_id IS NULL"
+
+        sql = text(
+            "SELECT t.category_id, c.name AS category_name,"
+            " SUM(ABS(t.amount)) AS spend, COUNT(*) AS transaction_count"
+            " FROM public.transactions t"
+            " LEFT JOIN public.categories c ON c.id = t.category_id"
+            " WHERE t.user_id = :user_id"
+            " AND t.date >= :date_from AND t.date <= :date_to"
+            " AND t.amount < 0"
+            f"{category_clause}"
+            " GROUP BY t.category_id, c.name"
+            " ORDER BY spend DESC, category_name NULLS LAST"
+        )
+
+        with engine.connect() as conn:
+            rows = conn.execute(sql, params).fetchall()
+
+        if not rows:
+            results.append(PeriodSpend(
+                period=period,
+                categories=[],
+                total_spend=Decimal("0"),
+            ))
+        else:
+            categories = [
+                CategorySpend(
+                    category_id=UUID(str(row[0])) if row[0] is not None else None,
+                    category_name=row[1],
+                    spend=Decimal(str(row[2])),
+                    transaction_count=int(row[3]),
+                )
+                for row in rows
+            ]
+            total = sum(c.spend for c in categories)
+            results.append(PeriodSpend(
+                period=period,
+                categories=categories,
+                total_spend=total,
+            ))
+
+    return results
