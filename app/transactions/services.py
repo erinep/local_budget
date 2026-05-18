@@ -390,8 +390,8 @@ def _process_upload(
         upload_result = conn.execute(
             text(
                 "INSERT INTO public.uploads"
-                " (user_id, account_id, filename, file_hash, row_count)"
-                " VALUES (:uid, :aid, :fn, :fh, :rc)"
+                " (user_id, account_id, filename, file_hash)"
+                " VALUES (:uid, :aid, :fn, :fh)"
                 " RETURNING id"
             ),
             {
@@ -399,7 +399,6 @@ def _process_upload(
                 "aid": account_id,
                 "fn": filename,
                 "fh": file_hash,
-                "rc": total_rows,
             },
         )
         upload_id = str(upload_result.fetchone()[0])
