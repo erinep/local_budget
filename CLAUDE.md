@@ -6,7 +6,7 @@ This file is the orientation entry point. It is intentionally short. Detail live
 
 ## Status
 
-- **Current phase:** Phase 3c — Transaction Engine — Aggregation API
+- **Current phase:** Phase 5 — Intelligence Layer
 - **Last updated:** 2026-05-18
 
 Update both fields when a phase ships.

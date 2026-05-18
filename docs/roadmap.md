@@ -11,8 +11,8 @@ Phases, work items, and exit criteria. Updated as phases ship.
 | 2 | Account Settings Service | Shipped | 1–2 weeks | 2026-05-17 |
 | 3a | Transaction Engine — Persistence | Shipped | 2 weeks | 2026-05-18 |
 | 3b | Transaction Engine — History & Editing | Shipped | 1–2 weeks | 2026-05-18 |
-| 3c | Transaction Engine — Aggregation API | Not started | 1 week | — |
-| 4 | Budgeting Module | Not started | 2–3 weeks | — |
+| 3c | Transaction Engine — Aggregation API | Shipped | 1 week | 2026-05-18 |
+| 4 | Budgeting Module | Shipped | 2–3 weeks | 2026-05-18 |
 | 5 | Intelligence Layer | Not started | 3–4 weeks, ongoing | — |
 
 Update the Status, Target, and Shipped columns when a phase moves. Update the **Current phase** field in [`../CLAUDE.md`](../CLAUDE.md) when a phase ships.
@@ -106,20 +106,18 @@ Three vertical slices, each independently shippable, with PRs sized for review a
 
 **Exit criteria.** The Transaction Engine's read API is sufficient for Phase 4 to consume without further extension. Each method has at least one consumer wired up before merge.
 
-## Phase 4 — Budgeting Module (2–3 weeks)
+## Phase 4 — Budgeting Module (2–3 weeks) ✓ Shipped 2026-05-18
 
 **Goal.** Add budget targets and actual-vs-budget tracking.
 
-**Work items.**
-- Schema: `budgets` (id, user_id, category_id, amount, period, start_date).
-- Budget configuration UI.
-- "Propose a budget" feature that reads transaction history and suggests realistic targets per category.
-- Period-based actual-vs-budget views (current month, prior month, trailing average).
-- Visual progress indicators per category (under, near limit, over).
+**Shipped work items.**
+- Schema: `budgets` (id, user_id, category_id, amount) — global standing targets per category (ADR-0026).
+- Budget configuration UI (`/budgets/configure`) — set and delete standing targets.
+- Actual-vs-budget progress view (`/budgets/`) — monthly navigation, UNDER / NEAR / OVER status indicators.
+- Propose-Budgets engine (`/budgets/propose`) — reads 3 months of spend history and suggests targets per category; gaps-only or replace-all apply modes.
+- Budgets read aggregate data from the Transaction Engine via `get_spend_by_category` (ADR-0025 / ADR-0026).
 
-**Exit criteria.** Users can configure monthly budgets per category and see their progress in real time.
-
-**Note.** Budgeting consumes the Transaction Engine read API — specifically the aggregation methods added in Phase 3c — for both the initial proposal and ongoing actual-vs-budget tracking. The budget targets themselves are user-owned and live in the Budgeting Module's own tables; the Transaction Engine is read-only from here. The actual-vs-budget computation is the Budgeting Module's own responsibility, since that arithmetic is core to what a budget feature is.
+**Exit criteria met.** Users can configure monthly budget targets per category, see actual-vs-budget progress in real time, and generate proposals from spend history.
 
 ## Phase 5 — Intelligence Layer (3–4 weeks, ongoing)
 
@@ -139,11 +137,13 @@ Work is ordered by priority. Each item ships independently before the next is st
 - Background job that runs at month-end and writes to an `insights` table.
 - Display in dashboard.
 
-### 3. Smart categorization
+### 3. Smart categorization and categorizer overhaul
 
-- Replace keyword fallback with LLM categorization for uncategorized transactions.
+- Decide categorization strategy: keyword search (current), embeddings-based similarity, LLM classification (Claude Haiku), or hybrid. Write an ADR before implementation. Key trade-offs are cost, latency, and accuracy on novel merchant names.
+- Replace or augment the current keyword fallback with the chosen approach.
 - Capture user corrections; route them back through Account Settings' single write path.
 - Cost control: cache merchant → category mappings aggressively.
+- Better categorization directly improves Propose-Budgets proposal quality (already shipped in Phase 4).
 
 ### 4. Natural language queries (stretch goal)
 
