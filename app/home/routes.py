@@ -13,7 +13,6 @@ module. See ADR-0011 point 5 for the rationale.
 All routes require an authenticated user (ADR-0006).
 """
 
-from collections import defaultdict
 from datetime import date
 from decimal import Decimal
 
@@ -39,34 +38,18 @@ def _get_spending_summary(user_id: str) -> dict:
     Degrades gracefully if the DB is unavailable.
     """
     try:
-        from app.transactions.services import TransactionFilters, get_transactions
+        from app.transactions.services import DateRange, get_spend_by_category
 
         today = date.today()
-        month_start = date(today.year, today.month, 1)
-        filters = TransactionFilters(
-            date_from=month_start,
-            date_to=today,
-            limit=500,
-        )
-        page = get_transactions(user_id, filters)
-
-        if not page.items:
+        period = DateRange(date_from=date(today.year, today.month, 1), date_to=today)
+        rows = get_spend_by_category(user_id, period)
+        if not rows:
             return {"has_transactions": False, "total_spend": Decimal("0"), "breakdown": []}
-
-        by_category: dict[str, Decimal] = defaultdict(Decimal)
-        total = Decimal("0")
-        for txn in page.items:
-            if txn.amount < 0:
-                spend = abs(txn.amount)
-                total += spend
-                label = txn.category_name or "Uncategorized"
-                by_category[label] += spend
-
-        top3 = sorted(by_category.items(), key=lambda x: x[1], reverse=True)[:3]
-        return {
-            "has_transactions": True,
-            "total_spend": total,
-            "breakdown": [{"label": k, "amount": v} for k, v in top3],
-        }
+        total = sum(r.spend for r in rows)
+        breakdown = [
+            {"label": r.category_name or "Uncategorized", "amount": r.spend}
+            for r in rows[:3]
+        ]
+        return {"has_transactions": True, "total_spend": total, "breakdown": breakdown}
     except Exception:
         return {"has_transactions": False, "total_spend": Decimal("0"), "breakdown": []}
