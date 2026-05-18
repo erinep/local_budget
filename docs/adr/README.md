@@ -28,6 +28,10 @@ One file per non-trivial decision. Append-only.
 | [0020](0020-recategorize-ui-flow.md) | Recategorize UI Flow — Edit Page, Apply-Forward Checkbox, Redirect | Accepted | 2026-05-18 |
 | [0021](0021-upload-file-management-route-ownership.md) | Upload File Management Route Ownership — Transaction Engine Blueprint | Accepted | 2026-05-18 |
 | [0022](0022-uploads-live-transaction-count.md) | Uploads: Replace Stored Row Count with Live Transaction Count | Accepted | 2026-05-18 |
+| [0023](0023-aggregation-api.md) | Transaction Engine Aggregation API — get_spend_by_category and get_spend_history | Accepted | 2026-05-18 |
+| [0024](0024-intelligence-layer-report-ownership.md) | Intelligence Layer Report Ownership — Module Assignment, URL Structure, and Rendering Architecture | Accepted | 2026-05-18 |
+| [0025](0025-budgeting-module.md) | Budgeting Module — Schema, Service API, and Route Design | Partially superseded by ADR-0026 | 2026-05-18 |
+| [0026](0026-budgets-global-targets.md) | Budgets — Global Targets, Not Month-Specific Rows | Accepted | 2026-05-18 |
 
 When the first ADR lands, replace the placeholder row with a real entry. Keep entries sorted by number, ascending.
 

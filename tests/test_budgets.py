@@ -79,8 +79,6 @@ _BUDGET_A = Budget(
     category_id=_CAT_ID_A,
     category_name="Groceries",
     amount=Decimal("500.00"),
-    budget_year=2026,
-    budget_month=5,
 )
 
 _PROGRESS_A = BudgetProgress(
@@ -155,7 +153,7 @@ class TestBudgetType:
         assert Budget.__dataclass_params__.frozen  # type: ignore[attr-defined]
 
     def test_has_required_fields(self):
-        # Behavior: all seven documented fields present, nothing more or less
+        # Behavior: all five documented fields present, nothing more or less
         field_names = {f.name for f in dataclasses.fields(Budget)}
         assert field_names == {
             "id",
@@ -163,8 +161,6 @@ class TestBudgetType:
             "category_id",
             "category_name",
             "amount",
-            "budget_year",
-            "budget_month",
         }
 
     def test_is_immutable(self):
@@ -175,8 +171,6 @@ class TestBudgetType:
             category_id=_CAT_ID_A,
             category_name="Test",
             amount=Decimal("100.00"),
-            budget_year=2026,
-            budget_month=5,
         )
         with pytest.raises((dataclasses.FrozenInstanceError, AttributeError)):
             b.amount = Decimal("200.00")  # type: ignore[misc]
@@ -277,8 +271,6 @@ class TestGetBudgetProgressJoinLogic:
             category_id=_CAT_ID_A,
             category_name="Groceries",
             amount=Decimal("500.00"),
-            budget_year=2026,
-            budget_month=5,
         )
         spend = _make_category_spend(_CAT_ID_A, "Groceries", "300.00")
         result = self._run([budget], [spend])
@@ -298,8 +290,6 @@ class TestGetBudgetProgressJoinLogic:
             category_id=_CAT_ID_A,
             category_name="Groceries",
             amount=Decimal("500.00"),
-            budget_year=2026,
-            budget_month=5,
         )
         result = self._run([budget], [])
 
@@ -326,8 +316,6 @@ class TestGetBudgetProgressJoinLogic:
             category_id=_CAT_ID_A,
             category_name="Misc",
             amount=Decimal("0"),
-            budget_year=2026,
-            budget_month=5,
         )
         spend = _make_category_spend(_CAT_ID_A, "Misc", "10.00")
         result = self._run([budget], [spend])
@@ -343,8 +331,6 @@ class TestGetBudgetProgressJoinLogic:
             category_id=_CAT_ID_A,
             category_name="Misc",
             amount=Decimal("0"),
-            budget_year=2026,
-            budget_month=5,
         )
         result = self._run([budget], [])
 
@@ -359,8 +345,6 @@ class TestGetBudgetProgressJoinLogic:
             category_id=_CAT_ID_A,
             category_name="Groceries",
             amount=Decimal("100.00"),
-            budget_year=2026,
-            budget_month=5,
         )
         # 79% spend
         spend = _make_category_spend(_CAT_ID_A, "Groceries", "79.00")
@@ -376,8 +360,6 @@ class TestGetBudgetProgressJoinLogic:
             category_id=_CAT_ID_A,
             category_name="Groceries",
             amount=Decimal("100.00"),
-            budget_year=2026,
-            budget_month=5,
         )
         spend = _make_category_spend(_CAT_ID_A, "Groceries", "80.00")
         result = self._run([budget], [spend])
@@ -392,8 +374,6 @@ class TestGetBudgetProgressJoinLogic:
             category_id=_CAT_ID_A,
             category_name="Groceries",
             amount=Decimal("100.00"),
-            budget_year=2026,
-            budget_month=5,
         )
         spend = _make_category_spend(_CAT_ID_A, "Groceries", "100.00")
         result = self._run([budget], [spend])
@@ -408,8 +388,6 @@ class TestGetBudgetProgressJoinLogic:
             category_id=_CAT_ID_A,
             category_name="Groceries",
             amount=Decimal("100.00"),
-            budget_year=2026,
-            budget_month=5,
         )
         spend = _make_category_spend(_CAT_ID_A, "Groceries", "100.01")
         result = self._run([budget], [spend])
@@ -424,47 +402,27 @@ class TestGetBudgetProgressJoinLogic:
 
 
 class TestUpsertBudgetValidation:
-    """upsert_budget raises ValueError before touching the DB on invalid inputs (ADR-0025)."""
+    """upsert_budget raises ValueError before touching the DB on invalid inputs (ADR-0026)."""
 
-    def _call(self, amount, year, month):
+    def _call(self, amount):
         """Attempt upsert with a mocked DB call that should never fire."""
         with patch("app.budgets.services.get_engine") as mock_engine:
-            return upsert_budget(_USER_ID, _CAT_ID_A, amount, year, month)
+            return upsert_budget(_USER_ID, _CAT_ID_A, amount)
 
     def test_negative_amount_raises_value_error(self):
         # Behavior: amount < 0 → ValueError before any DB call
         with pytest.raises(ValueError):
-            self._call(Decimal("-0.01"), 2026, 5)
-
-    def test_month_zero_raises_value_error(self):
-        # Behavior: month=0 is not in 1..12 → ValueError
-        with pytest.raises(ValueError):
-            self._call(Decimal("100"), 2026, 0)
-
-    def test_month_thirteen_raises_value_error(self):
-        # Behavior: month=13 is not in 1..12 → ValueError
-        with pytest.raises(ValueError):
-            self._call(Decimal("100"), 2026, 13)
-
-    def test_year_1999_raises_value_error(self):
-        # Behavior: year=1999 < 2000 → ValueError
-        with pytest.raises(ValueError):
-            self._call(Decimal("100"), 1999, 5)
-
-    def test_year_2101_raises_value_error(self):
-        # Behavior: year=2101 > 2100 → ValueError
-        with pytest.raises(ValueError):
-            self._call(Decimal("100"), 2101, 5)
+            self._call(Decimal("-0.01"))
 
 
 class TestApplyProposedBudgetsLogic:
-    """apply_proposed_budgets short-circuits on empty proposals (ADR-0025, error model)."""
+    """apply_proposed_budgets short-circuits on empty proposals (ADR-0026, error model)."""
 
     def test_empty_proposals_returns_zero_immediately(self):
         # Behavior: no DB call, returns 0 when proposals list is empty
         mock_engine = MagicMock()
         with patch("app.budgets.services.get_engine", return_value=mock_engine):
-            result = apply_proposed_budgets(_USER_ID, [], 2026, 5)
+            result = apply_proposed_budgets(_USER_ID, [])
         assert result == 0
         # No connection should have been established
         mock_engine.begin.assert_not_called()
@@ -544,8 +502,6 @@ class TestSaveBudgetRoute:
     _VALID_FORM = {
         "category_id": str(_CAT_ID_A),
         "amount": "500.00",
-        "year": "2026",
-        "month": "5",
     }
 
     def test_unauthenticated_redirects(self, client):
@@ -583,13 +539,12 @@ class TestDeleteBudgetRoute:
     """POST /budgets/<budget_id>/delete — auth gate, success redirect, ValueError → 404."""
 
     _VALID_ID = str(_BUDGET_ID)
-    _PERIOD_FORM = {"year": "2026", "month": "5"}
 
     def test_unauthenticated_redirects(self, client):
         # Behavior: unauthenticated → 302
         response = client.post(
             f"/budgets/{self._VALID_ID}/delete",
-            data=self._PERIOD_FORM,
+            data={},
             follow_redirects=False,
         )
         assert response.status_code == 302
@@ -600,7 +555,7 @@ class TestDeleteBudgetRoute:
         with patch(_DELETE_BUDGET, return_value=None):
             response = authenticated_client.post(
                 f"/budgets/{self._VALID_ID}/delete",
-                data=self._PERIOD_FORM,
+                data={},
                 follow_redirects=False,
             )
         assert response.status_code == 302
@@ -611,7 +566,7 @@ class TestDeleteBudgetRoute:
         with patch(_DELETE_BUDGET, side_effect=ValueError("Budget not found or does not belong to this user.")):
             response = authenticated_client.post(
                 f"/budgets/{self._VALID_ID}/delete",
-                data=self._PERIOD_FORM,
+                data={},
             )
         assert response.status_code == 404
 
@@ -723,8 +678,6 @@ def _insert_budget(
     user_id: str,
     category_id: str,
     amount: str = "200.00",
-    year: int = 2026,
-    month: int = 5,
 ) -> str:
     """Insert a budget row directly, return its UUID string."""
     engine = sa.create_engine(DATABASE_URL)
@@ -732,16 +685,14 @@ def _insert_budget(
         budget_id = conn.execute(
             sa.text(
                 "INSERT INTO public.budgets"
-                " (user_id, category_id, amount, budget_year, budget_month)"
-                " VALUES (:uid, :cid, :amount, :year, :month)"
+                " (user_id, category_id, amount)"
+                " VALUES (:uid, :cid, :amount)"
                 " RETURNING id"
             ),
             {
                 "uid": user_id,
                 "cid": category_id,
                 "amount": amount,
-                "year": year,
-                "month": month,
             },
         ).scalar()
     return str(budget_id)
@@ -764,16 +715,16 @@ class TestGetBudgetsDB:
     def test_returns_empty_for_new_user(self, app_ctx):
         # Behavior: no budgets exist yet → []
         user_id = _uid()
-        result = get_budgets(user_id, 2026, 5)
+        result = get_budgets(user_id)
         assert result == []
 
     def test_returns_budget_for_user(self, app_ctx):
         # Behavior: inserted row is returned as a Budget dataclass
         user_id = _uid()
         category_id = _insert_category(user_id, "Groceries")
-        budget_id = _insert_budget(user_id, category_id, amount="300.00", year=2026, month=5)
+        budget_id = _insert_budget(user_id, category_id, amount="300.00")
 
-        result = get_budgets(user_id, 2026, 5)
+        result = get_budgets(user_id)
 
         assert len(result) == 1
         b = result[0]
@@ -796,8 +747,6 @@ class TestUpsertBudgetDB:
             user_id,
             uuid.UUID(category_id),
             Decimal("150.00"),
-            2026,
-            5,
         )
 
         assert isinstance(result, Budget)
@@ -805,16 +754,16 @@ class TestUpsertBudgetDB:
         assert result.category_name == "Transport"
 
     def test_second_call_updates_amount(self, app_ctx):
-        # Behavior: calling upsert twice for the same category/month updates amount
+        # Behavior: calling upsert twice for the same category updates amount
         user_id = _uid()
         category_id = _insert_category(user_id, "Dining")
 
-        upsert_budget(user_id, uuid.UUID(category_id), Decimal("200.00"), 2026, 5)
-        result = upsert_budget(user_id, uuid.UUID(category_id), Decimal("350.00"), 2026, 5)
+        upsert_budget(user_id, uuid.UUID(category_id), Decimal("200.00"))
+        result = upsert_budget(user_id, uuid.UUID(category_id), Decimal("350.00"))
 
         assert result.amount == Decimal("350.00")
         # Only one row should exist (upsert, not duplicate insert)
-        rows = get_budgets(user_id, 2026, 5)
+        rows = get_budgets(user_id)
         assert len(rows) == 1
 
 
@@ -826,7 +775,7 @@ class TestDeleteBudgetDB:
         # Behavior: delete removes the row from the database
         user_id = _uid()
         category_id = _insert_category(user_id)
-        budget_id = _insert_budget(user_id, category_id)
+        budget_id = _insert_budget(user_id, category_id, amount="200.00")
 
         assert _budget_row_exists(budget_id)
         delete_budget(user_id, uuid.UUID(budget_id))
@@ -871,11 +820,11 @@ class TestApplyProposedBudgetsDB:
     """apply_proposed_budgets with replace_existing=False skips existing rows (ADR-0025)."""
 
     def test_skips_existing_budget_when_replace_existing_false(self, app_ctx):
-        # Behavior: if a budget already exists for the category/month,
+        # Behavior: if a standing budget already exists for the category,
         # and replace_existing=False, it is skipped and written count does not include it
         user_id = _uid()
         category_id = _insert_category(user_id, "Existing Category")
-        _insert_budget(user_id, category_id, amount="100.00", year=2026, month=6)
+        _insert_budget(user_id, category_id, amount="100.00")
 
         proposal = ProposedBudget(
             category_id=uuid.UUID(category_id),
@@ -888,14 +837,12 @@ class TestApplyProposedBudgetsDB:
         written = apply_proposed_budgets(
             user_id,
             [proposal],
-            year=2026,
-            month=6,
             replace_existing=False,
         )
 
         assert written == 0
 
         # The original amount must still be 100.00, not overwritten by 999.00
-        budgets = get_budgets(user_id, 2026, 6)
+        budgets = get_budgets(user_id)
         assert len(budgets) == 1
         assert budgets[0].amount == Decimal("100.00")

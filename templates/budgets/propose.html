@@ -62,10 +62,7 @@
 
     <div class="card">
         <p style="margin-bottom: 16px; color: #374151;">
-            Choose how to apply these proposals to
-            <strong>{{ ["January","February","March","April","May","June",
-                "July","August","September","October","November","December"][month - 1] }}
-            {{ year }}</strong>:
+            Apply these as your standing monthly targets:
         </p>
         <div style="display: flex; gap: 12px; flex-wrap: wrap;">
             <form method="post" action="{{ url_for('budgets.apply_proposed_budgets_route') }}">
@@ -76,7 +73,7 @@
                 <button type="submit" class="btn btn-primary">Apply (gaps only)</button>
             </form>
             <form method="post" action="{{ url_for('budgets.apply_proposed_budgets_route') }}"
-                  onsubmit="return confirm('This will overwrite any existing budgets for this month. Continue?');">
+                  onsubmit="return confirm('This will overwrite any existing budget targets. Continue?');">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="year" value="{{ year }}">
                 <input type="hidden" name="month" value="{{ month }}">
@@ -85,7 +82,7 @@
             </form>
         </div>
         <p style="margin-top: 12px; font-size: 0.875rem; color: #6b7280;">
-            <strong>Apply (gaps only)</strong> skips categories that already have a budget for this month.
+            <strong>Apply (gaps only)</strong> skips categories that already have a standing target.
             <strong>Replace all</strong> overwrites everything.
         </p>
     </div>
