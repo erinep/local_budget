@@ -44,8 +44,21 @@ def app_ctx():
 
 
 def _uid() -> str:
-    """Return a UUID string guaranteed to have no category data."""
-    return str(uuid.uuid4())
+    """Return a UUID string for a freshly inserted auth.users row.
+
+    Migration 0003 added ON DELETE CASCADE from categories.user_id to
+    auth.users(id). Tests that write categories must have a real user row
+    in auth.users first or the FK constraint rejects the insert.
+    """
+    import sqlalchemy as sa
+    user_id = str(uuid.uuid4())
+    engine = sa.create_engine(DATABASE_URL)
+    with engine.begin() as conn:
+        conn.execute(
+            sa.text("INSERT INTO auth.users (id) VALUES (:uid)"),
+            {"uid": user_id},
+        )
+    return user_id
 
 
 # ---------------------------------------------------------------------------
