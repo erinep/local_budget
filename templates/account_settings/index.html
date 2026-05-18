@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 
-{% block title %}Settings — Budget Parser{% endblock %}
+{% block title %}Configure — Budget Parser{% endblock %}
 
 {% block content %}
 <section class="hero">
     <div class="hero-copy">
-        <p class="eyebrow">Settings</p>
-        <h1>Configure your account.</h1>
+        <p class="eyebrow">Configure</p>
+        <h1>Your settings.</h1>
         <p class="hero-text">
-            Manage how Budget Parser behaves for you — category rules today, more controls soon.
+            Manage category rules, review uploaded files, and control your account.
         </p>
     </div>
 
@@ -24,4 +24,65 @@
         </a>
     </div>
 </section>
+
+{# Files section #}
+<div class="card" style="margin-top: 8px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h2 style="font-size: 1.3rem;">Uploaded Files</h2>
+        <a class="button-primary" href="{{ url_for('transactions.upload') }}" style="font-size: 0.85rem; min-height: 38px; padding: 0 14px;">
+            Upload new
+        </a>
+    </div>
+
+    {% if uploads %}
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Filename</th>
+                    <th>Uploaded</th>
+                    <th>Rows</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in uploads %}
+                <tr>
+                    <td style="font-weight: 600;">{{ f.filename }}</td>
+                    <td style="color: var(--muted); white-space: nowrap;">
+                        {{ f.uploaded_at.strftime("%b %d, %Y %H:%M") }} UTC
+                    </td>
+                    <td style="color: var(--muted);">{{ f.row_count }}</td>
+                    <td style="text-align: right;">
+                        <form method="POST" action="{{ url_for('account_settings.delete_file', upload_id=f.id) }}"
+                              onsubmit="return confirm('Delete this file and all {{ f.row_count }} of its transactions? This cannot be undone.');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="button-secondary" style="font-size: 0.8rem; min-height: 32px; padding: 0 12px; color: #b91c1c; border-color: rgba(185,28,28,0.28);">
+                                Delete
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="section-text" style="margin: 0;">No files uploaded yet.</p>
+    {% endif %}
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div style="margin-top: 16px;">
+        {% for category, message in messages %}
+        <div style="padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: 8px;
+            {% if category == 'success' %}background: rgba(15,118,110,0.08); border: 1px solid rgba(15,118,110,0.28); color: var(--accent-strong);
+            {% else %}background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.28); color: #b91c1c;{% endif %}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+{% endwith %}
 {% endblock %}

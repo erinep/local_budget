@@ -15,6 +15,7 @@ Route table:
   POST /account-settings/categories/<id>/keywords/<id>/delete  keywords_remove
   GET  /account-settings/import                        import_form
   POST /account-settings/import                        import_upload
+  POST /account-settings/files/<upload_id>/delete      delete_file
 
 ADR-0003: this blueprint calls Account Settings service functions only;
           no direct DB access.
@@ -23,10 +24,12 @@ ADR-0004: blueprint registered in app factory at /account-settings.
 
 import json
 import logging
+from uuid import UUID
 
 from flask import (
     Blueprint,
     abort,
+    flash,
     g,
     redirect,
     render_template,
@@ -46,6 +49,11 @@ from app.account_settings.services import (
     remove_keyword,
     rename_category,
 )
+from app.transactions.services import (
+    UploadNotFound,
+    delete_upload,
+    get_uploads,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -61,12 +69,13 @@ account_settings_bp = Blueprint(
 @account_settings_bp.route("/", methods=["GET"])
 @login_required
 def index():
-    """Render the Settings landing page with sub-section cards.
-
-    Per ADR-0011: no dropdown, no JS — Settings is its own landing page
-    that surfaces configuration sub-sections as cards.
-    """
-    return render_template("account_settings/index.html")
+    """Render the Configure landing page with categories, files, and account cards."""
+    user_id = g.user.id
+    try:
+        uploads = get_uploads(user_id)
+    except Exception:
+        uploads = []
+    return render_template("account_settings/index.html", uploads=uploads)
 
 
 @account_settings_bp.route("/account", methods=["GET"])
@@ -318,3 +327,27 @@ def import_upload():
         )
 
     return redirect(url_for("account_settings.categories_list"))
+
+
+# ---------------------------------------------------------------------------
+# Files — delete
+# ---------------------------------------------------------------------------
+
+@account_settings_bp.route("/files/<upload_id>/delete", methods=["POST"])
+@login_required
+def delete_file(upload_id: str):
+    """Delete an upload and cascade-delete its transactions."""
+    user_id = g.user.id
+
+    try:
+        uid = UUID(upload_id)
+    except (ValueError, AttributeError):
+        abort(400)
+
+    try:
+        delete_upload(user_id, uid)
+        flash("File deleted.", "success")
+    except UploadNotFound:
+        flash("File not found.", "error")
+
+    return redirect(url_for("account_settings.index"))
