@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Budget — {{ year }}-{{ "%02d"|format(month) }} — Budget Parser{% endblock %}
+
+{% block content %}
+<div class="section-stack">
+    <div class="page-intro">
+        <div class="section-heading">
+            <p class="eyebrow">Budgeting</p>
+            <h1 style="font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif; font-size: clamp(1.8rem, 4vw, 2.6rem); letter-spacing: -0.03em; max-width: none;">
+                Budget Progress
+            </h1>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+        <p class="auth-{{ 'error' if category == 'error' else ('warning' if category == 'warning' else 'success') }}"
+           role="{{ 'alert' if category in ('error', 'warning') else 'status' }}">{{ message }}</p>
+        {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    {# Month navigation #}
+    <div class="card" style="display: flex; align-items: center; gap: 16px;">
+        <a class="btn btn-secondary"
+           href="{{ url_for('budgets.budget_progress', year=prev_year, month=prev_month) }}">&larr; Prev</a>
+        <strong style="flex: 1; text-align: center; font-size: 1.1rem;">
+            {{ ["January","February","March","April","May","June",
+                "July","August","September","October","November","December"][month - 1] }}
+            {{ year }}
+        </strong>
+        <a class="btn btn-secondary"
+           href="{{ url_for('budgets.budget_progress', year=next_year, month=next_month) }}">Next &rarr;</a>
+    </div>
+
+    {# Action links #}
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <a class="btn btn-primary" href="{{ url_for('budgets.configure_budgets', year=year, month=month) }}">Configure Budgets</a>
+        <a class="btn btn-secondary" href="{{ url_for('budgets.propose_budget_preview', year=year, month=month) }}">Propose Budgets</a>
+    </div>
+
+    {% if progress %}
+    <div class="card" style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="border-bottom: 2px solid var(--border, #e5e7eb);">
+                    <th style="text-align: left; padding: 8px 12px;">Category</th>
+                    <th style="text-align: right; padding: 8px 12px;">Target</th>
+                    <th style="text-align: right; padding: 8px 12px;">Actual</th>
+                    <th style="text-align: right; padding: 8px 12px;">Variance</th>
+                    <th style="text-align: left; padding: 8px 12px; min-width: 120px;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for row in progress %}
+                {% if row.status.value == 'over' %}
+                    {% set status_color = '#dc2626' %}
+                    {% set status_label = 'Over budget' %}
+                {% elif row.status.value == 'near' %}
+                    {% set status_color = '#d97706' %}
+                    {% set status_label = 'Near limit' %}
+                {% else %}
+                    {% set status_color = '#16a34a' %}
+                    {% set status_label = 'Under budget' %}
+                {% endif %}
+                <tr style="border-bottom: 1px solid var(--border, #e5e7eb);">
+                    <td style="padding: 10px 12px;">
+                        {% if row.category_name %}
+                            {{ row.category_name }}
+                        {% else %}
+                            <em style="color: #6b7280;">Uncategorized</em>
+                        {% endif %}
+                        {% if row.budget is none %}
+                            <span style="font-size: 0.75rem; color: #9ca3af; margin-left: 4px;">(no budget set)</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right; padding: 10px 12px;">
+                        {% if row.target > 0 %}${{ "%.2f"|format(row.target) }}{% else %}&mdash;{% endif %}
+                    </td>
+                    <td style="text-align: right; padding: 10px 12px;">
+                        ${{ "%.2f"|format(row.actual) }}
+                    </td>
+                    <td style="text-align: right; padding: 10px 12px; color: {{ '#dc2626' if row.variance < 0 else '#16a34a' }};">
+                        {% if row.target > 0 %}
+                            {% if row.variance >= 0 %}+{% endif %}${{ "%.2f"|format(row.variance) }}
+                        {% else %}
+                            &mdash;
+                        {% endif %}
+                    </td>
+                    <td style="padding: 10px 12px;">
+                        <span style="display: inline-flex; align-items: center; gap: 6px;">
+                            <span style="width: 10px; height: 10px; border-radius: 50%; background: {{ status_color }}; flex-shrink: 0;"></span>
+                            <span style="color: {{ status_color }}; font-size: 0.875rem; font-weight: 500;">{{ status_label }}</span>
+                        </span>
+                        {% if row.target > 0 %}
+                        <div style="margin-top: 4px; height: 4px; background: #e5e7eb; border-radius: 2px; overflow: hidden; max-width: 100px;">
+                            <div style="height: 100%; width: {{ [row.pct_used|float, 100]|min }}%; background: {{ status_color }}; border-radius: 2px;"></div>
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="card">
+        <p style="color: #6b7280;">No budgets or spend data for this month.</p>
+        <p>
+            <a href="{{ url_for('budgets.configure_budgets', year=year, month=month) }}">Set up budgets</a>
+            or
+            <a href="{{ url_for('budgets.propose_budget_preview', year=year, month=month) }}">let us propose some based on your history</a>.
+        </p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

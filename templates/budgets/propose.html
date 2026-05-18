@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Propose Budgets — {{ year }}-{{ "%02d"|format(month) }} — Budget Parser{% endblock %}
+
+{% block content %}
+<div class="section-stack">
+    <div class="page-intro">
+        <div class="section-heading">
+            <p class="eyebrow">Budgeting</p>
+            <h1 style="font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif; font-size: clamp(1.8rem, 4vw, 2.6rem); letter-spacing: -0.03em; max-width: none;">
+                Propose Budgets
+            </h1>
+        </div>
+        <p style="color: #6b7280; margin-top: 4px;">
+            Based on spending history from the 3 months before
+            {{ ["January","February","March","April","May","June",
+                "July","August","September","October","November","December"][month - 1] }}
+            {{ year }}.
+        </p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+        <p class="auth-{{ 'error' if category == 'error' else ('warning' if category == 'warning' else 'success') }}"
+           role="{{ 'alert' if category in ('error', 'warning') else 'status' }}">{{ message }}</p>
+        {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <div>
+        <a class="btn btn-secondary" href="{{ url_for('budgets.budget_progress', year=year, month=month) }}">&larr; Back to Progress</a>
+    </div>
+
+    {% if proposals %}
+    <div class="card" style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="border-bottom: 2px solid var(--border, #e5e7eb);">
+                    <th style="text-align: left; padding: 8px 12px;">Category</th>
+                    <th style="text-align: right; padding: 8px 12px;">Proposed Target</th>
+                    <th style="text-align: right; padding: 8px 12px;">Avg Monthly Spend</th>
+                    <th style="text-align: right; padding: 8px 12px;">Months of Data</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for p in proposals %}
+                <tr style="border-bottom: 1px solid var(--border, #e5e7eb);">
+                    <td style="padding: 10px 12px;">{{ p.category_name }}</td>
+                    <td style="text-align: right; padding: 10px 12px; font-weight: 600;">${{ "%.0f"|format(p.proposed_amount) }}</td>
+                    <td style="text-align: right; padding: 10px 12px; color: #6b7280;">${{ "%.2f"|format(p.average_monthly_spend) }}</td>
+                    <td style="text-align: right; padding: 10px 12px;">
+                        {{ p.months_of_data }}
+                        {% if p.months_of_data < 3 %}
+                        <span style="font-size: 0.75rem; color: #d97706;" title="Limited history — estimate may be less accurate.">&#9651;</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <p style="margin-bottom: 16px; color: #374151;">
+            Choose how to apply these proposals to
+            <strong>{{ ["January","February","March","April","May","June",
+                "July","August","September","October","November","December"][month - 1] }}
+            {{ year }}</strong>:
+        </p>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <form method="post" action="{{ url_for('budgets.apply_proposed_budgets_route') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="year" value="{{ year }}">
+                <input type="hidden" name="month" value="{{ month }}">
+                <input type="hidden" name="replace_existing" value="false">
+                <button type="submit" class="btn btn-primary">Apply (gaps only)</button>
+            </form>
+            <form method="post" action="{{ url_for('budgets.apply_proposed_budgets_route') }}"
+                  onsubmit="return confirm('This will overwrite any existing budgets for this month. Continue?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="year" value="{{ year }}">
+                <input type="hidden" name="month" value="{{ month }}">
+                <input type="hidden" name="replace_existing" value="true">
+                <button type="submit" class="btn btn-secondary">Replace all</button>
+            </form>
+        </div>
+        <p style="margin-top: 12px; font-size: 0.875rem; color: #6b7280;">
+            <strong>Apply (gaps only)</strong> skips categories that already have a budget for this month.
+            <strong>Replace all</strong> overwrites everything.
+        </p>
+    </div>
+    {% else %}
+    <div class="card">
+        <p style="color: #6b7280;">No spending history found in the 3 months before this period. Upload some transactions first, then come back.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

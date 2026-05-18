@@ -156,6 +156,9 @@ def create_app(config=None):
     from app.transactions.routes import transactions_bp
     app.register_blueprint(transactions_bp)
 
+    from app.budgets.routes import budgets_bp
+    app.register_blueprint(budgets_bp)
+
     # Register the authentication before_request hook.
     # ADR-0006: load_user populates flask.g.user from the signed session cookie.
     from app.middleware.auth import load_user
