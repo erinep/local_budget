@@ -268,7 +268,7 @@ def build_report_view_model(user_id: str, period_months: int = 6) -> dict | None
         if t.description not in seen_descs:
             seen_descs.add(t.description)
             merchants.append({
-                "Description 1": t.description,
+                "description": t.description,
                 "Category": t.category_name or "Slush Fund",
             })
 

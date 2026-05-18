@@ -288,7 +288,7 @@ class TestBuildReportViewModelShape:
 
         assert result is not None
         merchants = result["merchants"]
-        descriptions = [m["Description 1"] for m in merchants]
+        descriptions = [m["description"] for m in merchants]
         assert len(descriptions) == len(set(descriptions)), (
             "merchants list must not contain duplicate descriptions"
         )
