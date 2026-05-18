@@ -192,8 +192,8 @@ def _setup_transaction(
         upload_id = conn.execute(
             sa.text(
                 "INSERT INTO public.uploads"
-                " (user_id, account_id, filename, file_hash, row_count)"
-                " VALUES (:uid, :acid, 'test.csv', :fhash, 1)"
+                " (user_id, account_id, filename, file_hash)"
+                " VALUES (:uid, :acid, 'test.csv', :fhash)"
                 " RETURNING id"
             ),
             {

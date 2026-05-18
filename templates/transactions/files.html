@@ -44,7 +44,7 @@
                 <tr>
                     <th>Filename</th>
                     <th>Uploaded</th>
-                    <th>Rows</th>
+                    <th>Transactions</th>
                     <th></th>
                 </tr>
             </thead>
@@ -55,11 +55,11 @@
                     <td style="color: var(--muted); white-space: nowrap;">
                         {{ f.uploaded_at.strftime("%b %d, %Y %H:%M") }} UTC
                     </td>
-                    <td style="color: var(--muted);">{{ f.row_count }}</td>
+                    <td style="color: var(--muted);">{{ f.transaction_count }}</td>
                     <td style="text-align: right;">
                         <form method="POST"
                               action="{{ url_for('transactions.files_delete', upload_id=f.id) }}"
-                              onsubmit="return confirm('Delete {{ f.filename }} and all {{ f.row_count }} of its transactions? This cannot be undone.');">
+                              onsubmit="return confirm('Delete {{ f.filename }} and all {{ f.transaction_count }} of its transactions? This cannot be undone.');">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="button-secondary"
                                     style="font-size: 0.8rem; min-height: 32px; padding: 0 12px; color: #b91c1c; border-color: rgba(185,28,28,0.28);">

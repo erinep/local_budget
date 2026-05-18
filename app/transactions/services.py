@@ -390,8 +390,8 @@ def _process_upload(
         upload_result = conn.execute(
             text(
                 "INSERT INTO public.uploads"
-                " (user_id, account_id, filename, file_hash, row_count)"
-                " VALUES (:uid, :aid, :fn, :fh, :rc)"
+                " (user_id, account_id, filename, file_hash)"
+                " VALUES (:uid, :aid, :fn, :fh)"
                 " RETURNING id"
             ),
             {
@@ -399,7 +399,6 @@ def _process_upload(
                 "aid": account_id,
                 "fn": filename,
                 "fh": file_hash,
-                "rc": total_rows,
             },
         )
         upload_id = str(upload_result.fetchone()[0])
@@ -707,22 +706,25 @@ class Upload:
     id: UUID
     filename: str
     uploaded_at: datetime  # UTC
-    row_count: int
+    transaction_count: int
 
 
 def get_uploads(user_id: str) -> "list[Upload]":
     """Return all uploads for user_id, most-recent first.
 
-    Scoped to the user's accounts so cross-user access is impossible.
+    transaction_count is the live count of transactions currently linked to
+    each upload (ADR-0022). Scoped via account ownership.
     """
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(
             text(
-                "SELECT u.id, u.filename, u.uploaded_at, u.row_count"
+                "SELECT u.id, u.filename, u.uploaded_at, COUNT(t.id) AS transaction_count"
                 " FROM public.uploads u"
                 " JOIN public.accounts a ON a.id = u.account_id"
+                " LEFT JOIN public.transactions t ON t.source_file_id = u.id"
                 " WHERE a.user_id = :uid"
+                " GROUP BY u.id, u.filename, u.uploaded_at"
                 " ORDER BY u.uploaded_at DESC"
             ),
             {"uid": user_id},
@@ -733,7 +735,7 @@ def get_uploads(user_id: str) -> "list[Upload]":
             id=UUID(str(row[0])),
             filename=row[1],
             uploaded_at=row[2],
-            row_count=int(row[3]),
+            transaction_count=int(row[3]),
         )
         for row in rows
     ]
