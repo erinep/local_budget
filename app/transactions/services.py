@@ -6,13 +6,16 @@ directly. Cross-module access to transaction data is exclusively through the
 functions exported here. Direct queries from any other module are bugs, not
 shortcuts (ADR-0003, ADR-0004).
 
-Public API (ADR-0017):
-  TransactionFilters  — filter dataclass for get_transactions
-  TransactionPage     — paginated result container
-  Transaction         — single exported row shape
-  TransactionNotFound — raised when no row matches (user_id, transaction_id)
+Public API (ADR-0017, ADR-0018):
+  TransactionFilters    — filter dataclass for get_transactions
+  TransactionPage       — paginated result container
+  Transaction           — single exported row shape
+  TransactionNotFound   — raised when no row matches (user_id, transaction_id)
+  CategoryNotFound      — raised by recategorize_transaction when category_id does not belong to user_id
+  RecategorizationResult — result type for recategorize_transaction
   get_transactions(user_id, filters) -> TransactionPage
   get_transaction(user_id, transaction_id) -> Transaction
+  recategorize_transaction(user_id, transaction_id, category_id, apply_forward_keyword) -> RecategorizationResult
 
 Internal columns never exported to callers:
   fingerprint    — SHA-256 dedup hash (ADR-0013); internal to upload pipeline
@@ -25,6 +28,7 @@ Referenced ADRs:
   ADR-0015: hard cascade on user deletion
   ADR-0016: Phase 3a schema specification
   ADR-0017: Transaction Engine read API contract
+  ADR-0018: Transaction Engine write API — recategorize_transaction
 
 PII discipline: never log raw transaction descriptions, amounts, filenames, or
 fingerprints. Use structured logging with scrubbed keys only.
@@ -179,6 +183,23 @@ class TransactionNotFound(Exception):
     There is no Forbidden variant — cross-user lookups are indistinguishable
     from non-existent rows by design (ADR-0017, tenant isolation).
     """
+
+
+class CategoryNotFound(Exception):
+    """Raised by recategorize_transaction when category_id does not belong to user_id."""
+
+
+@dataclass(frozen=True)
+class RecategorizationResult:
+    """Result type for recategorize_transaction (ADR-0018).
+
+    transaction:      Updated transaction row (post-commit state).
+    keyword_written:  True if apply_forward_keyword was written to Account Settings.
+    keyword_conflict: True if the keyword already existed (not an error; user intent satisfied).
+    """
+    transaction: "Transaction"
+    keyword_written: bool
+    keyword_conflict: bool
 
 
 # ---------------------------------------------------------------------------
@@ -569,4 +590,100 @@ def get_transaction(user_id: str, transaction_id: UUID) -> Transaction:
         category_id=UUID(str(row[6])) if row[6] is not None else None,
         category_name=row[7],
         created_at=row[8],
+    )
+
+
+def recategorize_transaction(
+    user_id: str,
+    transaction_id: UUID,
+    category_id: "UUID | None",
+    apply_forward_keyword: "str | None" = None,
+) -> RecategorizationResult:
+    """Update a transaction's category and optionally write a keyword rule forward.
+
+    Args:
+        user_id:               Authenticated user's UUID string. Scopes every query.
+        transaction_id:        The transaction to update.
+        category_id:           The new category UUID, or None to clear categorization.
+        apply_forward_keyword: If non-None and non-empty after stripping, write this
+                               string as a keyword on category_id via Account Settings.
+                               Skipped when category_id is None.
+
+    Returns:
+        RecategorizationResult with the updated transaction and keyword write outcome.
+
+    Raises:
+        TransactionNotFound: if transaction_id does not belong to user_id.
+        CategoryNotFound:    if category_id is not None and does not belong to user_id.
+
+    Atomicity note (ADR-0018): the transaction row update and keyword write commit in
+    separate database transactions through separate service boundaries. The transaction
+    row is always committed first; a failed keyword write propagates as an exception
+    with the transaction row already committed. See ADR-0018 for the partial-failure
+    handling rationale.
+    """
+    # Step 1: Verify transaction belongs to user (raises TransactionNotFound if not).
+    get_transaction(user_id, transaction_id)
+
+    # Step 2: If category_id is provided, verify it belongs to user.
+    if category_id is not None:
+        engine = get_engine()
+        with engine.connect() as conn:
+            cat_row = conn.execute(
+                text(
+                    "SELECT id FROM public.categories"
+                    " WHERE id = :cid AND user_id = :uid"
+                ),
+                {"cid": str(category_id), "uid": user_id},
+            ).fetchone()
+        if cat_row is None:
+            raise CategoryNotFound(
+                "Category does not belong to this user or does not exist."
+            )
+
+    # Step 3: Update the transaction row.
+    engine = get_engine()
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "UPDATE public.transactions"
+                " SET category_id = :new_cat"
+                " WHERE id = :txn AND user_id = :uid"
+            ),
+            {
+                "new_cat": str(category_id) if category_id is not None else None,
+                "txn": str(transaction_id),
+                "uid": user_id,
+            },
+        )
+
+    # Step 4: Re-fetch the updated row.
+    updated_transaction = get_transaction(user_id, transaction_id)
+
+    # Step 5: Optionally write keyword rule via Account Settings (ADR-0003).
+    keyword_written = False
+    keyword_conflict = False
+
+    keyword_to_write = None
+    if apply_forward_keyword is not None and category_id is not None:
+        stripped = apply_forward_keyword.strip()
+        if stripped:
+            keyword_to_write = stripped
+
+    if keyword_to_write is not None:
+        from app.account_settings import services as _account_settings_svc
+        try:
+            _account_settings_svc.add_keyword(user_id, str(category_id), keyword_to_write)
+            keyword_written = True
+        except ValueError as exc:
+            if "already exists" in str(exc):
+                keyword_conflict = True
+            else:
+                raise
+
+    # Step 6: Return result.
+    return RecategorizationResult(
+        transaction=updated_transaction,
+        keyword_written=keyword_written,
+        keyword_conflict=keyword_conflict,
     )
