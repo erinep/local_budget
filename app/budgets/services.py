@@ -330,7 +330,7 @@ def _upsert_budget_row(conn, user_id: str, category_id: UUID, amount: Decimal) -
         conn.execute(
             text(
                 "UPDATE public.budgets"
-                " SET amount = :amount, updated_at = now()"
+                " SET amount = :amount"
                 " WHERE id = :bid"
             ),
             {"amount": str(amount), "bid": str(existing[0])},
