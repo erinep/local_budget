@@ -501,12 +501,15 @@ def _process_upload(
     total_rows = len(df)
 
     with engine.begin() as conn:
-        # Insert uploads row.
+        # Insert uploads row. ON CONFLICT handles the case where the Layer 1
+        # pre-check missed an existing row (stale pool connection) — this makes
+        # the insert idempotent and avoids an unhandled IntegrityError.
         upload_result = conn.execute(
             text(
                 "INSERT INTO public.uploads"
                 " (user_id, account_id, filename, file_hash)"
                 " VALUES (:uid, :aid, :fn, :fh)"
+                " ON CONFLICT (user_id, file_hash) DO NOTHING"
                 " RETURNING id"
             ),
             {
@@ -516,7 +519,23 @@ def _process_upload(
                 "fh": file_hash,
             },
         )
-        upload_id = str(upload_result.fetchone()[0])
+        upload_row = upload_result.fetchone()
+        if upload_row is None:
+            # Already uploaded — conflict was hit; fetch the existing id.
+            existing_row = conn.execute(
+                text(
+                    "SELECT id FROM public.uploads"
+                    " WHERE user_id = :uid AND file_hash = :fh"
+                ),
+                {"uid": user_id, "fh": file_hash},
+            ).fetchone()
+            return {
+                "upload_id": str(existing_row[0]) if existing_row else "",
+                "new_count": 0,
+                "dup_count": 0,
+                "already_uploaded": True,
+            }
+        upload_id = str(upload_row[0])
 
         # Insert transactions, deduplicating at row level.
         for i, (_, row_data) in enumerate(df.iterrows()):
