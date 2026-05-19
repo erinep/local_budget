@@ -132,11 +132,12 @@ def history():
     """Render the paginated transaction history view with filters.
 
     Query parameters (all optional, silently ignored if invalid):
-      date_from   — ISO date string (YYYY-MM-DD)
-      date_to     — ISO date string (YYYY-MM-DD)
-      category_id — UUID string
-      search      — free-text substring search
-      page        — positive integer, default 1
+      date_from      — ISO date string (YYYY-MM-DD)
+      date_to        — ISO date string (YYYY-MM-DD)
+      category_id    — UUID string (ignored when uncategorized=1)
+      search         — free-text substring search
+      uncategorized  — "1" to show only uncategorized transactions
+      page           — positive integer, default 1
     """
     import datetime
 
@@ -157,13 +158,18 @@ def history():
         except ValueError:
             pass
 
+    uncategorized_only = request.args.get("uncategorized", "").strip() == "1"
+
+    # category_id and uncategorized_only are mutually exclusive (TransactionFilters
+    # raises if both are set); uncategorized_only takes precedence.
     category_id = None
-    raw_cat = request.args.get("category_id", "").strip()
-    if raw_cat:
-        try:
-            category_id = _uuid_mod.UUID(raw_cat)
-        except ValueError:
-            pass
+    if not uncategorized_only:
+        raw_cat = request.args.get("category_id", "").strip()
+        if raw_cat:
+            try:
+                category_id = _uuid_mod.UUID(raw_cat)
+            except ValueError:
+                pass
 
     search = request.args.get("search", "").strip() or None
 
@@ -184,6 +190,7 @@ def history():
         date_to=date_to,
         category_id=category_id,
         search=search,
+        uncategorized_only=uncategorized_only,
         limit=limit,
         offset=offset,
     )
@@ -207,6 +214,8 @@ def history():
         active_filters["category_id"] = str(category_id)
     if search:
         active_filters["search"] = search
+    if uncategorized_only:
+        active_filters["uncategorized"] = "1"
 
     prev_url = url_for("transactions.history", page=page - 1, **active_filters) if has_prev else None
     next_url = url_for("transactions.history", page=page + 1, **active_filters) if has_next else None
@@ -236,6 +245,7 @@ def history():
         date_to=date_to.isoformat() if date_to else "",
         selected_category_id=str(category_id) if category_id else "",
         search=search or "",
+        uncategorized_only=uncategorized_only,
     )
 
 
