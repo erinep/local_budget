@@ -237,7 +237,7 @@ def apply_proposed_budgets_route():
         else:
             flash(f"{written} budget target(s) set.", "success")
     except Exception as exc:
-        logger.error("apply_proposed_budgets failed: %s", type(exc).__name__)
+        logger.error("apply_proposed_budgets failed: %s: %s", type(exc).__name__, exc, exc_info=True)
         flash("An error occurred while applying proposed budgets.", "error")
 
     return redirect(url_for("budgets.budget_progress", year=year, month=month))

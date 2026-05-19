@@ -311,14 +311,46 @@ def propose_budgets(
 # Write functions
 # ---------------------------------------------------------------------------
 
+def _upsert_budget_row(conn, user_id: str, category_id: UUID, amount: Decimal) -> None:
+    """INSERT or UPDATE one budget row within an existing connection/transaction.
+
+    Uses a SELECT + UPDATE/INSERT pattern so it works regardless of whether the
+    UNIQUE (user_id, category_id) constraint exists on the table. Migration 0008
+    adds the constraint; until it runs this function remains safe.
+    """
+    existing = conn.execute(
+        text(
+            "SELECT id FROM public.budgets"
+            " WHERE user_id = :uid AND category_id = :cid"
+        ),
+        {"uid": user_id, "cid": str(category_id)},
+    ).fetchone()
+
+    if existing is not None:
+        conn.execute(
+            text(
+                "UPDATE public.budgets"
+                " SET amount = :amount, updated_at = now()"
+                " WHERE id = :bid"
+            ),
+            {"amount": str(amount), "bid": str(existing[0])},
+        )
+    else:
+        conn.execute(
+            text(
+                "INSERT INTO public.budgets (user_id, category_id, amount)"
+                " VALUES (:uid, :cid, :amount)"
+            ),
+            {"uid": user_id, "cid": str(category_id), "amount": str(amount)},
+        )
+
+
 def upsert_budget(
     user_id: str,
     category_id: UUID,
     amount: Decimal,
 ) -> Budget:
     """Create or update the standing budget target for a category.
-
-    Uses INSERT ... ON CONFLICT DO UPDATE so double-submits are idempotent.
 
     Raises ValueError if amount < 0.
     Propagates DB exceptions (e.g. FK violation) without wrapping.
@@ -329,20 +361,7 @@ def upsert_budget(
 
     engine = get_engine()
     with engine.begin() as conn:
-        conn.execute(
-            text(
-                "INSERT INTO public.budgets"
-                " (user_id, category_id, amount)"
-                " VALUES (:uid, :cid, :amount)"
-                " ON CONFLICT (user_id, category_id)"
-                " DO UPDATE SET amount = EXCLUDED.amount, updated_at = now()"
-            ),
-            {
-                "uid": user_id,
-                "cid": str(category_id),
-                "amount": str(amount),
-            },
-        )
+        _upsert_budget_row(conn, user_id, category_id, amount)
 
     # Re-query to return the full persisted row with category_name
     rows = get_budgets(user_id)
@@ -350,7 +369,7 @@ def upsert_budget(
         if b.category_id == category_id:
             return b
 
-    raise RuntimeError("upsert_budget: row not found after insert — this should not happen")
+    raise RuntimeError("upsert_budget: row not found after upsert — this should not happen")
 
 
 def delete_budget(user_id: str, budget_id: UUID) -> None:
@@ -404,20 +423,7 @@ def apply_proposed_budgets(
             if not replace_existing and proposal.category_id in existing_cat_ids:
                 continue  # skip — already has a standing budget for this category
 
-            conn.execute(
-                text(
-                    "INSERT INTO public.budgets"
-                    " (user_id, category_id, amount)"
-                    " VALUES (:uid, :cid, :amount)"
-                    " ON CONFLICT (user_id, category_id)"
-                    " DO UPDATE SET amount = EXCLUDED.amount, updated_at = now()"
-                ),
-                {
-                    "uid": user_id,
-                    "cid": str(proposal.category_id),
-                    "amount": str(proposal.proposed_amount),
-                },
-            )
+            _upsert_budget_row(conn, user_id, proposal.category_id, proposal.proposed_amount)
             written += 1
 
     return written
