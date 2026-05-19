@@ -121,9 +121,8 @@ def test_upload_page_redirects_unauthenticated(client):
 # ---------------------------------------------------------------------------
 
 def test_non_csv_upload_rejected(auth_client):
-    with patch("app.transactions.routes.get_category_map", return_value=_MOCK_CATEGORY_MAP):
-        data = {"file": (io.BytesIO(b"not a csv"), "transactions.txt")}
-        response = auth_client.post("/upload", data=data, content_type="multipart/form-data")
+    data = {"file": (io.BytesIO(b"not a csv"), "transactions.txt")}
+    response = auth_client.post("/upload", data=data, content_type="multipart/form-data")
     assert response.status_code == 200
     assert b"Only .csv files are accepted" in response.data
 
@@ -138,7 +137,8 @@ def test_valid_csv_redirects_to_report(auth_client):
         {"date": "2026-01-15", "desc": "TIM HORTONS", "amount": -4.50},
         {"date": "2026-01-20", "desc": "UBER",        "amount": -12.00},
     ])
-    with patch("app.transactions.routes.get_category_map", return_value=_MOCK_CATEGORY_MAP), \
+    with patch("app.transactions.routes.list_categories", return_value=[]), \
+         patch("app.transactions.routes.get_merchant_aliases", return_value=[]), \
          patch("app.transactions.routes._process_upload", return_value=_MOCK_UPLOAD_RESULT):
         data = {"file": (csv, "transactions.csv")}
         response = auth_client.post("/upload", data=data, content_type="multipart/form-data",
@@ -159,7 +159,8 @@ def test_transfers_excluded_before_db_write(auth_client):
         {"date": "2026-01-15", "desc": "CREDIT CARD PAYMENT",  "amount": -500.00},
     ])
     mock_process = patch("app.transactions.routes._process_upload", return_value=_MOCK_UPLOAD_RESULT)
-    with patch("app.transactions.routes.get_category_map", return_value=_MOCK_CATEGORY_MAP), \
+    with patch("app.transactions.routes.list_categories", return_value=[]), \
+         patch("app.transactions.routes.get_merchant_aliases", return_value=[]), \
          mock_process as mock_proc:
         data = {"file": (csv, "transactions.csv")}
         response = auth_client.post("/upload", data=data, content_type="multipart/form-data",
@@ -182,7 +183,8 @@ def test_valid_csv_upload_does_not_render_html(auth_client):
     csv = make_csv([
         {"date": "2026-01-15", "desc": "<script>alert(1)</script>", "amount": -10.00},
     ])
-    with patch("app.transactions.routes.get_category_map", return_value=_MOCK_CATEGORY_MAP), \
+    with patch("app.transactions.routes.list_categories", return_value=[]), \
+         patch("app.transactions.routes.get_merchant_aliases", return_value=[]), \
          patch("app.transactions.routes._process_upload", return_value=_MOCK_UPLOAD_RESULT):
         data = {"file": (csv, "transactions.csv")}
         response = auth_client.post("/upload", data=data, content_type="multipart/form-data",
@@ -197,7 +199,6 @@ def test_valid_csv_upload_does_not_render_html(auth_client):
 
 def test_oversized_upload_rejected(auth_client):
     large = io.BytesIO(b"x" * (6 * 1024 * 1024))  # 6 MB
-    with patch("app.transactions.routes.get_category_map", return_value=_MOCK_CATEGORY_MAP):
-        data = {"file": (large, "big.csv")}
-        response = auth_client.post("/upload", data=data, content_type="multipart/form-data")
+    data = {"file": (large, "big.csv")}
+    response = auth_client.post("/upload", data=data, content_type="multipart/form-data")
     assert response.status_code == 413

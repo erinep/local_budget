@@ -6,6 +6,7 @@ CSRF protection is provided globally by Flask-WTF (see app/__init__.py).
 
 Route table:
   GET  /account-settings/categories                    categories_list
+  POST /account-settings/categories/backfill           categories_backfill
   GET  /account-settings/categories/new                categories_new
   POST /account-settings/categories                    categories_create
   GET  /account-settings/categories/<id>/edit          categories_edit
@@ -15,6 +16,8 @@ Route table:
   POST /account-settings/categories/<id>/keywords/<id>/delete  keywords_remove
   GET  /account-settings/import                        import_form
   POST /account-settings/import                        import_upload
+  GET  /account-settings/aliases                       aliases_list
+  POST /account-settings/aliases/<id>/delete           aliases_delete
 
 File management routes moved to transactions_bp per ADR-0021.
 
@@ -29,6 +32,7 @@ import logging
 from flask import (
     Blueprint,
     abort,
+    flash,
     g,
     redirect,
     render_template,
@@ -40,11 +44,14 @@ from app.middleware.auth import login_required
 
 from app.account_settings.services import (
     add_keyword,
+    count_uncategorized_transactions,
     create_category,
     delete_category,
+    delete_merchant_alias,
     get_category_detail,
     import_from_json,
     list_categories,
+    list_merchant_aliases_detail,
     remove_keyword,
     rename_category,
 )
@@ -94,10 +101,89 @@ def categories_list():
     """Display all categories and their keywords."""
     user_id = g.user.id
     categories = list_categories(user_id)
+    uncategorized_count = count_uncategorized_transactions(user_id)
     return render_template(
         "account_settings/categories.html",
         categories=categories,
+        uncategorized_count=uncategorized_count,
     )
+
+
+# ---------------------------------------------------------------------------
+# Categories — backfill uncategorized transactions (ADR-0030)
+# ---------------------------------------------------------------------------
+
+@account_settings_bp.route("/categories/backfill", methods=["POST"])
+@login_required
+def categories_backfill():
+    """Re-categorize all NULL-category transactions using make_categorizer_v2.
+
+    Scope: only transactions where category_id IS NULL.
+    Manually-categorized transactions are never touched.
+    Runs synchronously; processes in pages of 500 for large datasets.
+    """
+    from app.transactions.services import (
+        make_categorizer_v2,
+        recategorize_transaction,
+    )
+    from app.account_settings.services import get_merchant_aliases
+    from app.db import get_engine
+    from sqlalchemy import text
+    import uuid as _uuid
+
+    user_id = g.user.id
+
+    cats = list_categories(user_id)
+    keywords = [(kw, cat["name"]) for cat in cats for kw in cat["keywords"]]
+    aliases = get_merchant_aliases(user_id)
+    categorize = make_categorizer_v2(user_id, keywords, aliases)
+
+    cat_id_by_name = {cat["name"]: cat["id"] for cat in cats}
+
+    engine = get_engine()
+    updated = 0
+    page_size = 500
+    offset = 0
+
+    while True:
+        with engine.connect() as conn:
+            rows = conn.execute(
+                text(
+                    "SELECT id, description FROM public.transactions"
+                    " WHERE user_id = :uid AND category_id IS NULL"
+                    " ORDER BY date DESC"
+                    " LIMIT :lim OFFSET :off"
+                ),
+                {"uid": user_id, "lim": page_size, "off": offset},
+            ).fetchall()
+
+        if not rows:
+            break
+
+        for row in rows:
+            txn_id = _uuid.UUID(str(row[0]))
+            desc = row[1]
+            category_name = categorize(desc)
+            if category_name == "Uncategorized":
+                continue
+            cat_id_str = cat_id_by_name.get(category_name)
+            if cat_id_str is None:
+                continue
+            try:
+                recategorize_transaction(
+                    user_id=user_id,
+                    transaction_id=txn_id,
+                    category_id=_uuid.UUID(cat_id_str),
+                    apply_forward_keyword=None,
+                )
+                updated += 1
+            except Exception:
+                pass
+
+        offset += page_size
+
+    flash(f"{updated} transaction(s) re-categorized.", "success")
+    return redirect(url_for("account_settings.categories_list"))
 
 
 # ---------------------------------------------------------------------------
@@ -321,3 +407,28 @@ def import_upload():
         )
 
     return redirect(url_for("account_settings.categories_list"))
+
+
+# ---------------------------------------------------------------------------
+# Merchant Aliases — list / delete (ADR-0031)
+# ---------------------------------------------------------------------------
+
+@account_settings_bp.route("/aliases", methods=["GET"])
+@login_required
+def aliases_list():
+    """List all merchant aliases for the authenticated user."""
+    aliases = list_merchant_aliases_detail(g.user.id)
+    return render_template("account_settings/aliases.html", aliases=aliases)
+
+
+@account_settings_bp.route("/aliases/<alias_id>/delete", methods=["POST"])
+@login_required
+def aliases_delete(alias_id: str):
+    """Delete a single merchant alias scoped to the authenticated user."""
+    try:
+        delete_merchant_alias(g.user.id, alias_id)
+    except ValueError:
+        abort(404)
+
+    flash("Merchant alias deleted.", "success")
+    return redirect(url_for("account_settings.aliases_list"))

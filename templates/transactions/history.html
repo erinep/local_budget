@@ -32,7 +32,7 @@
                 </div>
                 <div class="form-group" style="flex: 1; min-width: 160px; margin-bottom: 0;">
                     <label for="category_id">Category</label>
-                    <select id="category_id" name="category_id">
+                    <select id="category_id" name="category_id" {% if uncategorized_only %}disabled{% endif %}>
                         <option value="">All categories</option>
                         {% for cat in categories %}
                         <option value="{{ cat.id }}" {% if selected_category_id == cat.id %}selected{% endif %}>{{ cat.name }}</option>
@@ -42,6 +42,10 @@
                 <div class="form-group" style="flex: 2; min-width: 200px; margin-bottom: 0;">
                     <label for="search">Search description</label>
                     <input type="text" id="search" name="search" value="{{ search }}" placeholder="e.g. LOBLAWS" autocomplete="off">
+                </div>
+                <div class="form-group" style="flex-shrink: 0; margin-bottom: 0; display: flex; align-items: center; gap: 6px; padding-top: 22px;">
+                    <input type="checkbox" id="uncategorized" name="uncategorized" value="1" {% if uncategorized_only %}checked{% endif %}>
+                    <label for="uncategorized" style="margin: 0; font-weight: normal; cursor: pointer;">Uncategorized only</label>
                 </div>
                 <div style="display: flex; gap: 8px; flex-shrink: 0;">
                     <button type="submit" class="button-primary">Apply</button>
@@ -118,13 +122,13 @@
     <div class="card" style="text-align: center; padding: 48px 24px;">
         <p style="color: var(--muted); margin: 0 0 8px; font-size: 1rem;">No transactions found.</p>
         <p style="color: var(--muted); margin: 0 0 28px; font-size: 0.92rem;">
-            {% if date_from or date_to or selected_category_id or search %}
+            {% if date_from or date_to or selected_category_id or search or uncategorized_only %}
                 Try adjusting the filters above, or <a href="{{ url_for('transactions.history') }}">clear all filters</a>.
             {% else %}
                 Upload a CSV to import transactions.
             {% endif %}
         </p>
-        {% if not (date_from or date_to or selected_category_id or search) %}
+        {% if not (date_from or date_to or selected_category_id or search or uncategorized_only) %}
         <a class="button-primary" href="{{ url_for('transactions.upload') }}">Upload transactions</a>
         {% endif %}
     </div>

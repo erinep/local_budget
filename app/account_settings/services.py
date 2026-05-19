@@ -462,6 +462,118 @@ def import_from_json(user_id: str, category_map: dict) -> None:
     save_category_map(user_id, category_map)
 
 
+def add_merchant_alias(user_id: str, category_id: str, normalized_name: str) -> None:
+    """Write a merchant alias mapping normalized_name to category_id.
+
+    Validates category ownership. Normalizes normalized_name via normalize_description.
+    Conflict on (category_id, normalized_name) is a no-op.
+
+    Raises:
+        ValueError("Category not found")
+        ValueError("Alias name cannot be empty")
+    """
+    from app.transactions.services import normalize_description
+    name = normalize_description(normalized_name)
+    if not name:
+        raise ValueError("Alias name cannot be empty")
+
+    engine = get_engine()
+    with engine.begin() as conn:
+        _assert_category_owned(conn, user_id, category_id)
+        conn.execute(
+            text(
+                "INSERT INTO public.merchant_aliases (category_id, normalized_name)"
+                " VALUES (:cid, :name)"
+                " ON CONFLICT (category_id, normalized_name) DO NOTHING"
+            ),
+            {"cid": category_id, "name": name},
+        )
+    _cache_invalidate(user_id)
+
+
+def list_merchant_aliases_detail(user_id: str) -> list[dict]:
+    """Return all aliases for user_id with ids, for display and delete.
+
+    Result shape: [{"id": str, "normalized_name": str, "category_id": str, "category_name": str}, ...]
+    Ordered by category_name ASC, normalized_name ASC.
+    """
+    engine = get_engine()
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT ma.id, ma.normalized_name, ma.category_id, c.name AS category_name"
+                " FROM public.merchant_aliases ma"
+                " JOIN public.categories c ON c.id = ma.category_id"
+                " WHERE c.user_id = :uid"
+                " ORDER BY c.name ASC, ma.normalized_name ASC"
+            ),
+            {"uid": user_id},
+        ).fetchall()
+    return [
+        {
+            "id": str(row[0]),
+            "normalized_name": row[1],
+            "category_id": str(row[2]),
+            "category_name": row[3],
+        }
+        for row in rows
+    ]
+
+
+def delete_merchant_alias(user_id: str, alias_id: str) -> None:
+    """Delete a merchant alias scoped to user_id.
+
+    Validates that the alias belongs to a category owned by user_id.
+
+    Raises:
+        ValueError("Alias not found")
+    """
+    engine = get_engine()
+    with engine.begin() as conn:
+        result = conn.execute(
+            text(
+                "DELETE FROM public.merchant_aliases"
+                " WHERE id = :aid"
+                " AND category_id IN ("
+                "   SELECT id FROM public.categories WHERE user_id = :uid"
+                " )"
+            ),
+            {"aid": alias_id, "uid": user_id},
+        )
+        if result.rowcount == 0:
+            raise ValueError("Alias not found")
+
+
+def get_merchant_aliases(user_id: str) -> list[tuple[str, str]]:
+    """Return (normalized_name, category_name) for all merchant aliases of user_id."""
+    engine = get_engine()
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT ma.normalized_name, c.name AS category_name"
+                " FROM public.merchant_aliases ma"
+                " JOIN public.categories c ON c.id = ma.category_id"
+                " WHERE c.user_id = :uid"
+            ),
+            {"uid": user_id},
+        ).fetchall()
+    return [(row[0], row[1]) for row in rows]
+
+
+def count_uncategorized_transactions(user_id: str) -> int:
+    """Return the number of transactions with category_id IS NULL for user_id."""
+    engine = get_engine()
+    with engine.connect() as conn:
+        row = conn.execute(
+            text(
+                "SELECT COUNT(*) FROM public.transactions"
+                " WHERE user_id = :uid AND category_id IS NULL"
+            ),
+            {"uid": user_id},
+        ).fetchone()
+    return int(row[0]) if row else 0
+
+
 def seed_defaults(user_id: str) -> None:
     """Seed the user's categories from GENERIC_CATEGORY_MAP if they have none.
 
@@ -483,3 +595,18 @@ def seed_defaults(user_id: str) -> None:
         return
 
     import_from_json(user_id, generic)
+
+    import json as _json
+    import os as _os
+    _fixture = _os.path.join(_os.path.dirname(__file__), "seed_merchant_aliases.json")
+    if _os.path.exists(_fixture):
+        with open(_fixture, encoding="utf-8") as _f:
+            _aliases = _json.load(_f)
+        cat_map = {c["name"]: c["id"] for c in list_categories(user_id)}
+        for entry in _aliases:
+            cat_id = cat_map.get(entry.get("category_name"))
+            if cat_id:
+                try:
+                    add_merchant_alias(user_id, cat_id, entry["normalized_name"])
+                except ValueError:
+                    pass

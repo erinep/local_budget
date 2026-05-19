@@ -6,7 +6,7 @@ directly. Cross-module access to transaction data is exclusively through the
 functions exported here. Direct queries from any other module are bugs, not
 shortcuts (ADR-0003, ADR-0004).
 
-Public API (ADR-0017, ADR-0018, ADR-0023):
+Public API (ADR-0017, ADR-0018, ADR-0023, ADR-0028):
   TransactionFilters    — filter dataclass for get_transactions
   TransactionPage       — paginated result container
   Transaction           — single exported row shape
@@ -18,6 +18,9 @@ Public API (ADR-0017, ADR-0018, ADR-0023):
   DateRange             — inclusive date interval; factory for_month(year, month) (ADR-0023)
   CategorySpend         — aggregated spend total for one category in a period (ADR-0023)
   PeriodSpend           — aggregated spend across all categories for one DateRange (ADR-0023)
+  normalize_description(desc) -> str (ADR-0028)
+  make_categorizer_v1(custom_map, generic_map) -> Callable[[str], str]
+  make_categorizer_v2(user_id, keywords, aliases) -> Callable[[str], str] (ADR-0028)
   get_transactions(user_id, filters) -> TransactionPage
   get_transaction(user_id, transaction_id) -> Transaction
   get_uploads(user_id) -> list[Upload]
@@ -46,6 +49,7 @@ fingerprints. Use structured logging with scrubbed keys only.
 
 import hashlib
 import logging
+import re
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
@@ -78,12 +82,15 @@ NON_TRACKED_KEYWORDS = [
 # Legacy pure-function helpers (kept for backward compatibility)
 # ---------------------------------------------------------------------------
 
-def make_categorizer(custom_map: dict, generic_map: dict) -> Callable[[str], str]:
+def make_categorizer_v1(custom_map: dict, generic_map: dict) -> Callable[[str], str]:
     """Return a single-argument callable suitable for DataFrame.apply.
 
     ADR 0005 — Option B (factory closure). The returned closure carries its own
     maps so the call site in the route handler does not change when map loading
     moves to the database in Phase 1.
+
+    Retained as the v1 baseline for the ADR-0028 test harness. Deleted after
+    the harness confirms make_categorizer_v2 meets or exceeds baseline accuracy.
     """
     def categorize(desc: str) -> str:
         desc = str(desc).upper()
@@ -93,6 +100,61 @@ def make_categorizer(custom_map: dict, generic_map: dict) -> Callable[[str], str
                     if str(keyword).upper() in desc:
                         return category
         return "Slush Fund"
+
+    return categorize
+
+
+def normalize_description(desc: str) -> str:
+    """Strip processor prefixes, store numbers, city/state suffixes; collapse whitespace.
+
+    Pure function. No database access. Called by the factory and by callers
+    building the past-transactions corpus before invoking the factory.
+
+    ADR-0028 Tier 1.
+    """
+    s = str(desc)
+    s = re.sub(r'(?i)^(SQ\s*\*|PAYPAL\s*\*|TST\s*\*?|SP\s*\*|PP\s*\*|WWW\.)', '', s)
+    s = re.sub(r'\s*#\d+.*$', '', s)
+    s = re.sub(r'\s+\d{3,}\s*$', '', s)
+    s = re.sub(r'\s+[A-Z]{2,}\s+[A-Z]{2}\s*$', '', s)
+    return ' '.join(s.split())
+
+
+def make_categorizer_v2(
+    user_id: str,
+    keywords: list[tuple[str, str]],
+    aliases: list[tuple[str, str]],
+) -> Callable[[str], str]:
+    """Return a Tier 1–4 categorizer closure suitable for DataFrame.apply.
+
+    Tiers: normalize → alias exact-match → keyword substring scan → Uncategorized.
+    Tier 3 (Jaccard similarity) was removed: the corpus cost and false-positive
+    risk outweighed the benefit given Tier 2 alias coverage.
+
+    All data is pre-loaded and passed in. The factory does not touch the database.
+
+    Returns category_name as a str. Returns "Uncategorized" if no tier matches.
+
+    ADR-0028.
+    """
+    alias_map: dict[str, str] = {name: cat for name, cat in aliases}
+
+    def categorize(desc: str) -> str:
+        normalized = normalize_description(desc)
+
+        tier2_hit = alias_map.get(normalized)
+        if tier2_hit is not None:
+            logger.debug("categorizer tier=%d match=%s", 2, True)
+            return tier2_hit
+
+        desc_upper = desc.upper()
+        for keyword, cat in keywords:
+            if keyword.upper() in desc_upper:
+                logger.debug("categorizer tier=%d match=%s", 3, True)
+                return cat
+
+        logger.debug("categorizer tier=%d match=%s", 4, False)
+        return "Uncategorized"
 
     return categorize
 
@@ -392,12 +454,15 @@ def _process_upload(
     total_rows = len(df)
 
     with engine.begin() as conn:
-        # Insert uploads row.
+        # Insert uploads row. ON CONFLICT handles the case where the Layer 1
+        # pre-check missed an existing row (stale pool connection) — this makes
+        # the insert idempotent and avoids an unhandled IntegrityError.
         upload_result = conn.execute(
             text(
                 "INSERT INTO public.uploads"
                 " (user_id, account_id, filename, file_hash)"
                 " VALUES (:uid, :aid, :fn, :fh)"
+                " ON CONFLICT (user_id, file_hash) DO NOTHING"
                 " RETURNING id"
             ),
             {
@@ -407,7 +472,23 @@ def _process_upload(
                 "fh": file_hash,
             },
         )
-        upload_id = str(upload_result.fetchone()[0])
+        upload_row = upload_result.fetchone()
+        if upload_row is None:
+            # Already uploaded — conflict was hit; fetch the existing id.
+            existing_row = conn.execute(
+                text(
+                    "SELECT id FROM public.uploads"
+                    " WHERE user_id = :uid AND file_hash = :fh"
+                ),
+                {"uid": user_id, "fh": file_hash},
+            ).fetchone()
+            return {
+                "upload_id": str(existing_row[0]) if existing_row else "",
+                "new_count": 0,
+                "dup_count": 0,
+                "already_uploaded": True,
+            }
+        upload_id = str(upload_row[0])
 
         # Insert transactions, deduplicating at row level.
         for i, (_, row_data) in enumerate(df.iterrows()):
@@ -673,26 +754,34 @@ def recategorize_transaction(
     # Step 4: Re-fetch the updated row.
     updated_transaction = get_transaction(user_id, transaction_id)
 
-    # Step 5: Optionally write keyword rule via Account Settings (ADR-0003).
+    # Step 5: Write merchant alias and optionally keyword via Account Settings (ADR-0003).
     keyword_written = False
     keyword_conflict = False
 
-    keyword_to_write = None
-    if apply_forward_keyword is not None and category_id is not None:
-        stripped = apply_forward_keyword.strip()
-        if stripped:
-            keyword_to_write = stripped
-
-    if keyword_to_write is not None:
+    if category_id is not None:
         from app.account_settings import services as _account_settings_svc
         try:
-            _account_settings_svc.add_keyword(user_id, str(category_id), keyword_to_write)
-            keyword_written = True
-        except ValueError as exc:
-            if "already exists" in str(exc):
-                keyword_conflict = True
-            else:
-                raise
+            _account_settings_svc.add_merchant_alias(
+                user_id, str(category_id), normalize_description(updated_transaction.description)
+            )
+        except ValueError:
+            pass
+
+        keyword_to_write = None
+        if apply_forward_keyword is not None:
+            stripped = apply_forward_keyword.strip()
+            if stripped:
+                keyword_to_write = stripped
+
+        if keyword_to_write is not None:
+            try:
+                _account_settings_svc.add_keyword(user_id, str(category_id), keyword_to_write)
+                keyword_written = True
+            except ValueError as exc:
+                if "already exists" in str(exc):
+                    keyword_conflict = True
+                else:
+                    raise
 
     # Step 6: Return result.
     return RecategorizationResult(
