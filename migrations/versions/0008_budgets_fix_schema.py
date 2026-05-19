@@ -56,15 +56,26 @@ def upgrade() -> None:
         END $$;
     """)
 
-    # Ensure UNIQUE (user_id, category_id) exists
+    # Ensure UNIQUE (user_id, category_id) exists (check by column set, not name)
     op.execute("""
         DO $$
         BEGIN
             IF NOT EXISTS (
-                SELECT 1 FROM pg_constraint
-                WHERE conrelid = 'public.budgets'::regclass
-                  AND contype  = 'u'
-                  AND conname  = 'budgets_user_id_category_id_key'
+                SELECT 1
+                FROM pg_constraint c
+                JOIN pg_index i ON i.indexrelid = c.conindid
+                WHERE c.conrelid = 'public.budgets'::regclass
+                  AND c.contype  = 'u'
+                  AND EXISTS (
+                      SELECT 1 FROM pg_attribute a
+                      WHERE a.attrelid = c.conrelid AND a.attname = 'user_id'
+                        AND a.attnum = ANY(i.indkey)
+                  )
+                  AND EXISTS (
+                      SELECT 1 FROM pg_attribute a
+                      WHERE a.attrelid = c.conrelid AND a.attname = 'category_id'
+                        AND a.attnum = ANY(i.indkey)
+                  )
             ) THEN
                 ALTER TABLE public.budgets
                     ADD CONSTRAINT budgets_user_id_category_id_key
