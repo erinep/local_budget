@@ -1,20 +1,20 @@
 """Tests for the categorization service.
 
-Uses make_categorizer directly (ADR 0005). No monkeypatching of globals —
+Uses make_categorizer_v1 directly (ADR 0005). No monkeypatching of globals —
 the globals were removed in the Phase 0 refactor and monkeypatch calls on them
 would silently become no-ops and mask broken tests.
 """
 
-from app.transactions.services import make_categorizer
+from app.transactions.services import make_categorizer_v1
 
 
 # Helpers: factories for tests that need specific map contents.
 def _generic_only(generic_map):
-    return make_categorizer({}, generic_map)
+    return make_categorizer_v1({}, generic_map)
 
 
 def _with_custom(custom_map, generic_map):
-    return make_categorizer(custom_map, generic_map)
+    return make_categorizer_v1(custom_map, generic_map)
 
 
 # Load the real generic map once so keyword-match tests exercise the actual data.

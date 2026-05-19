@@ -87,7 +87,8 @@ class TestUnauthenticatedAccess:
 class TestGetCategoriesList:
     def test_authenticated_returns_200(self, authenticated_client):
         """Authenticated GET to /account-settings/categories must return 200."""
-        with patch(f"{SVC}.list_categories", return_value=[]):
+        with patch(f"{SVC}.list_categories", return_value=[]), \
+             patch(f"{SVC}.count_uncategorized_transactions", return_value=0):
             response = authenticated_client.get(
                 "/account-settings/categories",
                 follow_redirects=False,
@@ -99,7 +100,8 @@ class TestGetCategoriesList:
     ):
         """The route must call list_categories with the authenticated user's
         id, not a hard-coded value."""
-        with patch(f"{SVC}.list_categories", return_value=[]) as mock_list:
+        with patch(f"{SVC}.list_categories", return_value=[]) as mock_list, \
+             patch(f"{SVC}.count_uncategorized_transactions", return_value=0):
             authenticated_client.get("/account-settings/categories")
         mock_list.assert_called_once_with(mock_auth_user.id)
 
@@ -107,7 +109,8 @@ class TestGetCategoriesList:
         """The rendered template must include the categories returned by the
         service layer."""
         cats = [_cat("Groceries"), _cat("Transport")]
-        with patch(f"{SVC}.list_categories", return_value=cats):
+        with patch(f"{SVC}.list_categories", return_value=cats), \
+             patch(f"{SVC}.count_uncategorized_transactions", return_value=0):
             response = authenticated_client.get("/account-settings/categories")
 
         assert b"Groceries" in response.data

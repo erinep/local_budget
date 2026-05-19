@@ -6,7 +6,7 @@ directly. Cross-module access to transaction data is exclusively through the
 functions exported here. Direct queries from any other module are bugs, not
 shortcuts (ADR-0003, ADR-0004).
 
-Public API (ADR-0017, ADR-0018, ADR-0023):
+Public API (ADR-0017, ADR-0018, ADR-0023, ADR-0028):
   TransactionFilters    — filter dataclass for get_transactions
   TransactionPage       — paginated result container
   Transaction           — single exported row shape
@@ -18,6 +18,10 @@ Public API (ADR-0017, ADR-0018, ADR-0023):
   DateRange             — inclusive date interval; factory for_month(year, month) (ADR-0023)
   CategorySpend         — aggregated spend total for one category in a period (ADR-0023)
   PeriodSpend           — aggregated spend across all categories for one DateRange (ADR-0023)
+  normalize_description(desc) -> str (ADR-0028)
+  make_categorizer_v1(custom_map, generic_map) -> Callable[[str], str]
+  make_categorizer_v2(user_id, keywords, aliases, past_transactions) -> Callable[[str], str] (ADR-0028)
+  get_categorized_descriptions(user_id) -> list[tuple[str, str]] (ADR-0028)
   get_transactions(user_id, filters) -> TransactionPage
   get_transaction(user_id, transaction_id) -> Transaction
   get_uploads(user_id) -> list[Upload]
@@ -46,6 +50,7 @@ fingerprints. Use structured logging with scrubbed keys only.
 
 import hashlib
 import logging
+import re
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
@@ -78,12 +83,15 @@ NON_TRACKED_KEYWORDS = [
 # Legacy pure-function helpers (kept for backward compatibility)
 # ---------------------------------------------------------------------------
 
-def make_categorizer(custom_map: dict, generic_map: dict) -> Callable[[str], str]:
+def make_categorizer_v1(custom_map: dict, generic_map: dict) -> Callable[[str], str]:
     """Return a single-argument callable suitable for DataFrame.apply.
 
     ADR 0005 — Option B (factory closure). The returned closure carries its own
     maps so the call site in the route handler does not change when map loading
     moves to the database in Phase 1.
+
+    Retained as the v1 baseline for the ADR-0028 test harness. Deleted after
+    the harness confirms make_categorizer_v2 meets or exceeds baseline accuracy.
     """
     def categorize(desc: str) -> str:
         desc = str(desc).upper()
@@ -95,6 +103,107 @@ def make_categorizer(custom_map: dict, generic_map: dict) -> Callable[[str], str
         return "Slush Fund"
 
     return categorize
+
+
+def normalize_description(desc: str) -> str:
+    """Strip processor prefixes, store numbers, city/state suffixes; collapse whitespace.
+
+    Pure function. No database access. Called by the factory and by callers
+    building the past-transactions corpus before invoking the factory.
+
+    ADR-0028 Tier 1.
+    """
+    s = str(desc)
+    s = re.sub(r'(?i)^(SQ\s*\*|PAYPAL\s*\*|TST\s*\*?|SP\s*\*|PP\s*\*|WWW\.)', '', s)
+    s = re.sub(r'\s*#\d+\s*$', '', s)
+    s = re.sub(r'\s+\d{3,}\s*$', '', s)
+    s = re.sub(r'\s+[A-Z]{2,}\s+[A-Z]{2}\s*$', '', s)
+    return ' '.join(s.split())
+
+
+def make_categorizer_v2(
+    user_id: str,
+    keywords: list[tuple[str, str]],
+    aliases: list[tuple[str, str]],
+    past_transactions: list[tuple[str, str]],
+) -> Callable[[str], str]:
+    """Return a Tier 1–5 categorizer closure suitable for DataFrame.apply.
+
+    All data is pre-loaded and passed in. The factory does not touch the database.
+    The caller (upload route handler) is responsible for loading the three lists
+    before calling the factory.
+
+    The returned closure applies normalize_description to its input before any
+    tier lookup, so callers do not need to pre-normalize incoming descriptions.
+
+    Returns category_name as a str. Returns "Uncategorized" if no tier matches.
+
+    ADR-0028.
+    """
+    alias_map: dict[str, str] = {name: cat for name, cat in aliases}
+
+    past_token_sets: list[tuple[frozenset[str], str]] = []
+    for norm_desc, cat in past_transactions:
+        tokens = frozenset(t for t in norm_desc.lower().split() if t.isalpha() and len(t) >= 3)
+        if tokens:
+            past_token_sets.append((tokens, cat))
+
+    def categorize(desc: str) -> str:
+        normalized = normalize_description(desc)
+
+        tier2_hit = alias_map.get(normalized)
+        if tier2_hit is not None:
+            logger.debug("categorizer tier=%d match=%s", 2, True)
+            return tier2_hit
+
+        if past_token_sets:
+            query_tokens = frozenset(
+                t for t in normalized.lower().split() if t.isalpha() and len(t) >= 3
+            )
+            if query_tokens:
+                best_score = 0.0
+                best_cat = None
+                for token_set, cat in past_token_sets:
+                    intersection = len(query_tokens & token_set)
+                    union = len(query_tokens | token_set)
+                    score = intersection / union if union > 0 else 0.0
+                    if score > best_score:
+                        best_score = score
+                        best_cat = cat
+                if best_score >= 0.3 and best_cat is not None:
+                    logger.debug("categorizer tier=%d match=%s", 3, True)
+                    return best_cat
+
+        desc_upper = desc.upper()
+        for keyword, cat in keywords:
+            if keyword.upper() in desc_upper:
+                logger.debug("categorizer tier=%d match=%s", 4, True)
+                return cat
+
+        logger.debug("categorizer tier=%d match=%s", 5, False)
+        return "Uncategorized"
+
+    return categorize
+
+
+def get_categorized_descriptions(user_id: str) -> list[tuple[str, str]]:
+    """Return (normalized_desc, category_name) for all categorized transactions of user_id.
+
+    Used by the upload route and backfill route to pre-load the Tier 3 corpus.
+    Only rows where category_id IS NOT NULL are included.
+    """
+    engine = get_engine()
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT t.description, c.name AS category_name"
+                " FROM public.transactions t"
+                " JOIN public.categories c ON c.id = t.category_id"
+                " WHERE t.user_id = :uid AND t.category_id IS NOT NULL"
+            ),
+            {"uid": user_id},
+        ).fetchall()
+    return [(normalize_description(row[0]), row[1]) for row in rows]
 
 
 def net_amount(row) -> float:
@@ -693,6 +802,12 @@ def recategorize_transaction(
                 keyword_conflict = True
             else:
                 raise
+        try:
+            _account_settings_svc.add_merchant_alias(
+                user_id, str(category_id), normalize_description(updated_transaction.description)
+            )
+        except ValueError:
+            pass
 
     # Step 6: Return result.
     return RecategorizationResult(

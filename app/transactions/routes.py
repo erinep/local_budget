@@ -30,7 +30,6 @@ import pandas as pd
 from flask import (
     Blueprint,
     abort,
-    current_app,
     flash,
     g,
     redirect,
@@ -39,7 +38,7 @@ from flask import (
     url_for,
 )
 
-from app.account_settings.services import get_category_map, list_categories
+from app.account_settings.services import get_merchant_aliases, list_categories
 from app.middleware.auth import login_required
 from app.transactions.services import (
     CategoryNotFound,
@@ -47,12 +46,14 @@ from app.transactions.services import (
     TransactionNotFound,
     UploadNotFound,
     _process_upload,
+    get_categorized_descriptions,
     get_transaction,
     get_transactions,
     get_uploads,
     delete_upload,
-    make_categorizer,
+    make_categorizer_v2,
     net_amount,
+    normalize_description,
     recategorize_transaction,
 )
 
@@ -71,12 +72,14 @@ def upload():
         # Read raw bytes for file-level hash (ADR-0013) before parsing.
         file_bytes = file.read()
 
-        # ADR-0005: category map is injected via the make_categorizer factory.
-        # Phase 1: the per-user map is loaded from the database via Account
-        # Settings service (ADR-0003 — no direct table access here).
-        custom_map = get_category_map(g.user.id)
-        generic_map = current_app.config.get("GENERIC_CATEGORY_MAP", {})
-        categorize = make_categorizer(custom_map, generic_map)
+        keywords = [
+            (kw, cat["name"])
+            for cat in list_categories(g.user.id)
+            for kw in cat["keywords"]
+        ]
+        aliases = get_merchant_aliases(g.user.id)
+        past_txns = get_categorized_descriptions(g.user.id)
+        categorize = make_categorizer_v2(g.user.id, keywords, aliases, past_txns)
 
         df = pd.read_csv(io.BytesIO(file_bytes), encoding="latin1")
         df = df[["Transaction Date", "Description 1", "CAD$"]]

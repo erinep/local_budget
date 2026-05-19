@@ -1,0 +1,22 @@
+[
+  {"description": "SQ * TIM HORTONS #123 TORONTO ON", "expected_category": "Food & Drink"},
+  {"description": "PAYPAL * NETFLIX", "expected_category": "Subscriptions"},
+  {"description": "STARBUCKS STORE 4521 VANCOUVER BC", "expected_category": "Food & Drink"},
+  {"description": "AMAZON.CA", "expected_category": "Shopping"},
+  {"description": "LOBLAWS #0451", "expected_category": "Groceries"},
+  {"description": "UBER TRIP", "expected_category": "Gas & Transport"},
+  {"description": "SHELL OIL 001", "expected_category": "Gas & Transport"},
+  {"description": "ROGERS WIRELESS", "expected_category": "Phone & Internet"},
+  {"description": "TST* MCDONALDS", "expected_category": "Food & Drink"},
+  {"description": "SPOTIFY PREMIUM", "expected_category": "Subscriptions"},
+  {"description": "SHOPPERS DRUG MART 1234", "expected_category": "Health & Pharmacy"},
+  {"description": "COSTCO WHOLESALE", "expected_category": "Groceries"},
+  {"description": "LCBO 0591", "expected_category": "Alcohol & LCBO"},
+  {"description": "BELL CANADA", "expected_category": "Phone & Internet"},
+  {"description": "PETRO-CANADA", "expected_category": "Gas & Transport"},
+  {"description": "SP * BESTBUY", "expected_category": "Electronics"},
+  {"description": "HYDRO OTTAWA", "expected_category": "Utilities"},
+  {"description": "TELUS MOBILITY", "expected_category": "Phone & Internet"},
+  {"description": "NO FRILLS", "expected_category": "Groceries"},
+  {"description": "COMPLETELY UNKNOWN VENDOR XYZ", "expected_category": "Uncategorized"}
+]
