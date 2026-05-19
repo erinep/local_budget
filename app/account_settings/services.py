@@ -491,6 +491,59 @@ def add_merchant_alias(user_id: str, category_id: str, normalized_name: str) -> 
     _cache_invalidate(user_id)
 
 
+def list_merchant_aliases_detail(user_id: str) -> list[dict]:
+    """Return all aliases for user_id with ids, for display and delete.
+
+    Result shape: [{"id": str, "normalized_name": str, "category_id": str, "category_name": str}, ...]
+    Ordered by category_name ASC, normalized_name ASC.
+    """
+    engine = get_engine()
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT ma.id, ma.normalized_name, ma.category_id, c.name AS category_name"
+                " FROM public.merchant_aliases ma"
+                " JOIN public.categories c ON c.id = ma.category_id"
+                " WHERE c.user_id = :uid"
+                " ORDER BY c.name ASC, ma.normalized_name ASC"
+            ),
+            {"uid": user_id},
+        ).fetchall()
+    return [
+        {
+            "id": str(row[0]),
+            "normalized_name": row[1],
+            "category_id": str(row[2]),
+            "category_name": row[3],
+        }
+        for row in rows
+    ]
+
+
+def delete_merchant_alias(user_id: str, alias_id: str) -> None:
+    """Delete a merchant alias scoped to user_id.
+
+    Validates that the alias belongs to a category owned by user_id.
+
+    Raises:
+        ValueError("Alias not found")
+    """
+    engine = get_engine()
+    with engine.begin() as conn:
+        result = conn.execute(
+            text(
+                "DELETE FROM public.merchant_aliases"
+                " WHERE id = :aid"
+                " AND category_id IN ("
+                "   SELECT id FROM public.categories WHERE user_id = :uid"
+                " )"
+            ),
+            {"aid": alias_id, "uid": user_id},
+        )
+        if result.rowcount == 0:
+            raise ValueError("Alias not found")
+
+
 def get_merchant_aliases(user_id: str) -> list[tuple[str, str]]:
     """Return (normalized_name, category_name) for all merchant aliases of user_id."""
     engine = get_engine()

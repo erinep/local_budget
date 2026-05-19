@@ -16,6 +16,8 @@ Route table:
   POST /account-settings/categories/<id>/keywords/<id>/delete  keywords_remove
   GET  /account-settings/import                        import_form
   POST /account-settings/import                        import_upload
+  GET  /account-settings/aliases                       aliases_list
+  POST /account-settings/aliases/<id>/delete           aliases_delete
 
 File management routes moved to transactions_bp per ADR-0021.
 
@@ -45,9 +47,11 @@ from app.account_settings.services import (
     count_uncategorized_transactions,
     create_category,
     delete_category,
+    delete_merchant_alias,
     get_category_detail,
     import_from_json,
     list_categories,
+    list_merchant_aliases_detail,
     remove_keyword,
     rename_category,
 )
@@ -403,3 +407,28 @@ def import_upload():
         )
 
     return redirect(url_for("account_settings.categories_list"))
+
+
+# ---------------------------------------------------------------------------
+# Merchant Aliases — list / delete (ADR-0031)
+# ---------------------------------------------------------------------------
+
+@account_settings_bp.route("/aliases", methods=["GET"])
+@login_required
+def aliases_list():
+    """List all merchant aliases for the authenticated user."""
+    aliases = list_merchant_aliases_detail(g.user.id)
+    return render_template("account_settings/aliases.html", aliases=aliases)
+
+
+@account_settings_bp.route("/aliases/<alias_id>/delete", methods=["POST"])
+@login_required
+def aliases_delete(alias_id: str):
+    """Delete a single merchant alias scoped to the authenticated user."""
+    try:
+        delete_merchant_alias(g.user.id, alias_id)
+    except ValueError:
+        abort(404)
+
+    flash("Merchant alias deleted.", "success")
+    return redirect(url_for("account_settings.aliases_list"))
