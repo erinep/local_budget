@@ -46,14 +46,12 @@ from app.transactions.services import (
     TransactionNotFound,
     UploadNotFound,
     _process_upload,
-    get_categorized_descriptions,
     get_transaction,
     get_transactions,
     get_uploads,
     delete_upload,
     make_categorizer_v2,
     net_amount,
-    normalize_description,
     recategorize_transaction,
 )
 
@@ -78,8 +76,7 @@ def upload():
             for kw in cat["keywords"]
         ]
         aliases = get_merchant_aliases(g.user.id)
-        past_txns = get_categorized_descriptions(g.user.id)
-        categorize = make_categorizer_v2(g.user.id, keywords, aliases, past_txns)
+        categorize = make_categorizer_v2(g.user.id, keywords, aliases)
 
         df = pd.read_csv(io.BytesIO(file_bytes), encoding="latin1")
         df = df[["Transaction Date", "Description 1", "CAD$"]]

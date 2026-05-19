@@ -120,7 +120,6 @@ def categories_backfill():
     """
     from app.transactions.services import (
         make_categorizer_v2,
-        get_categorized_descriptions,
         recategorize_transaction,
     )
     from app.account_settings.services import get_merchant_aliases
@@ -133,8 +132,7 @@ def categories_backfill():
     cats = list_categories(user_id)
     keywords = [(kw, cat["name"]) for cat in cats for kw in cat["keywords"]]
     aliases = get_merchant_aliases(user_id)
-    past_txns = get_categorized_descriptions(user_id)
-    categorize = make_categorizer_v2(user_id, keywords, aliases, past_txns)
+    categorize = make_categorizer_v2(user_id, keywords, aliases)
 
     cat_id_by_name = {cat["name"]: cat["id"] for cat in cats}
 

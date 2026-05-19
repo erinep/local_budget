@@ -139,7 +139,6 @@ def test_valid_csv_redirects_to_report(auth_client):
     ])
     with patch("app.transactions.routes.list_categories", return_value=[]), \
          patch("app.transactions.routes.get_merchant_aliases", return_value=[]), \
-         patch("app.transactions.routes.get_categorized_descriptions", return_value=[]), \
          patch("app.transactions.routes._process_upload", return_value=_MOCK_UPLOAD_RESULT):
         data = {"file": (csv, "transactions.csv")}
         response = auth_client.post("/upload", data=data, content_type="multipart/form-data",
@@ -162,7 +161,6 @@ def test_transfers_excluded_before_db_write(auth_client):
     mock_process = patch("app.transactions.routes._process_upload", return_value=_MOCK_UPLOAD_RESULT)
     with patch("app.transactions.routes.list_categories", return_value=[]), \
          patch("app.transactions.routes.get_merchant_aliases", return_value=[]), \
-         patch("app.transactions.routes.get_categorized_descriptions", return_value=[]), \
          mock_process as mock_proc:
         data = {"file": (csv, "transactions.csv")}
         response = auth_client.post("/upload", data=data, content_type="multipart/form-data",
@@ -187,7 +185,6 @@ def test_valid_csv_upload_does_not_render_html(auth_client):
     ])
     with patch("app.transactions.routes.list_categories", return_value=[]), \
          patch("app.transactions.routes.get_merchant_aliases", return_value=[]), \
-         patch("app.transactions.routes.get_categorized_descriptions", return_value=[]), \
          patch("app.transactions.routes._process_upload", return_value=_MOCK_UPLOAD_RESULT):
         data = {"file": (csv, "transactions.csv")}
         response = auth_client.post("/upload", data=data, content_type="multipart/form-data",

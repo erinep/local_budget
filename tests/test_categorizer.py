@@ -55,9 +55,7 @@ def test_categorizer_v2_cold_start_accuracy():
     fixture = load_fixture()
     aliases = _seed_aliases()
     keywords: list[tuple[str, str]] = []
-    past: list[tuple[str, str]] = []
-
-    categorize_v2 = make_categorizer_v2("test-user", keywords, aliases, past)
+    categorize_v2 = make_categorizer_v2("test-user", keywords, aliases)
     categorize_v1 = make_categorizer_v1({}, {})
 
     v2_correct = sum(
