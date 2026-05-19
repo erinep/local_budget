@@ -115,7 +115,7 @@ def normalize_description(desc: str) -> str:
     """
     s = str(desc)
     s = re.sub(r'(?i)^(SQ\s*\*|PAYPAL\s*\*|TST\s*\*?|SP\s*\*|PP\s*\*|WWW\.)', '', s)
-    s = re.sub(r'\s*#\d+\s*$', '', s)
+    s = re.sub(r'\s*#\d+.*$', '', s)
     s = re.sub(r'\s+\d{3,}\s*$', '', s)
     s = re.sub(r'\s+[A-Z]{2,}\s+[A-Z]{2}\s*$', '', s)
     return ' '.join(s.split())
