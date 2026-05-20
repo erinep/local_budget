@@ -501,8 +501,8 @@ class TestEditPostApplyForwardEmptyKeyword:
         _, kwargs = mock_recategorize.call_args
         assert kwargs.get("apply_forward_keyword") is None
 
-    def test_apply_forward_absent_passes_none_to_service(self, auth_client):
-        """apply_forward not in form body → apply_forward_keyword=None regardless of keyword."""
+    def test_non_empty_keyword_passed_to_service(self, auth_client):
+        """Non-empty keyword field passes apply_forward_keyword to service (no checkbox needed)."""
         mock_recategorize = MagicMock(return_value=_MOCK_RESULT_NO_KEYWORD)
         with patch("app.transactions.routes.get_transaction",
                    return_value=_MOCK_TXN), \
@@ -514,9 +514,8 @@ class TestEditPostApplyForwardEmptyKeyword:
                 _EDIT_URL,
                 data={
                     "category_id": _CAT_ID,
-                    # apply_forward absent — checkbox unchecked
                     "keyword": "TIM HORTONS",
                 },
             )
         _, kwargs = mock_recategorize.call_args
-        assert kwargs.get("apply_forward_keyword") is None
+        assert kwargs.get("apply_forward_keyword") == "TIM HORTONS"

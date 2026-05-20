@@ -52,6 +52,7 @@ from app.transactions.services import (
     delete_upload,
     make_categorizer_v2,
     net_amount,
+    normalize_description,
     recategorize_transaction,
 )
 
@@ -269,7 +270,22 @@ def edit(id):
 
     categories = list_categories(g.user.id)
     next_url = request.args.get("next", "").strip()
-    return render_template("transactions/edit.html", txn=txn, categories=categories, next_url=next_url)
+    return render_template(
+        "transactions/edit.html",
+        txn=txn,
+        categories=categories,
+        next_url=next_url,
+        keyword_suggestions=_keyword_suggestions(txn.description),
+    )
+
+
+def _keyword_suggestions(description: str) -> list:
+    """Return ordered, deduplicated keyword pill suggestions for a transaction description."""
+    import re as _re
+    normalized = normalize_description(description)
+    tokens = [t.strip() for t in _re.split(r'[\s*]+', normalized) if t.strip() and not t.strip().isdigit()]
+    candidates = [normalized] + ([" ".join(tokens[:2])] if len(tokens) > 2 else []) + (tokens if len(tokens) > 1 else [])
+    return list(dict.fromkeys(candidates))
 
 
 def _safe_redirect_url(raw: str) -> str:
@@ -304,9 +320,8 @@ def edit_post(id):
     else:
         category_id = None
 
-    apply_forward = request.form.get("apply_forward") == "1"
-    keyword_raw = request.form.get("keyword", "")
-    apply_forward_keyword = keyword_raw.strip() if apply_forward and keyword_raw.strip() else None
+    keyword_raw = request.form.get("keyword", "").strip()
+    apply_forward_keyword = keyword_raw if keyword_raw else None
 
     try:
         result = recategorize_transaction(
@@ -326,7 +341,13 @@ def edit_post(id):
         categories = list_categories(g.user.id)
         next_url = request.form.get("next", "").strip()
         flash("Category not found or no longer available.", "error")
-        return render_template("transactions/edit.html", txn=txn, categories=categories, next_url=next_url)
+        return render_template(
+            "transactions/edit.html",
+            txn=txn,
+            categories=categories,
+            next_url=next_url,
+            keyword_suggestions=_keyword_suggestions(txn.description),
+        )
     except Exception:
         # Keyword write failed after transaction was already committed (partial success).
         flash(

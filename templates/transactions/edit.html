@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Edit Transaction — Budget Parser{% endblock %}
+{% block title %}Edit Transaction{% endblock %}
 
 {% block content %}
-<div class="section-stack" style="max-width: 640px;">
+<div class="section-stack" style="max-width: 560px;">
     <div>
         <p class="eyebrow">Transaction History</p>
         <h1 style="font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif; font-size: clamp(1.6rem, 4vw, 2.2rem); letter-spacing: -0.03em; margin: 8px 0 0;">Edit Transaction</h1>
@@ -16,22 +16,15 @@
     {% endif %}
     {% endwith %}
 
-    {# Read-only transaction details #}
     <div class="card">
-        <h2 style="font-size: 1.1rem; margin-bottom: 16px;">Transaction details</h2>
-        <dl style="display: grid; grid-template-columns: 130px 1fr; gap: 8px 16px; margin: 0;">
-            <dt style="font-weight: 700; color: var(--muted); font-size: 0.88rem;">Date</dt>
-            <dd style="margin: 0;">{{ txn.date.strftime('%B %d, %Y') }}</dd>
-            <dt style="font-weight: 700; color: var(--muted); font-size: 0.88rem;">Description</dt>
-            <dd style="margin: 0;">{{ txn.description }}</dd>
-            <dt style="font-weight: 700; color: var(--muted); font-size: 0.88rem;">Amount</dt>
-            <dd style="margin: 0; font-variant-numeric: tabular-nums;">{{ "%.2f"|format(txn.amount|float) }}</dd>
-        </dl>
-    </div>
+        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding-bottom: 16px; margin-bottom: 20px; border-bottom: 1px solid var(--border);">
+            <div>
+                <p style="margin: 0; font-size: 0.82rem; color: var(--muted);">{{ txn.date.strftime('%b %d, %Y') }}</p>
+                <p style="margin: 4px 0 0; font-weight: 600;">{{ txn.description }}</p>
+            </div>
+            <p style="margin: 0; font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600;">{{ "%.2f"|format(txn.amount|float) }}</p>
+        </div>
 
-    {# Recategorize form #}
-    <div class="card">
-        <h2 style="font-size: 1.1rem; margin-bottom: 18px;">Recategorize</h2>
         <form method="post" action="{{ url_for('transactions.edit_post', id=txn.id) }}" novalidate>
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="next" value="{{ next_url }}">
@@ -46,26 +39,57 @@
                 </select>
             </div>
 
-            <div class="form-group" style="margin-top: 4px;">
-                <p class="section-text" style="margin: 0 0 8px; font-size: 0.88rem;">This merchant will be remembered automatically — saving here is enough for future identical transactions to be categorized correctly.</p>
-                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 600;">
-                    <input type="checkbox" name="apply_forward" value="1" style="width: auto; margin: 0;">
-                    Also save a keyword pattern
-                </label>
-                <p class="section-text" style="margin: 6px 0 0; font-size: 0.88rem;">Check this if you also want to catch future transactions with similar but not identical descriptions — for example, other locations of the same merchant.</p>
+            <div class="form-group" style="margin-top: 16px;">
+                <label for="keyword">Keyword pattern <span style="font-weight: 400; color: var(--muted);">(optional)</span></label>
+                {% if keyword_suggestions %}
+                <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">
+                    {% for suggestion in keyword_suggestions %}
+                    <button type="button"
+                        class="keyword-pill"
+                        data-value="{{ suggestion }}"
+                        onclick="pickKeyword(this)"
+                        style="padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font: inherit; font-size: 0.84rem; cursor: pointer; color: var(--text);">
+                        {{ suggestion }}
+                    </button>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <input type="text" id="keyword" name="keyword" value="" autocomplete="off" placeholder="or type your own">
+                <p class="section-text" style="margin: 4px 0 0; font-size: 0.84rem;">Matches future transactions with similar descriptions. Leave empty to skip.</p>
             </div>
 
-            <div class="form-group">
-                <label for="keyword">Keyword pattern</label>
-                <input type="text" id="keyword" name="keyword" value="{{ txn.description }}" autocomplete="off">
-                <p class="section-text" style="margin: 4px 0 0; font-size: 0.85rem;">Trim this to the core merchant name (e.g. "TIM HORTONS" not the full description). Only used when "Also save a keyword pattern" is checked.</p>
-            </div>
-
-            <div style="display: flex; gap: 12px; align-items: center; margin-top: 8px;">
+            <div style="display: flex; gap: 12px; align-items: center; margin-top: 20px;">
                 <button type="submit" class="button-primary">Save</button>
-                <a class="button-secondary" href="{{ url_for('transactions.history') }}">Cancel</a>
+                <a class="button-secondary" href="{{ next_url or url_for('transactions.history') }}">Cancel</a>
             </div>
         </form>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function pickKeyword(pill) {
+    var input = document.getElementById('keyword');
+    var val = pill.dataset.value;
+    var active = pill.classList.contains('pill-active');
+    document.querySelectorAll('.keyword-pill').forEach(function(p) {
+        p.classList.remove('pill-active');
+        p.style.background = '';
+        p.style.borderColor = '';
+        p.style.color = '';
+        p.style.fontWeight = '';
+    });
+    if (!active) {
+        pill.classList.add('pill-active');
+        pill.style.background = 'var(--accent, #2563eb)';
+        pill.style.borderColor = 'var(--accent, #2563eb)';
+        pill.style.color = '#fff';
+        pill.style.fontWeight = '600';
+        input.value = val;
+    } else {
+        input.value = '';
+    }
+}
+</script>
 {% endblock %}
