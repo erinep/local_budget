@@ -98,7 +98,7 @@
                             {% endif %}
                         </td>
                         <td style="text-align: right;">
-                            <a class="nav-link" style="font-size: 0.82rem; padding: 4px 10px;" href="{{ url_for('transactions.edit', id=txn.id) }}">Edit</a>
+                            <a class="nav-link" style="font-size: 0.82rem; padding: 4px 10px;" href="{{ url_for('transactions.edit', id=txn.id, next=request.url) }}">Edit</a>
                         </td>
                     </tr>
                     {% endfor %}
