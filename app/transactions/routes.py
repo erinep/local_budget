@@ -265,7 +265,21 @@ def edit(id):
         abort(404)
 
     categories = list_categories(g.user.id)
-    return render_template("transactions/edit.html", txn=txn, categories=categories)
+    next_url = request.args.get("next", "").strip()
+    return render_template("transactions/edit.html", txn=txn, categories=categories, next_url=next_url)
+
+
+def _safe_redirect_url(raw: str) -> str:
+    """Return a safe relative URL from raw, stripping scheme/host. Defaults to history."""
+    from urllib.parse import urlparse
+    if raw:
+        parsed = urlparse(raw)
+        path = parsed.path
+        if parsed.query:
+            path += "?" + parsed.query
+        if path.startswith("/"):
+            return path
+    return url_for("transactions.history")
 
 
 @transactions_bp.route("/transactions/<id>/edit", endpoint="edit_post", methods=["POST"])
@@ -307,8 +321,9 @@ def edit_post(id):
         except TransactionNotFound:
             abort(404)
         categories = list_categories(g.user.id)
+        next_url = request.form.get("next", "").strip()
         flash("Category not found or no longer available.", "error")
-        return render_template("transactions/edit.html", txn=txn, categories=categories)
+        return render_template("transactions/edit.html", txn=txn, categories=categories, next_url=next_url)
     except Exception:
         # Keyword write failed after transaction was already committed (partial success).
         flash(
@@ -316,7 +331,7 @@ def edit_post(id):
             " You can add it manually in Category Settings.",
             "warning",
         )
-        return redirect(url_for("transactions.history"))
+        return redirect(_safe_redirect_url(request.form.get("next", "")))
 
     # --- Flash success message ---
     if result.keyword_written:
@@ -326,7 +341,7 @@ def edit_post(id):
     else:
         flash("Transaction recategorized.", "success")
 
-    return redirect(url_for("transactions.history"))
+    return redirect(_safe_redirect_url(request.form.get("next", "")))
 
 
 # ---------------------------------------------------------------------------
