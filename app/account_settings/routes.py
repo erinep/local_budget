@@ -179,8 +179,8 @@ def categories_backfill():
                     conn.execute(
                         text(
                             "UPDATE public.transactions"
-                            " SET category_id = :cat_id::uuid"
-                            " WHERE id = :txn_id::uuid AND user_id = :uid::uuid"
+                            " SET category_id = :cat_id"
+                            " WHERE id = :txn_id AND user_id = :uid"
                         ),
                         {"cat_id": cat_id_str, "txn_id": txn_id_str, "uid": user_id},
                     )
@@ -188,7 +188,7 @@ def categories_backfill():
                     conn.execute(
                         text(
                             "INSERT INTO public.merchant_aliases (id, category_id, normalized_name)"
-                            " VALUES (gen_random_uuid(), :cat_id::uuid, :norm)"
+                            " VALUES (gen_random_uuid(), :cat_id, :norm)"
                             " ON CONFLICT (category_id, normalized_name) DO NOTHING"
                         ),
                         {"cat_id": cat_id_str, "norm": norm_name},
