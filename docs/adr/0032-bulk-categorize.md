@@ -1,5 +1,5 @@
 ---
-adr: 0033
+adr: 0032
 title: Bulk Categorization — Selection UI, Action Bar, Route Contract
 status: Draft
 date: 2026-05-20
