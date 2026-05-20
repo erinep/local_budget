@@ -35,7 +35,7 @@
         </div>
 
         {% if error %}<p class="upload-error">{{ error }}</p>{% endif %}
-        <form method="post" enctype="multipart/form-data" class="upload-form">
+        <form method="post" enctype="multipart/form-data" class="upload-form" onsubmit="var b=this.querySelector('button[type=submit]');b.disabled=true;b.textContent='Uploading…';">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <label class="file-input">
                 <span>Choose transaction file</span>

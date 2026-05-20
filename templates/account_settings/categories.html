@@ -27,8 +27,9 @@
             You have {{ uncategorized_count }} uncategorized transaction{{ 's' if uncategorized_count != 1 }}.
             Re-categorize them using your current categories and merchant history.
         </p>
-        <form method="post" action="{{ url_for('account_settings.categories_backfill') }}">
+        <form method="post" action="{{ url_for('account_settings.categories_backfill') }}" onsubmit="var b=this.querySelector('button');b.disabled=true;b.textContent='Processing…';">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="next" value="{{ request.url }}">
             <button type="submit" style="display: inline-flex; align-items: center; padding: 8px 18px; border-radius: 999px; border: 1px solid #d97706; background: #f59e0b; color: #fff; font: inherit; font-size: 0.88rem; font-weight: 700; cursor: pointer;">
                 Re-categorize uncategorized transactions
             </button>

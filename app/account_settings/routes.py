@@ -121,14 +121,13 @@ def categories_backfill():
     Scope: only transactions where category_id IS NULL.
     Manually-categorized transactions are never touched.
     Runs synchronously; processes in pages of 500 for large datasets.
+    Uses batch UPDATE + batch alias INSERT instead of per-row round-trips.
     """
-    from app.transactions.services import (
-        make_categorizer_v2,
-        recategorize_transaction,
-    )
+    from app.transactions.services import make_categorizer_v2, normalize_description
     from app.account_settings.services import get_merchant_aliases
     from app.db import get_engine
     from sqlalchemy import text
+    from urllib.parse import urlparse
     import uuid as _uuid
 
     user_id = g.user.id
@@ -160,8 +159,10 @@ def categories_backfill():
         if not rows:
             break
 
+        # Categorize in Python — one pass per page, no per-row DB calls
+        updates = []   # (txn_id_str, cat_id_str)
+        new_aliases = []  # (normalized_name, cat_id_str)
         for row in rows:
-            txn_id = _uuid.UUID(str(row[0]))
             desc = row[1]
             category_name = categorize(desc)
             if category_name == "Uncategorized":
@@ -169,20 +170,43 @@ def categories_backfill():
             cat_id_str = cat_id_by_name.get(category_name)
             if cat_id_str is None:
                 continue
-            try:
-                recategorize_transaction(
-                    user_id=user_id,
-                    transaction_id=txn_id,
-                    category_id=_uuid.UUID(cat_id_str),
-                    apply_forward_keyword=None,
+            updates.append((str(row[0]), cat_id_str))
+            new_aliases.append((normalize_description(desc), cat_id_str))
+
+        if updates:
+            with engine.begin() as conn:
+                # Batch UPDATE — one statement per page
+                conn.execute(
+                    text(
+                        "UPDATE public.transactions AS t"
+                        " SET category_id = v.cat_id::uuid"
+                        " FROM (VALUES " + ",".join("(:id_{i}::uuid, :cat_{i}::uuid)".format(i=i) for i in range(len(updates))) + ") AS v(txn_id, cat_id)"
+                        " WHERE t.id = v.txn_id AND t.user_id = :uid"
+                    ),
+                    {**{"uid": user_id}, **{f"id_{i}": u[0] for i, u in enumerate(updates)}, **{f"cat_{i}": u[1] for i, u in enumerate(updates)}},
                 )
-                updated += 1
-            except Exception:
-                pass
+                # Batch alias INSERT — skip duplicates
+                for norm_name, cat_id_str in new_aliases:
+                    conn.execute(
+                        text(
+                            "INSERT INTO public.merchant_aliases (id, category_id, normalized_name)"
+                            " VALUES (gen_random_uuid(), :cat_id::uuid, :norm)"
+                            " ON CONFLICT (category_id, normalized_name) DO NOTHING"
+                        ),
+                        {"cat_id": cat_id_str, "norm": norm_name},
+                    )
+            updated += len(updates)
 
         offset += page_size
 
     flash(f"{updated} transaction(s) re-categorized.", "success")
+
+    raw_next = request.form.get("next", "")
+    if raw_next:
+        parsed = urlparse(raw_next)
+        safe_next = parsed.path + ("?" + parsed.query if parsed.query else "")
+        if safe_next.startswith("/"):
+            return redirect(safe_next)
     return redirect(url_for("account_settings.categories_list"))
 
 

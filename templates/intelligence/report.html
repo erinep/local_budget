@@ -19,8 +19,9 @@
             Run auto-categorize to apply your merchant history and category rules, or review them individually in Transaction History.
         </p>
         <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
-            <form method="post" action="{{ url_for('account_settings.categories_backfill') }}">
+            <form method="post" action="{{ url_for('account_settings.categories_backfill') }}" onsubmit="var b=this.querySelector('button');b.disabled=true;b.textContent='Processing…';">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="next" value="{{ request.url }}">
                 <button type="submit" style="display: inline-flex; align-items: center; padding: 8px 18px; border-radius: 999px; border: 1px solid #d97706; background: #f59e0b; color: #fff; font: inherit; font-size: 0.88rem; font-weight: 700; cursor: pointer;">
                     Auto-categorize now
                 </button>
