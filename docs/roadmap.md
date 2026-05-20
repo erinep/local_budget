@@ -14,7 +14,7 @@ Phases, work items, and exit criteria. Updated as phases ship.
 | 3c | Transaction Engine — Aggregation API | Shipped | 1 week | 2026-05-18 |
 | 4 | Budgeting Module | Shipped | 2–3 weeks | 2026-05-18 |
 | 5a | Intelligence Layer — Report Page | Shipped | (delivered with 3c) | 2026-05-18 |
-| 5b | Categorizer v2 | Not started | 2–3 weeks | — |
+| 5b | Categorizer v2 | Shipped | 2–3 weeks | 2026-05-19 |
 | 5c | Account Management & User Settings | Not started | 1–2 weeks | — |
 | 5d | Reporting Overhaul | Not started | 3–4 weeks | — |
 | 5e | Public-Release Hardening | Not started | 3–4 weeks | — |
@@ -114,58 +114,38 @@ Three vertical slices, each independently shippable, with PRs sized for review a
 
 **Goal.** Add budget targets and actual-vs-budget tracking.
 
-**Shipped work items.**
+**Work items.**
 - Schema: `budgets` (id, user_id, category_id, amount) — global standing targets per category (ADR-0026).
 - Budget configuration UI (`/budgets/configure`) — set and delete standing targets.
 - Actual-vs-budget progress view (`/budgets/`) — monthly navigation, UNDER / NEAR / OVER status indicators.
 - Propose-Budgets engine (`/budgets/propose`) — reads 3 months of spend history and suggests targets per category; gaps-only or replace-all apply modes.
 - Budgets read aggregate data from the Transaction Engine via `get_spend_by_category` (ADR-0025 / ADR-0026).
 
-**Exit criteria met.** Users can configure monthly budget targets per category, see actual-vs-budget progress in real time, and generate proposals from spend history.
+**Exit criteria.** Users can configure monthly budget targets per category, see actual-vs-budget progress in real time, and generate proposals from spend history.
 
 ## Phase 5 — Intelligence Layer & Platform Maturity
 
 Phase 5 is split into four independently-shippable sub-phases, sequenced 5b → 5c → 5d → 5e. Phase 5a (the report page) shipped alongside Phase 3c per [ADR-0024](adr/0024-intelligence-layer-report-ownership.md).
 
-The Intelligence Layer's charter is narrowed for Phase 5: read-only presentation and exploration only. No background jobs, no outbound LLM calls, no alerting, no anomaly detection. The "AI question" survives only inside 5b, evaluated against measured value vs. cost. Anomaly detection and narrative summaries are deferred to a hypothetical Phase 6, with no commitment.
+The Intelligence Layer's charter is narrowed for Phase 5: read-only presentation and exploration only. No background jobs, no outbound LLM calls, no alerting, no anomaly detection. Anomaly detection and narrative summaries are deferred to a hypothetical Phase 6, with no commitment.
 
 ### Phase 5a — Report Page ✓ Shipped 2026-05-18
 
 Delivered as part of Phase 3c. Stable GET route at `/intelligence/report`, view-model assembled from the Phase 3c aggregation API, chart rendering via the existing `report_charts.js`. See [ADR-0024](adr/0024-intelligence-layer-report-ownership.md). This sub-phase is the structural placement of the Intelligence Layer; the **product** redesign of the report happens in 5d.
 
-### Phase 5b — Categorizer v2 (2–3 weeks)
+### Phase 5b — Categorizer v2 ✓ Shipped 2026-05-19
 
-**Goal.** Replace the current uppercase-substring categorizer with a layered system that uses the user's own correction history as the source of truth, and reduces the burden of maintaining keyword lists.
-
-**Architectural ground rules.**
-
-- Description normalization lives in the categorizer factory (`app/transactions/services.py`). The normalization function is also exported as a standalone helper for the history view's render layer.
-- Account Settings owns categorization rules. Categories own their keywords (existing, [ADR-0009](adr/0009-account-settings-schema-normalization.md)) and own their merchant aliases (new). Single write path preserved ([ADR-0005](adr/0005-category-map-dependency-injection.md)).
-- Local embeddings (Tier 6 below) are gated on a measured residual from the test harness. Hosted embeddings and LLM classification are out of scope for this sub-phase.
+**Goal.** Replace the single-pass keyword categorizer with a pipeline that learns from user corrections, reducing uncategorized transactions over time without manual keyword maintenance.
 
 **Work items.**
+- Tiered categorizer (`make_categorizer_v2`, [ADR-0028](adr/0028-tiered-categorizer-strategy.md)): normalize → merchant alias exact match → keyword scan → `Uncategorized`. Normalization strips processor prefixes (`SQ *`, `PAYPAL *`, `TST*`), store numbers, and city/state suffixes before any matching tier runs. `Uncategorized` (NULL `category_id`) replaces the old "Slush Fund" fallback.
+- `merchant_aliases` table under Account Settings ([ADR-0029](adr/0029-merchant-aliases-schema.md)) — written automatically on every recategorization, no extra user action required.
+- Cold-start seed corpus of 35 common merchants pre-populated into `merchant_aliases` at account creation.
+- On-demand backfill route (`POST /account-settings/categories/backfill`) — re-runs the categorizer over all uncategorized transactions, surfaced as a CTA on the report page and uncategorized history view ([ADR-0030](adr/0030-backfill-and-recategorization.md)).
+- Merchant alias management UI in Account Settings — list and delete learned aliases ([ADR-0031](adr/0031-merchant-aliases-management-ui.md)).
+- Accuracy harness (`tests/test_categorizer.py`) — covers `normalize_description` exhaustively and asserts cold-start accuracy ≥ v1 baseline on a labeled fixture set.
 
-1. Tiered categorizer:
-   - Tier 1 — Description normalization (strip processor prefixes like `SQ *`, `PAYPAL *`, `TST*`; strip trailing store numbers; strip city/state suffixes; collapse whitespace).
-   - Tier 2 — Merchant memory: exact match against a `merchant_aliases` table.
-   - Tier 3 — Token-overlap (Jaccard or TF-IDF cosine) against the user's past categorized transactions.
-   - Tier 4 — Existing keyword list, retained for bootstrap and explicit overrides.
-   - Tier 5 — Confidence threshold → `Uncategorized` (no guessing).
-   - Tier 6 — Local embeddings (deferred; in scope only if Tiers 1–5 leave an unacceptable residual on the harness).
-2. `merchant_aliases` schema under Account Settings.
-3. Alias write path — the Phase 3b recategorize flow writes aliases automatically when the user opts into "apply going forward."
-4. Categorization test harness — a labeled fixture set so changes can be measured rather than vibes-tested. Baseline the current accuracy before any rewrite.
-5. Backfill behavior on categorizer upgrade (see open decisions).
-
-**ADRs needed.** Categorizer strategy ADR (the fallback chain + the measurement gate for Tier 6); `merchant_aliases` schema ADR; backfill / re-categorization ADR.
-
-**Exit criteria.** Novel merchant names get a confident category without manual keyword maintenance. The test harness exists and reports a measured accuracy number that beats the pre-rewrite baseline.
-
-**Open decisions to resolve in ADRs.**
-
-- **Cold-start strategy.** The app should categorize well from the first upload, not only after the user has trained it. Options: invest in a richer curated seed keyword list; ship a curated generic merchant corpus that pre-populates `merchant_aliases` for new users; or accept iterative training and design the first-upload UX accordingly.
-- **Backfill on categorizer upgrade.** Do existing stored transactions get re-categorized when the categorizer changes? Options: never; on user demand; one-time automatic on upgrade.
-- **Confidence threshold value.** Quantitative; punt to the harness.
+**Exit criteria.** Merchant aliases accumulate automatically from user corrections and are matched on the next upload. Cold-start accuracy meets the v1 baseline. Backfill is available on demand.
 
 ### Phase 5c — Account Management & User Settings (1–2 weeks)
 
