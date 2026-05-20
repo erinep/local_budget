@@ -73,7 +73,8 @@ def test_history_unauthenticated_redirects_to_login(client):
 def test_history_authenticated_returns_200(auth_client):
     """Authenticated GET /transactions must return 200 (ADR-0019)."""
     with patch("app.transactions.routes.get_transactions", return_value=_EMPTY_PAGE), \
-         patch("app.transactions.routes.list_categories", return_value=[]):
+         patch("app.transactions.routes.list_categories", return_value=[]), \
+         patch("app.transactions.routes.count_uncategorized_transactions", return_value=0):
         response = auth_client.get("/transactions")
     assert response.status_code == 200
 
@@ -81,7 +82,8 @@ def test_history_authenticated_returns_200(auth_client):
 def test_history_renders_history_template(auth_client):
     """The response body must contain recognizable content from the history template."""
     with patch("app.transactions.routes.get_transactions", return_value=_EMPTY_PAGE), \
-         patch("app.transactions.routes.list_categories", return_value=[]):
+         patch("app.transactions.routes.list_categories", return_value=[]), \
+         patch("app.transactions.routes.count_uncategorized_transactions", return_value=0):
         response = auth_client.get("/transactions")
     # The template must render — check for something it would include.
     assert response.status_code == 200
@@ -96,7 +98,8 @@ def test_page_default_passes_offset_zero(auth_client):
     """No page param → page=1 → offset=0 passed to get_transactions (ADR-0019)."""
     mock_get = MagicMock(return_value=_EMPTY_PAGE)
     with patch("app.transactions.routes.get_transactions", mock_get), \
-         patch("app.transactions.routes.list_categories", return_value=[]):
+         patch("app.transactions.routes.list_categories", return_value=[]), \
+         patch("app.transactions.routes.count_uncategorized_transactions", return_value=0):
         auth_client.get("/transactions")
 
     called_filters = mock_get.call_args[0][1]  # second positional arg is TransactionFilters
@@ -107,7 +110,8 @@ def test_page_1_passes_offset_zero(auth_client):
     """Explicit page=1 → offset=0 passed to get_transactions."""
     mock_get = MagicMock(return_value=_EMPTY_PAGE)
     with patch("app.transactions.routes.get_transactions", mock_get), \
-         patch("app.transactions.routes.list_categories", return_value=[]):
+         patch("app.transactions.routes.list_categories", return_value=[]), \
+         patch("app.transactions.routes.count_uncategorized_transactions", return_value=0):
         auth_client.get("/transactions?page=1")
 
     called_filters = mock_get.call_args[0][1]
@@ -120,7 +124,8 @@ def test_page_2_passes_offset_50(auth_client):
     big_page = _make_page(items=[], total_count=100, offset=50)
     mock_get = MagicMock(return_value=big_page)
     with patch("app.transactions.routes.get_transactions", mock_get), \
-         patch("app.transactions.routes.list_categories", return_value=[]):
+         patch("app.transactions.routes.list_categories", return_value=[]), \
+         patch("app.transactions.routes.count_uncategorized_transactions", return_value=0):
         auth_client.get("/transactions?page=2")
 
     called_filters = mock_get.call_args[0][1]
@@ -131,7 +136,8 @@ def test_page_zero_clamped_to_page_1(auth_client):
     """page=0 (below minimum) must be treated as page=1 → offset=0 (ADR-0019)."""
     mock_get = MagicMock(return_value=_EMPTY_PAGE)
     with patch("app.transactions.routes.get_transactions", mock_get), \
-         patch("app.transactions.routes.list_categories", return_value=[]):
+         patch("app.transactions.routes.list_categories", return_value=[]), \
+         patch("app.transactions.routes.count_uncategorized_transactions", return_value=0):
         auth_client.get("/transactions?page=0")
 
     called_filters = mock_get.call_args[0][1]
@@ -142,7 +148,8 @@ def test_page_negative_clamped_to_page_1(auth_client):
     """page=-1 (below minimum) must be treated as page=1 → offset=0 (ADR-0019)."""
     mock_get = MagicMock(return_value=_EMPTY_PAGE)
     with patch("app.transactions.routes.get_transactions", mock_get), \
-         patch("app.transactions.routes.list_categories", return_value=[]):
+         patch("app.transactions.routes.list_categories", return_value=[]), \
+         patch("app.transactions.routes.count_uncategorized_transactions", return_value=0):
         auth_client.get("/transactions?page=-1")
 
     called_filters = mock_get.call_args[0][1]
@@ -157,7 +164,8 @@ def test_invalid_category_id_is_silently_ignored(auth_client):
     """Non-UUID category_id must be silently ignored — no HTTP 400 (ADR-0019)."""
     mock_get = MagicMock(return_value=_EMPTY_PAGE)
     with patch("app.transactions.routes.get_transactions", mock_get), \
-         patch("app.transactions.routes.list_categories", return_value=[]):
+         patch("app.transactions.routes.list_categories", return_value=[]), \
+         patch("app.transactions.routes.count_uncategorized_transactions", return_value=0):
         response = auth_client.get("/transactions?category_id=not-a-uuid")
 
     assert response.status_code == 200
@@ -169,7 +177,8 @@ def test_invalid_date_from_is_silently_ignored(auth_client):
     """Non-date date_from must be silently ignored — no HTTP 400 (ADR-0019)."""
     mock_get = MagicMock(return_value=_EMPTY_PAGE)
     with patch("app.transactions.routes.get_transactions", mock_get), \
-         patch("app.transactions.routes.list_categories", return_value=[]):
+         patch("app.transactions.routes.list_categories", return_value=[]), \
+         patch("app.transactions.routes.count_uncategorized_transactions", return_value=0):
         response = auth_client.get("/transactions?date_from=not-a-date")
 
     assert response.status_code == 200
@@ -181,7 +190,8 @@ def test_invalid_date_to_is_silently_ignored(auth_client):
     """Non-date date_to must be silently ignored — no HTTP 400 (ADR-0019)."""
     mock_get = MagicMock(return_value=_EMPTY_PAGE)
     with patch("app.transactions.routes.get_transactions", mock_get), \
-         patch("app.transactions.routes.list_categories", return_value=[]):
+         patch("app.transactions.routes.list_categories", return_value=[]), \
+         patch("app.transactions.routes.count_uncategorized_transactions", return_value=0):
         response = auth_client.get("/transactions?date_to=2026-13-99")
 
     assert response.status_code == 200
@@ -193,7 +203,8 @@ def test_valid_search_param_passed_to_get_transactions(auth_client):
     """Valid search param must be passed as-is to get_transactions (ADR-0019)."""
     mock_get = MagicMock(return_value=_EMPTY_PAGE)
     with patch("app.transactions.routes.get_transactions", mock_get), \
-         patch("app.transactions.routes.list_categories", return_value=[]):
+         patch("app.transactions.routes.list_categories", return_value=[]), \
+         patch("app.transactions.routes.count_uncategorized_transactions", return_value=0):
         auth_client.get("/transactions?search=TIM+HORTONS")
 
     called_filters = mock_get.call_args[0][1]
@@ -207,7 +218,8 @@ def test_valid_search_param_passed_to_get_transactions(auth_client):
 def test_empty_transaction_list_renders_without_error(auth_client):
     """GET /transactions with no transactions must return 200 (no crash on empty)."""
     with patch("app.transactions.routes.get_transactions", return_value=_EMPTY_PAGE), \
-         patch("app.transactions.routes.list_categories", return_value=[]):
+         patch("app.transactions.routes.list_categories", return_value=[]), \
+         patch("app.transactions.routes.count_uncategorized_transactions", return_value=0):
         response = auth_client.get("/transactions")
     assert response.status_code == 200
 
@@ -215,7 +227,8 @@ def test_empty_transaction_list_renders_without_error(auth_client):
 def test_empty_transaction_list_shows_empty_state_indicator(auth_client):
     """When total_count=0, the response must indicate no transactions exist (ADR-0019)."""
     with patch("app.transactions.routes.get_transactions", return_value=_EMPTY_PAGE), \
-         patch("app.transactions.routes.list_categories", return_value=[]):
+         patch("app.transactions.routes.list_categories", return_value=[]), \
+         patch("app.transactions.routes.count_uncategorized_transactions", return_value=0):
         response = auth_client.get("/transactions")
     # The template must render some indication of an empty state.
     # Accept any of the likely empty-state strings.
@@ -238,7 +251,8 @@ def test_empty_transaction_list_shows_empty_state_indicator(auth_client):
 def test_has_prev_is_false_on_page_1(auth_client):
     """On page 1, the previous page link must not be rendered (has_prev=False)."""
     with patch("app.transactions.routes.get_transactions", return_value=_EMPTY_PAGE), \
-         patch("app.transactions.routes.list_categories", return_value=[]):
+         patch("app.transactions.routes.list_categories", return_value=[]), \
+         patch("app.transactions.routes.count_uncategorized_transactions", return_value=0):
         response = auth_client.get("/transactions?page=1")
 
     # The template must not render a "previous" navigation link when on page 1.
@@ -253,7 +267,8 @@ def test_has_next_is_true_when_total_count_exceeds_limit(auth_client):
     """When total_count > 50, there must be a next-page link in the response."""
     big_page = _make_page(items=[_TXN_1], total_count=51, offset=0)
     with patch("app.transactions.routes.get_transactions", return_value=big_page), \
-         patch("app.transactions.routes.list_categories", return_value=[]):
+         patch("app.transactions.routes.list_categories", return_value=[]), \
+         patch("app.transactions.routes.count_uncategorized_transactions", return_value=0):
         response = auth_client.get("/transactions?page=1")
 
     # The template must render a next-page link (page=2) when has_next=True.
@@ -264,7 +279,8 @@ def test_has_next_is_false_when_total_count_within_one_page(auth_client):
     """When total_count <= 50, there must be no next-page link."""
     one_page = _make_page(items=[_TXN_1], total_count=1, offset=0)
     with patch("app.transactions.routes.get_transactions", return_value=one_page), \
-         patch("app.transactions.routes.list_categories", return_value=[]):
+         patch("app.transactions.routes.list_categories", return_value=[]), \
+         patch("app.transactions.routes.count_uncategorized_transactions", return_value=0):
         response = auth_client.get("/transactions?page=1")
 
     # page=2 should not appear in the rendered body.

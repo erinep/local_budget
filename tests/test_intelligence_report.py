@@ -403,14 +403,16 @@ class TestIntelligenceReportRoute:
 
     def test_with_transactions_returns_200(self, authenticated_client):
         # Behavior: when build_report_view_model returns a valid dict → 200
-        with patch(_PATCH_VIEW_MODEL, return_value=_FAKE_VIEW_MODEL):
+        with patch(_PATCH_VIEW_MODEL, return_value=_FAKE_VIEW_MODEL), \
+             patch("app.intelligence.routes.count_uncategorized_transactions", return_value=0):
             response = authenticated_client.get("/intelligence/report")
         assert response.status_code == 200
 
     def test_with_transactions_renders_intelligence_template(self, authenticated_client):
         # Behavior: the rendered response body contains content from the report template
         # We check for generic spending report content (case-insensitive)
-        with patch(_PATCH_VIEW_MODEL, return_value=_FAKE_VIEW_MODEL):
+        with patch(_PATCH_VIEW_MODEL, return_value=_FAKE_VIEW_MODEL), \
+             patch("app.intelligence.routes.count_uncategorized_transactions", return_value=0):
             response = authenticated_client.get("/intelligence/report")
         assert response.status_code == 200
         body_lower = response.data.lower()
