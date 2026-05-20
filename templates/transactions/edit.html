@@ -47,17 +47,18 @@
             </div>
 
             <div class="form-group" style="margin-top: 4px;">
+                <p class="section-text" style="margin: 0 0 8px; font-size: 0.88rem;">This merchant will be remembered automatically — saving here is enough for future identical transactions to be categorized correctly.</p>
                 <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 600;">
                     <input type="checkbox" name="apply_forward" value="1" style="width: auto; margin: 0;">
-                    Apply this rule going forward
+                    Also save a keyword pattern
                 </label>
-                <p class="section-text" style="margin: 6px 0 0; font-size: 0.88rem;">When checked, the keyword below will be saved to the selected category so future transactions with this description are categorized automatically.</p>
+                <p class="section-text" style="margin: 6px 0 0; font-size: 0.88rem;">Check this if you also want to catch future transactions with similar but not identical descriptions — for example, other locations of the same merchant.</p>
             </div>
 
             <div class="form-group">
-                <label for="keyword">Keyword</label>
+                <label for="keyword">Keyword pattern</label>
                 <input type="text" id="keyword" name="keyword" value="{{ txn.description }}" autocomplete="off">
-                <p class="section-text" style="margin: 4px 0 0; font-size: 0.85rem;">You may edit this to a shorter keyword (e.g., the merchant name). Only used when "Apply this rule going forward" is checked.</p>
+                <p class="section-text" style="margin: 4px 0 0; font-size: 0.85rem;">Trim this to the core merchant name (e.g. "TIM HORTONS" not the full description). Only used when "Also save a keyword pattern" is checked.</p>
             </div>
 
             <div style="display: flex; gap: 12px; align-items: center; margin-top: 8px;">
