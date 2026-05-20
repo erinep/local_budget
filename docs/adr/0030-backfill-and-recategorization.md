@@ -119,3 +119,10 @@ Transactions categorized at upload time (by v1 or v2) keep their stored `categor
 ## Notes
 
 The 5,000-row threshold and 500-row page size are starting points based on a conservative estimate of Flask's default request timeout. If empirical testing reveals that the synchronous model is too slow for a realistic user dataset size, the implementation agent should report this before shipping, not after. The architect should be consulted before raising the threshold beyond what fits in a single request.
+
+**Amendment — additional backfill CTA surfaces (2026-05-19):** The original spec placed the backfill button only on the Account Settings → Categories page, which required users to navigate away from their transactions to find it. Two additional surfaces are added; both submit to the same `POST /account-settings/categories/backfill` route and are conditionally rendered only when `uncategorized_count > 0`:
+
+1. **Intelligence report page** (`GET /intelligence/report`): a yellow banner appears immediately below the page header when the report loads with uncategorized transactions. It offers "Auto-categorize now" (form POST) and "Review manually" (link to the uncategorized-only history filter). This is the natural discovery moment — the user has just uploaded a file and is looking at their report.
+2. **Transaction history page** (`GET /transactions`) when filtered to uncategorized-only: a yellow banner appears above the results table offering "Auto-categorize now." This is the natural action surface when the user is already looking at uncategorized rows.
+
+The Categories page button is unchanged. The `uncategorized_count` value is fetched by each route handler (`count_uncategorized_transactions(user_id)`) and passed to the template; no change to the backfill route itself.

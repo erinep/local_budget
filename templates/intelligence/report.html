@@ -11,6 +11,26 @@
     <a href="{{ url_for('transactions.upload') }}" class="button-secondary">Upload another file</a>
 </section>
 
+{% if uncategorized_count > 0 %}
+<section class="section-stack" style="margin-top: 0;">
+    <div class="card" style="border-color: #fde68a; background: #fffbeb; padding: 20px 24px;">
+        <p style="color: #92400e; font-size: 0.92rem; margin: 0 0 12px;">
+            <strong>{{ uncategorized_count }} transaction{{ 's' if uncategorized_count != 1 }} couldn't be categorized automatically.</strong>
+            Run auto-categorize to apply your merchant history and category rules, or review them individually in Transaction History.
+        </p>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+            <form method="post" action="{{ url_for('account_settings.categories_backfill') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" style="display: inline-flex; align-items: center; padding: 8px 18px; border-radius: 999px; border: 1px solid #d97706; background: #f59e0b; color: #fff; font: inherit; font-size: 0.88rem; font-weight: 700; cursor: pointer;">
+                    Auto-categorize now
+                </button>
+            </form>
+            <a href="{{ url_for('transactions.history', uncategorized='1') }}" class="button-secondary" style="font-size: 0.88rem; padding: 8px 18px;">Review manually</a>
+        </div>
+    </div>
+</section>
+{% endif %}
+
 <section class="section-stack">
     <article class="card feature-card">
         <div class="section-heading">

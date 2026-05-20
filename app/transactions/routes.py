@@ -38,7 +38,7 @@ from flask import (
     url_for,
 )
 
-from app.account_settings.services import get_merchant_aliases, list_categories
+from app.account_settings.services import count_uncategorized_transactions, get_merchant_aliases, list_categories
 from app.middleware.auth import login_required
 from app.transactions.services import (
     CategoryNotFound,
@@ -224,6 +224,8 @@ def history():
         showing_from = offset + 1
         showing_to = min(offset + limit, total_count)
 
+    uncategorized_count = count_uncategorized_transactions(g.user.id)
+
     return render_template(
         "transactions/history.html",
         transactions=page_result.items,
@@ -237,6 +239,7 @@ def history():
         next_url=next_url,
         showing_from=showing_from,
         showing_to=showing_to,
+        uncategorized_count=uncategorized_count,
         # active filter values for re-populating the form
         date_from=date_from.isoformat() if date_from else "",
         date_to=date_to.isoformat() if date_to else "",
