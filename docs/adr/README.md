@@ -36,6 +36,7 @@ One file per non-trivial decision. Append-only.
 | [0029](0029-merchant-aliases-schema.md) | merchant_aliases Schema | Accepted | 2026-05-18 |
 | [0030](0030-backfill-and-recategorization.md) | Backfill and Re-categorization on Categorizer Upgrade | Accepted | 2026-05-18 |
 | [0031](0031-merchant-aliases-management-ui.md) | Merchant Aliases Management UI — List and Delete in Account Settings | Accepted | 2026-05-18 |
+| [0032](0032-bulk-categorize.md) | Bulk Categorization — Selection UI, Action Bar, Route Contract | Draft | 2026-05-20 |
 
 When the first ADR lands, replace the placeholder row with a real entry. Keep entries sorted by number, ascending.
 
