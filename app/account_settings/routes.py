@@ -175,17 +175,15 @@ def categories_backfill():
 
         if updates:
             with engine.begin() as conn:
-                # Batch UPDATE — one statement per page
-                conn.execute(
-                    text(
-                        "UPDATE public.transactions AS t"
-                        " SET category_id = v.cat_id::uuid"
-                        " FROM (VALUES " + ",".join("(:id_{i}::uuid, :cat_{i}::uuid)".format(i=i) for i in range(len(updates))) + ") AS v(txn_id, cat_id)"
-                        " WHERE t.id = v.txn_id AND t.user_id = :uid"
-                    ),
-                    {**{"uid": user_id}, **{f"id_{i}": u[0] for i, u in enumerate(updates)}, **{f"cat_{i}": u[1] for i, u in enumerate(updates)}},
-                )
-                # Batch alias INSERT — skip duplicates
+                for txn_id_str, cat_id_str in updates:
+                    conn.execute(
+                        text(
+                            "UPDATE public.transactions"
+                            " SET category_id = :cat_id::uuid"
+                            " WHERE id = :txn_id::uuid AND user_id = :uid::uuid"
+                        ),
+                        {"cat_id": cat_id_str, "txn_id": txn_id_str, "uid": user_id},
+                    )
                 for norm_name, cat_id_str in new_aliases:
                     conn.execute(
                         text(
