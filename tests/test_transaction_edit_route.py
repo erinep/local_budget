@@ -180,7 +180,9 @@ class TestEditPostRecategorizeOnly:
              patch("app.transactions.routes.list_categories",
                    return_value=_MOCK_CATEGORIES), \
              patch("app.transactions.routes.get_transactions",
-                   return_value=_make_empty_page()):
+                   return_value=_make_empty_page()), \
+             patch("app.transactions.routes.count_uncategorized_transactions",
+                   return_value=0):
             # Follow the redirect to check the flash message in the next response.
             response = auth_client.post(
                 _EDIT_URL,
@@ -224,7 +226,9 @@ class TestEditPostApplyForwardKeyword:
              patch("app.transactions.routes.list_categories",
                    return_value=_MOCK_CATEGORIES), \
              patch("app.transactions.routes.get_transactions",
-                   return_value=_make_empty_page()):
+                   return_value=_make_empty_page()), \
+             patch("app.transactions.routes.count_uncategorized_transactions",
+                   return_value=0):
             response = auth_client.post(
                 _EDIT_URL,
                 data={
@@ -273,7 +277,9 @@ class TestEditPostKeywordConflict:
              patch("app.transactions.routes.list_categories",
                    return_value=_MOCK_CATEGORIES), \
              patch("app.transactions.routes.get_transactions",
-                   return_value=_make_empty_page()):
+                   return_value=_make_empty_page()), \
+             patch("app.transactions.routes.count_uncategorized_transactions",
+                   return_value=0):
             response = auth_client.post(
                 _EDIT_URL,
                 data={
@@ -394,7 +400,9 @@ class TestEditPostPartialSuccess:
              patch("app.transactions.routes.list_categories",
                    return_value=_MOCK_CATEGORIES), \
              patch("app.transactions.routes.get_transactions",
-                   return_value=_make_empty_page()):
+                   return_value=_make_empty_page()), \
+             patch("app.transactions.routes.count_uncategorized_transactions",
+                   return_value=0):
             response = auth_client.post(
                 _EDIT_URL,
                 data={

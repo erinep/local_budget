@@ -8,6 +8,7 @@ Route table:
 
 from flask import Blueprint, flash, g, redirect, render_template, url_for
 
+from app.account_settings.services import count_uncategorized_transactions
 from app.intelligence.services import build_report_view_model
 from app.middleware.auth import login_required
 
@@ -29,4 +30,5 @@ def report():
         flash("Upload a file to see your report.", "info")
         return redirect(url_for("transactions.upload"))
 
-    return render_template("intelligence/report.html", **view_model)
+    uncategorized_count = count_uncategorized_transactions(g.user.id)
+    return render_template("intelligence/report.html", uncategorized_count=uncategorized_count, **view_model)

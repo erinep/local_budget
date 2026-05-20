@@ -55,6 +55,22 @@
         </form>
     </div>
 
+    {# Backfill CTA — shown when viewing uncategorized transactions #}
+    {% if uncategorized_only and uncategorized_count > 0 %}
+    <div class="card" style="border-color: #fde68a; background: #fffbeb; padding: 20px 24px;">
+        <p style="color: #92400e; font-size: 0.92rem; margin: 0 0 12px;">
+            <strong>{{ uncategorized_count }} transaction{{ 's' if uncategorized_count != 1 }} uncategorized.</strong>
+            Auto-categorize applies your merchant history and category rules in one step.
+        </p>
+        <form method="post" action="{{ url_for('account_settings.categories_backfill') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" style="display: inline-flex; align-items: center; padding: 8px 18px; border-radius: 999px; border: 1px solid #d97706; background: #f59e0b; color: #fff; font: inherit; font-size: 0.88rem; font-weight: 700; cursor: pointer;">
+                Auto-categorize now
+            </button>
+        </form>
+    </div>
+    {% endif %}
+
     {# Results #}
     {% if transactions %}
     <div class="card">
