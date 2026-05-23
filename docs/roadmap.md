@@ -154,7 +154,7 @@ Delivered as part of Phase 3c. Stable GET route at `/intelligence/report`, view-
 
 **Work items.**
 
-1. Account management UI — list, rename, archive accounts. No hard delete in v1 (cross-module purge belongs to Phase 6).
+1. Account management UI — list, rename, archive, and delete accounts. Hard delete is in scope: `ON DELETE CASCADE` on `transactions.account_id` means the DB handles the purge automatically with no cross-module coordination (ADR-0034).
 2. Settings consolidation page — single `/settings` entry point with sub-pages: Profile, Categories (existing, link in), Accounts (new), Security (password change, sessions).
 3. Profile management — display name, email change with verification.
 
@@ -214,7 +214,7 @@ Delivered as part of Phase 3c. Stable GET route at `/intelligence/report`, view-
 2. **Operational hardening** (~1 week) — first quarterly restore drill; uptime monitoring; Sentry alerting rules that actually page; final hosting decision (resolves the long-standing open decision).
 3. **Account tier foundation** (~3–5 days) — schema only: `plans (id, code, name, limits JSON)`, `user_plans (user_id, plan_id, started_at)`. Default everyone to "free." Feature-flag-by-tier helper exists; no features gated yet. No tiers actually defined.
 4. **Payment processing foundation** (~3–5 days) — Stripe scaffolding: webhook receiver with signed verification, `stripe_customer_id` column on users. No checkout, no SKUs. Test mode only.
-5. **Account-deletion compliance** (~3 days) — implement the cross-module purge job referenced in [`risks.md`](risks.md). Soft-delete + nightly purge. Data-export endpoint (`/settings/export` → ZIP of CSVs).
+5. **User-deletion compliance** (~3 days) — implement the cross-module purge job for full user account deletion (not financial account deletion, which ships in Phase 5c). Soft-delete + nightly purge of all user data across modules. Data-export endpoint (`/settings/export` → ZIP of CSVs).
 
 **ADRs needed (4–6).** Threat model summary; hosting decision; account-tier schema; Stripe boundary; account-deletion runbook; data-export contract.
 
