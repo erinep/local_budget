@@ -56,6 +56,7 @@ from decimal import Decimal
 from typing import Callable
 from uuid import UUID
 
+import psycopg2
 import pandas as pd
 from sqlalchemy import text
 
@@ -504,7 +505,7 @@ def _process_upload(
             amounts.append(float(row_data["CAD$"]))
             category_name = row_data.get("Category")
             cat_ids.append(cat_id_map.get(category_name) if category_name else None)
-            fps_binary.append(fingerprints[i])
+            fps_binary.append(psycopg2.Binary(fingerprints[i]))
 
         insert_result = conn.execute(
             text(
