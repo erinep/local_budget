@@ -56,7 +56,6 @@ from decimal import Decimal
 from typing import Callable
 from uuid import UUID
 
-import psycopg2
 import pandas as pd
 from sqlalchemy import text
 
@@ -505,7 +504,7 @@ def _process_upload(
             amounts.append(float(row_data["CAD$"]))
             category_name = row_data.get("Category")
             cat_ids.append(cat_id_map.get(category_name) if category_name else None)
-            fps_binary.append(psycopg2.Binary(fingerprints[i]))
+            fps_binary.append(fingerprints[i])
 
         insert_result = conn.execute(
             text(
@@ -513,11 +512,11 @@ def _process_upload(
                 " (user_id, account_id, source_file_id, date, description,"
                 "  amount, category_id, fingerprint)"
                 " SELECT :uid, :aid, :sfid,"
-                "   unnest(:dates::date[]),"
-                "   unnest(:descs::text[]),"
-                "   unnest(:amounts::numeric[]),"
-                "   unnest(:cat_ids::uuid[]),"
-                "   unnest(:fps::bytea[])"
+                "   unnest(CAST(:dates AS date[])),"
+                "   unnest(CAST(:descs AS text[])),"
+                "   unnest(CAST(:amounts AS numeric[])),"
+                "   unnest(CAST(:cat_ids AS uuid[])),"
+                "   unnest(CAST(:fps AS bytea[]))"
                 " ON CONFLICT (user_id, fingerprint) DO NOTHING"
                 " RETURNING id"
             ),
