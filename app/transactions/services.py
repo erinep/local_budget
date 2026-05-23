@@ -56,6 +56,7 @@ from decimal import Decimal
 from typing import Callable
 from uuid import UUID
 
+import psycopg2
 import pandas as pd
 from sqlalchemy import text
 
@@ -490,38 +491,48 @@ def _process_upload(
             }
         upload_id = str(upload_row[0])
 
-        # Insert transactions, deduplicating at row level.
+        # Build column arrays for a single bulk INSERT (replaces per-row loop).
+        dates: list[str] = []
+        descs: list[str] = []
+        amounts: list[float] = []
+        cat_ids: list[str | None] = []
+        fps_binary: list = []
         for i, (_, row_data) in enumerate(df.iterrows()):
             tx_date = row_data["Transaction Date"]
             iso_date = tx_date.strftime("%Y-%m-%d") if hasattr(tx_date, "strftime") else str(tx_date)[:10]
-
-            desc_raw = str(row_data["Description 1"])
-            amount_val = float(row_data["CAD$"])
+            dates.append(iso_date)
+            descs.append(str(row_data["Description 1"]))
+            amounts.append(float(row_data["CAD$"]))
             category_name = row_data.get("Category")
-            cat_id = cat_id_map.get(category_name) if category_name else None
+            cat_ids.append(cat_id_map.get(category_name) if category_name else None)
+            fps_binary.append(psycopg2.Binary(fingerprints[i]))
 
-            result = conn.execute(
-                text(
-                    "INSERT INTO public.transactions"
-                    " (user_id, account_id, source_file_id, date, description,"
-                    "  amount, category_id, fingerprint)"
-                    " VALUES (:uid, :aid, :sfid, :dt, :desc, :amt, :cat, :fp)"
-                    " ON CONFLICT (user_id, fingerprint) DO NOTHING"
-                    " RETURNING id"
-                ),
-                {
-                    "uid": user_id,
-                    "aid": account_id,
-                    "sfid": upload_id,
-                    "dt": iso_date,
-                    "desc": desc_raw,
-                    "amt": amount_val,
-                    "cat": cat_id,
-                    "fp": fingerprints[i],
-                },
-            )
-            if result.fetchone() is not None:
-                new_count += 1
+        insert_result = conn.execute(
+            text(
+                "INSERT INTO public.transactions"
+                " (user_id, account_id, source_file_id, date, description,"
+                "  amount, category_id, fingerprint)"
+                " SELECT :uid, :aid, :sfid,"
+                "   unnest(:dates::date[]),"
+                "   unnest(:descs::text[]),"
+                "   unnest(:amounts::numeric[]),"
+                "   unnest(:cat_ids::uuid[]),"
+                "   unnest(:fps::bytea[])"
+                " ON CONFLICT (user_id, fingerprint) DO NOTHING"
+                " RETURNING id"
+            ),
+            {
+                "uid": user_id,
+                "aid": account_id,
+                "sfid": upload_id,
+                "dates": dates,
+                "descs": descs,
+                "amounts": amounts,
+                "cat_ids": cat_ids,
+                "fps": fps_binary,
+            },
+        )
+        new_count = len(insert_result.fetchall())
 
     dup_count = total_rows - new_count
     return {

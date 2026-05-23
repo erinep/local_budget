@@ -37,6 +37,7 @@ from flask import (
     request,
     url_for,
 )
+from sqlalchemy.exc import OperationalError
 
 from app.account_settings.services import count_uncategorized_transactions, get_merchant_aliases, list_categories
 from app.middleware.auth import login_required
@@ -95,12 +96,18 @@ def upload():
         df = df.dropna(subset=["Transaction Date"])
 
         # Phase 3a: persist upload and transactions to DB.
-        result = _process_upload(
-            user_id=g.user.id,
-            filename=file.filename,
-            file_bytes=file_bytes,
-            df=df,
-        )
+        try:
+            result = _process_upload(
+                user_id=g.user.id,
+                filename=file.filename,
+                file_bytes=file_bytes,
+                df=df,
+            )
+        except OperationalError:
+            return render_template(
+                "upload.html",
+                error="Upload failed — database connection error. Please try again.",
+            )
 
         if result["already_uploaded"]:
             return render_template(
