@@ -17,7 +17,8 @@ Phases, work items, and exit criteria. Updated as phases ship.
 | 5b | Categorizer v2 | Shipped | 2–3 weeks | 2026-05-19 |
 | 5c | Account Management & User Settings | Not started | 1–2 weeks | — |
 | 5d | Reporting Overhaul | Not started | 3–4 weeks | — |
-| 5e | Public-Release Hardening | Not started | 3–4 weeks | — |
+| 5e | Categorizer v3 | Not started | 2–3 weeks | — |
+| 6 | Public-Release Hardening | Not started | 3–4 weeks | — |
 
 Update the Status, Target, and Shipped columns when a phase moves. Update the **Current phase** field in [`../CLAUDE.md`](../CLAUDE.md) when a phase ships.
 
@@ -125,9 +126,9 @@ Three vertical slices, each independently shippable, with PRs sized for review a
 
 ## Phase 5 — Intelligence Layer & Platform Maturity
 
-Phase 5 is split into four independently-shippable sub-phases, sequenced 5b → 5c → 5d → 5e. Phase 5a (the report page) shipped alongside Phase 3c per [ADR-0024](adr/0024-intelligence-layer-report-ownership.md).
+Phase 5 is split into five independently-shippable sub-phases, sequenced 5b → 5c → 5d → 5e. Phase 5a (the report page) shipped alongside Phase 3c per [ADR-0024](adr/0024-intelligence-layer-report-ownership.md).
 
-The Intelligence Layer's charter is narrowed for Phase 5: read-only presentation and exploration only. No background jobs, no outbound LLM calls, no alerting, no anomaly detection. Anomaly detection and narrative summaries are deferred to a hypothetical Phase 6, with no commitment.
+The Intelligence Layer's charter is narrowed for Phase 5: read-only presentation and exploration only. No background jobs, no alerting, no anomaly detection. Outbound LLM calls are permitted in Phase 5e (Categorizer v3) for embedding generation only, subject to the cost-control constraints in `CLAUDE.md`.
 
 ### Phase 5a — Report Page ✓ Shipped 2026-05-18
 
@@ -153,7 +154,7 @@ Delivered as part of Phase 3c. Stable GET route at `/intelligence/report`, view-
 
 **Work items.**
 
-1. Account management UI — list, rename, archive accounts. No hard delete in v1 (cross-module purge belongs to 5e).
+1. Account management UI — list, rename, archive accounts. No hard delete in v1 (cross-module purge belongs to Phase 6).
 2. Settings consolidation page — single `/settings` entry point with sub-pages: Profile, Categories (existing, link in), Accounts (new), Security (password change, sessions).
 3. Profile management — display name, email change with verification.
 
@@ -183,7 +184,27 @@ Delivered as part of Phase 3c. Stable GET route at `/intelligence/report`, view-
 
 **Open decisions.** Chart library — keep extending `static/report_charts.js`, or adopt Chart.js / Observable Plot / similar. Drop or migrate the existing `report.html`. Dashboard-builder scope (stretch vs. promote to in-scope).
 
-### Phase 5e — Public-Release Hardening (3–4 weeks)
+### Phase 5e — Categorizer v3 (2–3 weeks)
+
+**Goal.** Push cold-start categorization accuracy to 75% high-confidence matches by adding fuzzy matching and an embeddings tier to the pipeline, building on the alias + keyword foundation from Phase 5b (ADR-0028).
+
+**Prerequisite.** Categorization coverage metric must be visible in reporting before this phase begins — needed to measure progress and confirm the exit criterion. Add a "% categorized" stat (categorized transactions / total transactions for the selected period) to the report page as the first work item.
+
+**Work items.**
+
+1. **Categorization coverage metric in reporting** — add a coverage stat to the Intelligence report: transactions with a non-NULL `category_id` as a percentage of total, scoped to the current period. This is the measurement instrument for the exit criterion; ship it first.
+2. **Fuzzy matching tier** — insert a new tier between merchant alias (exact match) and keyword scan. Use normalized edit-distance (Levenshtein or similar) against the `merchant_aliases` corpus with a configurable similarity threshold. Handles minor description variants (trailing digits, encoding noise) that exact-match misses. Tier must be fast enough to run synchronously on upload. ADR required.
+3. **Embeddings tier** — local embedding model (no outbound LLM calls on the critical upload path) for descriptions that pass through fuzzy matching unmatched. Embeddings are precomputed on the merchant alias corpus at load time; inference is a cosine similarity lookup. Gate behind the accuracy harness: only activate if fuzzy + existing tiers leave >20% uncategorized after cold-start. ADR required.
+4. **Accuracy harness extension** — extend `tests/test_categorizer.py` to measure v3 accuracy against the labeled fixture set and report per-tier contribution. The 75% cold-start exit criterion is measured here.
+5. **Seed corpus expansion** — grow the cold-start `merchant_aliases` seed (currently 35 entries) to cover enough merchants to meaningfully bootstrap the fuzzy and embeddings tiers.
+
+**ADRs needed.** Fuzzy matching tier strategy (threshold, algorithm, performance contract); embeddings model selection and inference contract (extends ADR-0028).
+
+**Exit criteria.** The accuracy harness confirms ≥ 75% of cold-start transactions are categorized with high confidence (non-NULL `category_id`, not a low-similarity fallback). Categorization coverage is visible on the report page.
+
+**Open decisions.** Fuzzy threshold (edit-distance cutoff vs. similarity ratio — empirical tuning required). Embeddings model: local (sentence-transformers, runs on Render) vs. API-based with caching (Anthropic/OpenAI embeddings with merchant-level cache per CLAUDE.md cost-control constraints). Local is strongly preferred to keep the upload path free of external dependencies.
+
+### Phase 6 — Public-Release Hardening (3–4 weeks)
 
 **Goal.** Technical readiness gate before the app could accept external signups. The decision to actually open signups is separate from this work.
 
@@ -199,7 +220,7 @@ Delivered as part of Phase 3c. Stable GET route at `/intelligence/report`, view-
 
 **Exit criteria.** No known critical security or compliance gap. The app *could* be opened to external signups.
 
-**Open decisions.** All audit findings become decisions of their own. Stripe scaffolding in 5e vs. deferred — revisit at packet start.
+**Open decisions.** All audit findings become decisions of their own. Stripe scaffolding in Phase 6 vs. deferred — revisit at packet start.
 
 ## Open decisions
 
@@ -212,8 +233,8 @@ These should be resolved before the phases that depend on them. Each becomes an 
 | Idempotency strategy for re-uploads (hash-based vs date+amount+description) | Phase 3a starts | Affects schema and dedup logic. |
 | Multi-account-per-user — design for it now? | Phase 3a starts | Designing for it now is cheap; bolting it on later is expensive. Recommendation: yes, design schema for it even if UI ships later. |
 | Data retention policy — what happens when a user deletes their account | Phase 3a starts | Affects the cross-module deletion runbook. |
-| Hosting platform | Phase 5e | Render free tier is fine through 5d; multi-worker / paid plan needed once 5e opens the door to external signups. Options: Render paid, Fly.io, or split into Render web + separate worker. Phase 5's narrowed charter (no background jobs, no LLM endpoints) removes the prior forcing function but the public-release bar still requires resolving this. |
-| Public launch — personal use vs open to others | Before any public signup flow | Changes the security and compliance bar significantly. 5e produces the technical readiness gate; this decision is the product gate. |
+| Hosting platform | Phase 6 | Render free tier is fine through 5e; multi-worker / paid plan needed once Phase 6 opens the door to external signups. Options: Render paid, Fly.io, or split into Render web + separate worker. |
+| Public launch — personal use vs open to others | Before any public signup flow | Changes the security and compliance bar significantly. Phase 6 produces the technical readiness gate; this decision is the product gate. |
 | Mobile experience — PWA vs React Native vs none | By Phase 3 | Affects how the API is shaped. |
 
 ## Out of scope
