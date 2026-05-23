@@ -51,14 +51,13 @@ class TestGetDashboard:
         # transactions.upload route URL
         assert b"/upload" in response.data
 
-    def test_dashboard_links_to_configure(self, authenticated_client):
-        """The dashboard must expose a link to the Configure (account settings) page.
+    def test_dashboard_links_to_settings(self, authenticated_client):
+        """The dashboard must expose a link to the Settings page.
 
-        The categories link moved from the dashboard to the Configure page in
-        the Phase 3b UI redesign. The dashboard now links to /account-settings/.
+        ADR-0035 (Phase 5c): settings surface moved from /account-settings/ to /settings/.
         """
         response = authenticated_client.get("/")
-        assert b"/account-settings/" in response.data
+        assert b"/settings/" in response.data
 
 
 # ---------------------------------------------------------------------------

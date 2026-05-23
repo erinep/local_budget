@@ -4,7 +4,7 @@ All routes require an authenticated user (checked via flask.g.user).
 All POST routes follow Post-Redirect-Get to prevent double-submit on reload.
 CSRF protection is provided globally by Flask-WTF (see app/__init__.py).
 
-Route table:
+Route table (ADR-0035: index and account routes moved to settings_bp at /settings):
   GET  /account-settings/categories                    categories_list
   POST /account-settings/categories/backfill           categories_backfill
   GET  /account-settings/categories/new                categories_new
@@ -61,34 +61,6 @@ logger = logging.getLogger(__name__)
 account_settings_bp = Blueprint(
     "account_settings", __name__, url_prefix="/account-settings"
 )
-
-
-# ---------------------------------------------------------------------------
-# Settings landing — index / account
-# ---------------------------------------------------------------------------
-
-@account_settings_bp.route("/", methods=["GET"])
-@login_required
-def index():
-    """Render the Configure landing page with sub-section cards.
-
-    Per ADR-0011: no dropdown, no JS — Configure is its own landing page
-    that surfaces configuration sub-sections as cards. File management
-    moved to transactions_bp per ADR-0021.
-    """
-    return render_template("account_settings/index.html")
-
-
-@account_settings_bp.route("/account", methods=["GET"])
-@login_required
-def account():
-    """Render the Account Details stub.
-
-    Per Phase 2 Amendment A: shows email + sign-out + "more coming soon".
-    Password/email change and account deletion are explicitly parked
-    (separate ADR required — touches Supabase Auth directly).
-    """
-    return render_template("account_settings/account.html")
 
 
 # ---------------------------------------------------------------------------

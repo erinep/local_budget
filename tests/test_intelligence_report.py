@@ -395,7 +395,8 @@ class TestIntelligenceReportRoute:
 
     def test_no_transactions_flashes_info_message(self, authenticated_client):
         # Behavior: when no transactions, a flash message referencing "upload" is shown
-        with patch(_PATCH_VIEW_MODEL, return_value=None):
+        with patch(_PATCH_VIEW_MODEL, return_value=None), \
+             patch("app.transactions.routes.get_accounts", return_value=[]):
             response = authenticated_client.get(
                 "/intelligence/report", follow_redirects=True
             )

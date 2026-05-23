@@ -47,6 +47,7 @@ from app.transactions.services import (
     TransactionNotFound,
     UploadNotFound,
     _process_upload,
+    get_accounts,
     get_transaction,
     get_transactions,
     get_uploads,
@@ -63,11 +64,21 @@ transactions_bp = Blueprint("transactions", __name__)
 @transactions_bp.route("/upload", methods=["GET", "POST"])
 @login_required
 def upload():
+    accounts = get_accounts(g.user.id)
+
     if request.method == "POST":
         file = request.files["file"]
 
         if not file.filename.lower().endswith(".csv"):
-            return render_template("upload.html", error="Only .csv files are accepted.")
+            return render_template("upload.html", accounts=accounts, error="Only .csv files are accepted.")
+
+        # Validate submitted account_id belongs to this user.
+        raw_account_id = request.form.get("account_id", "").strip()
+        selected_account_id = None
+        if raw_account_id:
+            account_ids = {str(a.id) for a in accounts}
+            if raw_account_id in account_ids:
+                selected_account_id = raw_account_id
 
         # Read raw bytes for file-level hash (ADR-0013) before parsing.
         file_bytes = file.read()
@@ -102,16 +113,19 @@ def upload():
                 filename=file.filename,
                 file_bytes=file_bytes,
                 df=df,
+                account_id=selected_account_id,
             )
         except OperationalError:
             return render_template(
                 "upload.html",
+                accounts=accounts,
                 error="Upload failed — database connection error. Please try again.",
             )
 
         if result["already_uploaded"]:
             return render_template(
                 "upload.html",
+                accounts=accounts,
                 error="This file was already uploaded.",
             )
 
@@ -119,12 +133,13 @@ def upload():
             # Edge case: all rows were duplicates and nothing remains.
             return render_template(
                 "upload.html",
+                accounts=accounts,
                 error="No new transactions were found in this file.",
             )
 
         return redirect(url_for("intelligence.report"))
 
-    return render_template("upload.html")
+    return render_template("upload.html", accounts=accounts)
 
 
 # ---------------------------------------------------------------------------

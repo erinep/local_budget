@@ -1,0 +1,81 @@
+{% extends "settings/layout.html" %}
+{% block settings_title %}Accounts{% endblock %}
+
+{% block settings_content %}
+<h1 style="font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif; font-size: clamp(1.6rem, 3vw, 2.2rem); letter-spacing: -0.03em; margin-bottom: 8px;">Accounts</h1>
+<p class="section-text" style="margin: 0 0 24px;">
+    Each account is a named group for your uploaded transactions. Select an account when uploading a CSV.
+</p>
+
+{% if accounts %}
+<div class="card" style="margin-bottom: 24px; padding: 0; overflow: hidden;">
+    {% for account in accounts %}
+    <div style="padding: 18px 20px; {% if not loop.last %}border-bottom: 1px solid var(--border);{% endif %}">
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+
+            <form method="POST" action="{{ url_for('settings.accounts_rename', account_id=account.id) }}"
+                  style="flex: 1; display: flex; gap: 8px; min-width: 200px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="text" name="name" value="{{ account.name }}"
+                       maxlength="100" required
+                       style="flex: 1; padding: 8px 12px; border: 1px solid var(--border-strong);
+                              border-radius: var(--radius-sm); background: rgba(255,255,255,0.7);
+                              font-size: 0.95rem; font-weight: 600; color: var(--text);">
+                <button type="submit" class="button-secondary"
+                        style="font-size: 0.8rem; min-height: 36px; padding: 0 12px;">
+                    Rename
+                </button>
+            </form>
+
+            <div style="display: flex; align-items: center; gap: 16px; flex-shrink: 0;">
+                <span style="font-size: 0.85rem; color: var(--muted); white-space: nowrap;">
+                    {{ account.transaction_count }} transaction{% if account.transaction_count != 1 %}s{% endif %},
+                    {{ account.upload_count }} file{% if account.upload_count != 1 %}s{% endif %}
+                </span>
+
+                {% if accounts | length == 1 %}
+                <form method="POST" action="{{ url_for('settings.accounts_delete', account_id=account.id) }}"
+                      onsubmit="return confirm('Delete \\'{{ account.name }}\\' and all {{ account.transaction_count }} transaction(s) across {{ account.upload_count }} file(s)?\n\nThis is your only account. A new default account will be created on your next upload.\n\nThis cannot be undone.');">
+                {% else %}
+                <form method="POST" action="{{ url_for('settings.accounts_delete', account_id=account.id) }}"
+                      onsubmit="return confirm('Delete \\'{{ account.name }}\\' and all {{ account.transaction_count }} transaction(s) across {{ account.upload_count }} file(s)?\n\nThis cannot be undone.');">
+                {% endif %}
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="button-secondary"
+                            style="font-size: 0.8rem; min-height: 36px; padding: 0 12px; color: #b91c1c; border-color: rgba(185,28,28,0.28);">
+                        Delete
+                    </button>
+                </form>
+            </div>
+
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card" style="margin-bottom: 24px; padding: 20px 24px;">
+    <p class="section-text" style="margin: 0;">
+        No accounts yet. Create one below to get started.
+    </p>
+</div>
+{% endif %}
+
+<div class="card">
+    <h2 style="margin: 0 0 16px; font-size: 1.1rem;">Add account</h2>
+    {% if create_error %}
+    <p style="color: #b91c1c; font-size: 0.9rem; margin: 0 0 12px;">{{ create_error }}</p>
+    {% endif %}
+    <form method="POST" action="{{ url_for('settings.accounts_create') }}"
+          style="display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="text" name="name" placeholder="e.g. TD Chequing" maxlength="100" required
+               style="flex: 1; min-width: 180px; padding: 10px 14px;
+                      border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+                      background: rgba(255,255,255,0.7); font-size: 0.95rem; color: var(--text);">
+        <button type="submit" class="button-primary"
+                style="font-size: 0.9rem; min-height: 42px; padding: 0 18px;">
+            Create
+        </button>
+    </form>
+</div>
+{% endblock %}
