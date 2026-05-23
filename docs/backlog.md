@@ -12,10 +12,10 @@ Small improvements, UX polish, and bugs that don't belong to a specific phase. W
 
 | # | Status | Area | Item | Notes |
 |---|---|---|---|---|
-| 1 | Open | Transactions | Upload status indicator on the transactions page | User needs feedback on whether a recent upload succeeded, is processing, or failed. |
+| 1 | Open | Upload | Upload feedback — spinner on submit, status on success | Disable the submit button and show a spinner on click; flash a success message (N transactions imported, M duplicates skipped) on redirect. Template/JS only — no server changes. |
 | 2 | Open | Budgets | Show allocated total on the budget page | Running sum of all budget targets so the user knows how much of their expected spend is covered. |
 | 3 | Open | Budgets | Overhaul budget configuration UI | Current flow (select category dropdown + submit at top) is too many clicks. Replace with an inline edit field next to each category row — one action per row, no separate submit. |
 | 4 | Open | Settings | Fix settings page layout for typical screen sizes | Boxes/cards are not well-optimised for the viewport. Needs a layout pass. |
 | 5 | Closed (#49, #50) | Upload | Fix upload timeout + graceful error handling | Per-row INSERT loop timed out gunicorn on Render free tier. Replaced with unnest bulk INSERT (ADR-0033). OperationalError now surfaces as a user-facing message. |
-| 6 | Open | Upload | Client-side loading spinner on file submit | Disable the submit button and show a spinner the moment the form is submitted so the user knows their click registered. Template/JS only — no server changes. |
+| 6 | Open | Transactions | Bulk category updates | Checkbox selection on history view with sticky action bar — apply one category to many transactions at once. Design decided in ADR-0032 (Phase 5c). |
 | 7 | Open | UX (all) | Audit and improve weak or missing user feedback across the app | Do a pass over all forms, actions, and state-changing routes. Look for: silent redirects with no confirmation, missing flash messages, buttons that give no response on click, and error states that show a raw 500 or nothing. Fix gaps with light JS (disable-on-submit, spinners) and flash messages. No backend changes needed for most of these. |
