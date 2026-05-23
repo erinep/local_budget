@@ -10,6 +10,7 @@ Route table:
   POST /settings/accounts                      accounts_create
   POST /settings/accounts/<id>/rename          accounts_rename
   POST /settings/accounts/<id>/delete          accounts_delete
+  GET  /settings/files                          files_list
   GET  /settings/security                      security
 
 ADR-0035: new thin settings blueprint owns the /settings prefix.
@@ -35,6 +36,7 @@ from app.transactions.services import (
     create_account,
     delete_account,
     get_accounts,
+    get_uploads,
     rename_account,
 )
 from app.account_settings.services import (
@@ -120,6 +122,13 @@ def accounts_delete(account_id: str):
         abort(404)
     flash("Account and all its transactions deleted.", "success")
     return redirect(url_for("settings.accounts_list"))
+
+
+@settings_bp.route("/files", methods=["GET"])
+@login_required
+def files_list():
+    uploads = get_uploads(g.user.id)
+    return render_template("transactions/files.html", uploads=uploads)
 
 
 @settings_bp.route("/security", methods=["GET"])

@@ -397,9 +397,7 @@ def edit_post(id):
 @transactions_bp.route("/files", endpoint="files", methods=["GET"])
 @login_required
 def files_list():
-    """List all uploaded files for the authenticated user."""
-    uploads = get_uploads(g.user.id)
-    return render_template("transactions/files.html", uploads=uploads)
+    return redirect(url_for("settings.files_list"))
 
 
 @transactions_bp.route("/files/<upload_id>/delete", endpoint="files_delete", methods=["POST"])
@@ -417,4 +415,4 @@ def files_delete(upload_id: str):
         abort(404)
 
     flash("File deleted and all its transactions removed.", "success")
-    return redirect(url_for("transactions.files"))
+    return redirect(url_for("settings.files_list"))
