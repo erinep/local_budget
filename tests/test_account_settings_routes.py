@@ -153,7 +153,7 @@ class TestPostCategories:
             )
         mock_create.assert_called_once_with(mock_auth_user.id, "Groceries")
         assert response.status_code == 302
-        assert "/account-settings/categories" in response.headers.get("Location", "")
+        assert "/settings/categories" in response.headers.get("Location", "")
 
     def test_invalid_name_returns_200_no_redirect(self, authenticated_client):
         """A ValueError from the service (e.g. empty name) must re-render the
@@ -311,7 +311,7 @@ class TestPostCategoryDelete:
             )
         mock_del.assert_called_once_with(mock_auth_user.id, cat_id)
         assert response.status_code == 302
-        assert "/account-settings/categories" in response.headers.get("Location", "")
+        assert "/settings/categories" in response.headers.get("Location", "")
 
     def test_category_not_found_returns_404(self, authenticated_client):
         """Deleting a category that does not belong to the user must return 404.
@@ -509,7 +509,7 @@ class TestPostImport:
             mock_auth_user.id, {"Food": ["PIZZA"], "Transport": ["UBER"]}
         )
         assert response.status_code == 302
-        assert "/account-settings/categories" in response.headers.get("Location", "")
+        assert "/settings/categories" in response.headers.get("Location", "")
 
     def test_no_file_returns_200_with_error(self, authenticated_client):
         """Submitting the import form without a file must return 200 (re-render

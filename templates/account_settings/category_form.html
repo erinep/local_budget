@@ -1,8 +1,7 @@
-{% extends "base.html" %}
-{% block title %}New Category — Budget Parser{% endblock %}
-{% block content %}
+{% extends "settings/layout.html" %}
+{% block settings_title %}New Category{% endblock %}
+{% block settings_content %}
 <div class="auth-card" style="max-width: 520px;">
-    <p class="eyebrow">Account Settings</p>
     <h1 class="auth-title">New Category</h1>
 
     {% if error %}
@@ -21,7 +20,7 @@
     </form>
 
     <p class="auth-links">
-        <a href="{{ url_for('account_settings.categories_list') }}">Cancel</a>
+        <a href="{{ url_for('settings.categories') }}">Cancel</a>
     </p>
 </div>
 {% endblock %}

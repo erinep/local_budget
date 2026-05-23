@@ -37,6 +37,10 @@ from app.transactions.services import (
     get_accounts,
     rename_account,
 )
+from app.account_settings.services import (
+    count_uncategorized_transactions,
+    list_categories,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +50,7 @@ settings_bp = Blueprint("settings", __name__, url_prefix="/settings")
 @settings_bp.route("/", methods=["GET"])
 @login_required
 def index():
-    return render_template("settings/index.html")
+    return redirect(url_for("settings.profile"))
 
 
 @settings_bp.route("/profile", methods=["GET"])
@@ -58,7 +62,14 @@ def profile():
 @settings_bp.route("/categories", methods=["GET"])
 @login_required
 def categories():
-    return redirect(url_for("account_settings.categories_list"))
+    user_id = g.user.id
+    cats = list_categories(user_id)
+    uncategorized_count = count_uncategorized_transactions(user_id)
+    return render_template(
+        "account_settings/categories.html",
+        categories=cats,
+        uncategorized_count=uncategorized_count,
+    )
 
 
 @settings_bp.route("/accounts", methods=["GET"])

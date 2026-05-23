@@ -177,7 +177,7 @@ def categories_backfill():
         safe_next = parsed.path + ("?" + parsed.query if parsed.query else "")
         if safe_next.startswith("/"):
             return redirect(safe_next)
-    return redirect(url_for("account_settings.categories_list"))
+    return redirect(url_for("settings.categories"))
 
 
 # ---------------------------------------------------------------------------
@@ -206,7 +206,7 @@ def categories_create():
             error=str(exc),
         )
 
-    return redirect(url_for("account_settings.categories_list"))
+    return redirect(url_for("settings.categories"))
 
 
 # ---------------------------------------------------------------------------
@@ -264,7 +264,7 @@ def categories_delete(category_id: str):
     except ValueError:
         abort(404)
 
-    return redirect(url_for("account_settings.categories_list"))
+    return redirect(url_for("settings.categories"))
 
 
 # ---------------------------------------------------------------------------
@@ -400,7 +400,7 @@ def import_upload():
             error=str(exc),
         )
 
-    return redirect(url_for("account_settings.categories_list"))
+    return redirect(url_for("settings.categories"))
 
 
 # ---------------------------------------------------------------------------

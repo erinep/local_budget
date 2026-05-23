@@ -1,8 +1,7 @@
-{% extends "base.html" %}
-{% block title %}Import Categories — Budget Parser{% endblock %}
-{% block content %}
+{% extends "settings/layout.html" %}
+{% block settings_title %}Import Categories{% endblock %}
+{% block settings_content %}
 <div class="auth-card" style="max-width: 520px;">
-    <p class="eyebrow">Account Settings</p>
     <h1 class="auth-title">Import Categories from JSON</h1>
 
     <p class="auth-hint">Upload a JSON file to seed your categories and keywords. Import is only available when you have no existing categories — it would otherwise overwrite them.</p>
@@ -30,7 +29,7 @@
     </form>
 
     <p class="auth-links">
-        <a href="{{ url_for('account_settings.categories_list') }}">Cancel</a>
+        <a href="{{ url_for('settings.categories') }}">Cancel</a>
     </p>
 </div>
 {% endblock %}

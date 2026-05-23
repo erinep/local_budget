@@ -1,25 +1,19 @@
-{% extends "base.html" %}
-{% block title %}Edit: {{ category.name }} — Budget Parser{% endblock %}
-{% block content %}
+{% extends "settings/layout.html" %}
+{% block settings_title %}Edit: {{ category.name }}{% endblock %}
+{% block settings_content %}
 {#
-  ASSUMPTION: For the edit page, the route passes `category.keywords` as a list of
-  dicts with shape {id, keyword} rather than plain strings, so that remove buttons
-  can POST to the keywords_remove endpoint with a keyword_id. This is necessary
-  because the remove route requires a keyword_id. The categories_list view uses
-  plain strings (list[str]), but the categories_edit route is expected to enrich
-  the keyword list before rendering this template.
+  ASSUMPTION: category.keywords is a list of dicts with shape {id, keyword}
+  so that remove buttons can POST with a keyword_id to keywords_remove.
 #}
 <div class="section-stack" style="max-width: 640px;">
     <div>
-        <p class="eyebrow">Account Settings / Categories</p>
-        <h1 style="font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif; font-size: clamp(1.6rem, 4vw, 2.2rem); letter-spacing: -0.03em; margin: 8px 0 0;">Edit: {{ category.name }}</h1>
+        <h1 style="font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif; font-size: clamp(1.6rem, 4vw, 2.2rem); letter-spacing: -0.03em; margin: 0;">Edit: {{ category.name }}</h1>
     </div>
 
     {% if error %}
     <p class="auth-error" role="alert">{{ error }}</p>
     {% endif %}
 
-    {# Rename section #}
     <div class="card">
         <h2 style="font-size: 1.1rem; margin-bottom: 18px;">Rename category</h2>
         <form method="post" action="{{ url_for('account_settings.categories_update', category_id=category.id) }}" novalidate>
@@ -32,7 +26,6 @@
         </form>
     </div>
 
-    {# Keywords section #}
     <div class="card">
         <h2 style="font-size: 1.1rem; margin-bottom: 4px;">Keywords</h2>
         <p class="section-text" style="margin: 0 0 18px; font-size: 0.9rem;">Transactions whose description contains any of these keywords will be categorised as <strong>{{ category.name }}</strong>.</p>
@@ -65,9 +58,8 @@
         </form>
     </div>
 
-    {# Navigation and danger zone #}
     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
-        <a class="button-secondary" href="{{ url_for('account_settings.categories_list') }}">Back to Categories</a>
+        <a class="button-secondary" href="{{ url_for('settings.categories') }}">Back to Categories</a>
 
         <form method="post" action="{{ url_for('account_settings.categories_delete', category_id=category.id) }}" onsubmit="return confirm('Delete category &quot;{{ category.name }}&quot; and all its keywords? This cannot be undone.');">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
