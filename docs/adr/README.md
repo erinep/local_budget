@@ -37,6 +37,8 @@ One file per non-trivial decision. Append-only.
 | [0030](0030-backfill-and-recategorization.md) | Backfill and Re-categorization on Categorizer Upgrade | Accepted | 2026-05-18 |
 | [0031](0031-merchant-aliases-management-ui.md) | Merchant Aliases Management UI — List and Delete in Account Settings | Accepted | 2026-05-18 |
 | [0032](0032-bulk-categorize.md) | Bulk Categorization — Selection UI, Action Bar, Route Contract | Draft | 2026-05-20 |
+| [0034](0034-account-lifecycle.md) | Account Lifecycle — Archive Semantics, Visibility, and Rename Contract | Accepted | 2026-05-23 |
+| [0035](0035-settings-page-structure.md) | Settings Page Structure — Blueprint, URL Namespace, Navigation, and Email-Change Flow | Accepted | 2026-05-23 |
 
 When the first ADR lands, replace the placeholder row with a real entry. Keep entries sorted by number, ascending.
 
