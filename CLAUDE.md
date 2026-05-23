@@ -35,6 +35,7 @@ See [docs/architecture.md](docs/architecture.md) for the diagram, responsibiliti
 
 - [docs/architecture.md](docs/architecture.md) — module shape, principles, cross-cutting concerns. Stable; changes rarely.
 - [docs/roadmap.md](docs/roadmap.md) — phases, work items, exit criteria. Updated as phases ship.
+- [docs/backlog.md](docs/backlog.md) — running list of UI polish, bugs, and small improvements that don't belong to a specific phase.
 - [docs/risks.md](docs/risks.md) — living risk register with phase mapping.
 - [docs/orchestration.md](docs/orchestration.md) — how AI agents work this codebase: roles, parallelism rules, merge protocol.
 - [docs/adr/](docs/adr/) — Architecture Decision Records, one file per non-trivial decision. Use [docs/adr/0000-template.md](docs/adr/0000-template.md).
