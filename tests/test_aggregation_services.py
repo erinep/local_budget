@@ -198,8 +198,8 @@ def _insert_account(user_id: str) -> str:
     with engine.begin() as conn:
         account_id = conn.execute(
             sa.text(
-                "INSERT INTO public.accounts (user_id, name, kind, currency)"
-                " VALUES (:uid, :name, 'checking', 'CAD') RETURNING id"
+                "INSERT INTO public.accounts (user_id, name)"
+                " VALUES (:uid, :name) RETURNING id"
             ),
             {"uid": user_id, "name": f"Acct-{uuid.uuid4()}"},
         ).scalar()

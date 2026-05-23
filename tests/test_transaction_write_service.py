@@ -181,8 +181,8 @@ def _setup_transaction(
         # 1. Create account
         account_id = conn.execute(
             sa.text(
-                "INSERT INTO public.accounts (user_id, name, kind, currency)"
-                " VALUES (:uid, :name, 'checking', 'CAD')"
+                "INSERT INTO public.accounts (user_id, name)"
+                " VALUES (:uid, :name)"
                 " RETURNING id"
             ),
             {"uid": user_id, "name": f"TestAccount-{seq}-{uuid.uuid4()}"},

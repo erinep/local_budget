@@ -56,8 +56,6 @@ class TestUnauthenticatedAccess:
     """Every account-settings route must return 302 for unauthenticated access."""
 
     UNAUTHENTICATED_ROUTES = [
-        ("GET",  "/account-settings/"),
-        ("GET",  "/account-settings/account"),
         ("GET",  "/account-settings/categories"),
         ("GET",  "/account-settings/categories/new"),
         ("POST", "/account-settings/categories"),
@@ -155,7 +153,7 @@ class TestPostCategories:
             )
         mock_create.assert_called_once_with(mock_auth_user.id, "Groceries")
         assert response.status_code == 302
-        assert "/account-settings/categories" in response.headers.get("Location", "")
+        assert "/settings/categories" in response.headers.get("Location", "")
 
     def test_invalid_name_returns_200_no_redirect(self, authenticated_client):
         """A ValueError from the service (e.g. empty name) must re-render the
@@ -313,7 +311,7 @@ class TestPostCategoryDelete:
             )
         mock_del.assert_called_once_with(mock_auth_user.id, cat_id)
         assert response.status_code == 302
-        assert "/account-settings/categories" in response.headers.get("Location", "")
+        assert "/settings/categories" in response.headers.get("Location", "")
 
     def test_category_not_found_returns_404(self, authenticated_client):
         """Deleting a category that does not belong to the user must return 404.
@@ -511,7 +509,7 @@ class TestPostImport:
             mock_auth_user.id, {"Food": ["PIZZA"], "Transport": ["UBER"]}
         )
         assert response.status_code == 302
-        assert "/account-settings/categories" in response.headers.get("Location", "")
+        assert "/settings/categories" in response.headers.get("Location", "")
 
     def test_no_file_returns_200_with_error(self, authenticated_client):
         """Submitting the import form without a file must return 200 (re-render
@@ -666,86 +664,27 @@ class TestImportRefusedWhenCategoriesExist:
 # ---------------------------------------------------------------------------
 #
 # Contract source: ADR-0011 — Navigation and Landing Page Contract.
-#
-#   - GET /account-settings/        renders the Settings landing page (cards).
-#   - GET /account-settings/account renders the Account Details stub.
-#   - Both routes require authentication.
-#   - The Settings landing page links to the Categories list and to the
-#     Account Details page.
-#   - The Account Details page renders the user's email and a sign-out control.
-#   - The header on any authenticated page links to /account-settings/.
+# Updated in ADR-0035 (Phase 5c): /account-settings/ index and account routes
+# removed; settings surface moved to /settings/ (settings_bp).
+#   - The header on any authenticated page links to /settings/.
 #   - The header does NOT contain a "Budget" link — per ADR-0011 point 3 and
 #     §3 of the amendment, Budget is a peer top-level module deferred to
 #     Phase 4, NOT a Settings sub-section.
 # ---------------------------------------------------------------------------
 
 
-class TestGetSettingsIndex:
-    """GET /account-settings/ — Settings landing page (ADR-0011)."""
-
-    def test_authenticated_returns_200(self, authenticated_client):
-        """Authenticated GET /account-settings/ must return 200."""
-        response = authenticated_client.get(
-            "/account-settings/",
-            follow_redirects=False,
-        )
-        assert response.status_code == 200
-
-    def test_links_to_categories_list(self, authenticated_client):
-        """The landing page must surface a link to the Categories list URL.
-
-        Asserts on the URL (the contract), not on the card copy.
-        """
-        response = authenticated_client.get("/account-settings/")
-        assert b"/account-settings/categories" in response.data
-
-    def test_links_to_account_details(self, authenticated_client):
-        """The landing page must surface a link to the Account Details stub
-        (account_settings.account → /account-settings/account)."""
-        response = authenticated_client.get("/account-settings/")
-        assert b"/account-settings/account" in response.data
-
-
-class TestGetAccountDetails:
-    """GET /account-settings/account — Account Details stub (ADR-0011 + amendment §Q2c)."""
-
-    def test_authenticated_returns_200(self, authenticated_client):
-        """Authenticated GET /account-settings/account must return 200."""
-        response = authenticated_client.get(
-            "/account-settings/account",
-            follow_redirects=False,
-        )
-        assert response.status_code == 200
-
-    def test_renders_user_email(self, authenticated_client, mock_auth_user):
-        """The stub must show the user's email (from g.user.email)."""
-        response = authenticated_client.get("/account-settings/account")
-        assert mock_auth_user.email.encode() in response.data
-
-    def test_contains_sign_out_control(self, authenticated_client):
-        """The stub must provide a sign-out control — the page is honest
-        about what exists, and sign-out is the one thing it ships with."""
-        response = authenticated_client.get("/account-settings/account")
-        # The sign-out control is a link/button targeting /auth/logout.
-        assert b"/auth/logout" in response.data
-
-
 class TestHeaderNav:
-    """Header composition (ADR-0011 point 2) — asserted against a rendered
-    authenticated page so the full base.html header is exercised."""
+    """Header composition (ADR-0011 point 2, ADR-0035) — asserted against a
+    rendered authenticated page so the full base.html header is exercised."""
 
     def test_authenticated_page_header_links_to_settings(self, authenticated_client):
-        """Any authenticated page header must include a link to the Settings
-        landing page at /account-settings/. ADR-0011 point 2."""
-        # Use the dashboard as a representative authenticated page; base.html
-        # renders the same header on every authenticated page.
+        """Any authenticated page header must include a link to /settings/.
+
+        ADR-0035 moved the settings landing from /account-settings/ to /settings/.
+        """
         response = authenticated_client.get("/")
-        # The header link's href must be exactly /account-settings/ (the
-        # Settings landing). Bare /account-settings/categories does not
-        # satisfy the contract — Settings is its own landing.
-        assert b'href="/account-settings/"' in response.data, (
-            "Authenticated header must include a link to /account-settings/ "
-            "per ADR-0011 point 2."
+        assert b'href="/settings/"' in response.data, (
+            "Authenticated header must include a link to /settings/ per ADR-0035."
         )
 
     def test_authenticated_header_contains_budget_nav_link(self, authenticated_client):

@@ -144,8 +144,8 @@ def _insert_upload(
     with engine.begin() as conn:
         account_id = conn.execute(
             sa.text(
-                "INSERT INTO public.accounts (user_id, name, kind, currency)"
-                " VALUES (:uid, :name, 'checking', 'CAD') RETURNING id"
+                "INSERT INTO public.accounts (user_id, name)"
+                " VALUES (:uid, :name) RETURNING id"
             ),
             {"uid": user_id, "name": f"Acct-{uuid.uuid4()}"},
         ).scalar()
@@ -296,37 +296,37 @@ class TestDeleteUpload:
 # Section 3 — Route tests (unit, mocked service, no DATABASE_URL required)
 # ---------------------------------------------------------------------------
 
-_GET_UPLOADS_PATH = "app.transactions.routes.get_uploads"
+_GET_UPLOADS_PATH = "app.settings.routes.get_uploads"
 _DELETE_UPLOAD_PATH = "app.transactions.routes.delete_upload"
 
 
 class TestFilesListRoute:
-    """GET /files — auth gate, template, uploads passed through."""
+    """GET /settings/files — auth gate, template, uploads passed through."""
 
     def test_unauthenticated_redirects_to_login(self, client):
-        response = client.get("/files", follow_redirects=False)
+        response = client.get("/settings/files", follow_redirects=False)
         assert response.status_code == 302
         assert "/auth/login" in response.headers.get("Location", "")
 
     def test_authenticated_returns_200(self, authenticated_client):
         with patch(_GET_UPLOADS_PATH, return_value=[]):
-            response = authenticated_client.get("/files")
+            response = authenticated_client.get("/settings/files")
         assert response.status_code == 200
 
     def test_renders_files_template(self, authenticated_client):
         with patch(_GET_UPLOADS_PATH, return_value=[]):
-            response = authenticated_client.get("/files")
+            response = authenticated_client.get("/settings/files")
         assert b"files" in response.data.lower()
 
     def test_passes_uploads_to_template(self, authenticated_client):
         with patch(_GET_UPLOADS_PATH, return_value=[_UPLOAD_1, _UPLOAD_2]):
-            response = authenticated_client.get("/files")
+            response = authenticated_client.get("/settings/files")
         assert b"jan_2026.csv" in response.data
         assert b"feb_2026.csv" in response.data
 
     def test_empty_upload_list_renders_without_error(self, authenticated_client):
         with patch(_GET_UPLOADS_PATH, return_value=[]):
-            response = authenticated_client.get("/files")
+            response = authenticated_client.get("/settings/files")
         assert response.status_code == 200
         assert b"No files uploaded yet" in response.data
 
@@ -357,7 +357,7 @@ class TestFilesDeleteRoute:
                 follow_redirects=False,
             )
         assert response.status_code == 302
-        assert "/files" in response.headers.get("Location", "")
+        assert "/settings/files" in response.headers.get("Location", "")
 
     def test_success_flashes_success_message(self, authenticated_client):
         with patch(_DELETE_UPLOAD_PATH, return_value=None), \

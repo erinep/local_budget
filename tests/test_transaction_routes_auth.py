@@ -56,7 +56,9 @@ class TestUploadGetRouteRequiresAuth:
     ):
         """An authenticated client must NOT be redirected to /auth/login
         when accessing GET /upload."""
-        response = authenticated_client.get("/upload", follow_redirects=False)
+        from unittest.mock import patch
+        with patch("app.transactions.routes.get_accounts", return_value=[]):
+            response = authenticated_client.get("/upload", follow_redirects=False)
         location = response.headers.get("Location", "")
         assert "/auth/login" not in location, (
             f"Authenticated client was unexpectedly redirected to login; "

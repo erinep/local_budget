@@ -10,9 +10,11 @@ Public API (ADR-0017, ADR-0018, ADR-0023, ADR-0028):
   TransactionFilters    — filter dataclass for get_transactions
   TransactionPage       — paginated result container
   Transaction           — single exported row shape
+  Account               — single exported account row shape (ADR-0034)
   Upload                — single exported upload row shape
   TransactionNotFound   — raised when no row matches (user_id, transaction_id)
   UploadNotFound        — raised by delete_upload when upload_id does not belong to user_id
+  AccountNotFound       — raised by rename_account / delete_account when account_id does not belong to user_id
   CategoryNotFound      — raised by recategorize_transaction when category_id does not belong to user_id
   RecategorizationResult — result type for recategorize_transaction
   DateRange             — inclusive date interval; factory for_month(year, month) (ADR-0023)
@@ -25,6 +27,10 @@ Public API (ADR-0017, ADR-0018, ADR-0023, ADR-0028):
   get_transaction(user_id, transaction_id) -> Transaction
   get_uploads(user_id) -> list[Upload]
   delete_upload(user_id, upload_id) -> None
+  get_accounts(user_id) -> list[Account] (ADR-0034)
+  create_account(user_id, name) -> Account (ADR-0034)
+  rename_account(user_id, account_id, new_name) -> None (ADR-0034)
+  delete_account(user_id, account_id) -> None (ADR-0034)
   recategorize_transaction(user_id, transaction_id, category_id, apply_forward_keyword) -> RecategorizationResult
   get_spend_by_category(user_id, period, account_id) -> list[CategorySpend] (ADR-0023)
   get_spend_history(user_id, category_id, periods) -> list[PeriodSpend] (ADR-0023)
@@ -262,6 +268,10 @@ class UploadNotFound(Exception):
     """Raised by delete_upload when upload_id does not belong to user_id or does not exist."""
 
 
+class AccountNotFound(Exception):
+    """Raised by rename_account / delete_account when account_id does not belong to user_id."""
+
+
 class CategoryNotFound(Exception):
     """Raised by recategorize_transaction when category_id does not belong to user_id."""
 
@@ -284,18 +294,20 @@ class RecategorizationResult:
 # ---------------------------------------------------------------------------
 
 def _get_or_create_default_account(user_id: str) -> str:
-    """Find any active account for user_id or create the default one.
+    """Find any account for user_id or create the Default one.
 
     Uses ON CONFLICT DO NOTHING so concurrent inserts are safe.
     Returns the account UUID as a lowercase str.
+
+    This is the programmatic fallback path only (ADR-0034). The upload form
+    always passes an explicit account_id; this function is the safety net.
     """
     engine = get_engine()
     with engine.begin() as conn:
-        # Check for any existing active account first.
         row = conn.execute(
             text(
                 "SELECT id FROM public.accounts"
-                " WHERE user_id = :uid AND is_active = true"
+                " WHERE user_id = :uid"
                 " LIMIT 1"
             ),
             {"uid": user_id},
@@ -303,11 +315,10 @@ def _get_or_create_default_account(user_id: str) -> str:
         if row is not None:
             return str(row[0])
 
-        # None found — insert the default, ignore conflict if a race occurs.
         result = conn.execute(
             text(
-                "INSERT INTO public.accounts (user_id, name, kind, currency)"
-                " VALUES (:uid, 'Default', 'checking', 'CAD')"
+                "INSERT INTO public.accounts (user_id, name)"
+                " VALUES (:uid, 'Default')"
                 " ON CONFLICT (user_id, name) DO NOTHING"
                 " RETURNING id"
             ),
@@ -358,6 +369,7 @@ def _process_upload(
     filename: str,
     file_bytes: bytes,
     df: pd.DataFrame,
+    account_id: "str | None" = None,
 ) -> dict:
     """Persist a CSV upload and its transactions to the database.
 
@@ -402,8 +414,8 @@ def _process_upload(
             "already_uploaded": True,
         }
 
-    # Get or create the default account for this user.
-    account_id = _get_or_create_default_account(user_id)
+    if account_id is None:
+        account_id = _get_or_create_default_account(user_id)
 
     # Resolve category names to IDs in one query.
     category_names = df["Category"].dropna().unique().tolist()
@@ -866,6 +878,135 @@ def delete_upload(user_id: str, upload_id: UUID) -> None:
         )
         if result.rowcount == 0:
             raise UploadNotFound("Upload not found or belongs to a different user.")
+
+
+# ---------------------------------------------------------------------------
+# Account API (ADR-0034)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class Account:
+    """A single exported account row."""
+    id: UUID
+    name: str
+    created_at: datetime
+    transaction_count: int
+    upload_count: int
+
+
+def get_accounts(user_id: str) -> "list[Account]":
+    """Return all accounts for user_id, oldest first."""
+    engine = get_engine()
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                "SELECT a.id, a.name, a.created_at,"
+                " COUNT(DISTINCT t.id) AS transaction_count,"
+                " COUNT(DISTINCT u.id) AS upload_count"
+                " FROM public.accounts a"
+                " LEFT JOIN public.transactions t ON t.account_id = a.id"
+                " LEFT JOIN public.uploads u ON u.account_id = a.id"
+                " WHERE a.user_id = :uid"
+                " GROUP BY a.id, a.name, a.created_at"
+                " ORDER BY a.created_at ASC"
+            ),
+            {"uid": user_id},
+        ).fetchall()
+    return [
+        Account(
+            id=UUID(str(row[0])),
+            name=row[1],
+            created_at=row[2],
+            transaction_count=int(row[3]),
+            upload_count=int(row[4]),
+        )
+        for row in rows
+    ]
+
+
+def create_account(user_id: str, name: str) -> "Account":
+    """Create a new named account for user_id.
+
+    Raises:
+        ValueError: if name is empty, exceeds 100 chars, or already exists.
+    """
+    name = name.strip()
+    if not name:
+        raise ValueError("Account name cannot be empty.")
+    if len(name) > 100:
+        raise ValueError("Account name must be 100 characters or fewer.")
+
+    engine = get_engine()
+    with engine.begin() as conn:
+        try:
+            row = conn.execute(
+                text(
+                    "INSERT INTO public.accounts (user_id, name)"
+                    " VALUES (:uid, :name)"
+                    " RETURNING id, name, created_at"
+                ),
+                {"uid": user_id, "name": name},
+            ).fetchone()
+        except Exception as exc:
+            if "uq_accounts_user_name" in str(exc) or "unique" in str(exc).lower():
+                raise ValueError(f"An account named '{name}' already exists.")
+            raise
+
+    return Account(id=UUID(str(row[0])), name=row[1], created_at=row[2],
+                   transaction_count=0, upload_count=0)
+
+
+def rename_account(user_id: str, account_id: str, new_name: str) -> None:
+    """Rename an account owned by user_id.
+
+    Raises:
+        ValueError: if new_name is empty, exceeds 100 chars, or conflicts.
+        AccountNotFound: if account_id does not exist or belongs to a different user.
+    """
+    new_name = new_name.strip()
+    if not new_name:
+        raise ValueError("Account name cannot be empty.")
+    if len(new_name) > 100:
+        raise ValueError("Account name must be 100 characters or fewer.")
+
+    engine = get_engine()
+    with engine.begin() as conn:
+        try:
+            result = conn.execute(
+                text(
+                    "UPDATE public.accounts SET name = :name"
+                    " WHERE id = :aid AND user_id = :uid"
+                    " RETURNING id"
+                ),
+                {"name": new_name, "aid": account_id, "uid": user_id},
+            )
+            if result.fetchone() is None:
+                raise AccountNotFound("Account not found.")
+        except AccountNotFound:
+            raise
+        except Exception as exc:
+            if "uq_accounts_user_name" in str(exc) or "unique" in str(exc).lower():
+                raise ValueError(f"An account named '{new_name}' already exists.")
+            raise
+
+
+def delete_account(user_id: str, account_id: str) -> None:
+    """Delete an account and cascade all its uploads and transactions.
+
+    Raises:
+        AccountNotFound: if account_id does not exist or belongs to a different user.
+    """
+    engine = get_engine()
+    with engine.begin() as conn:
+        result = conn.execute(
+            text(
+                "DELETE FROM public.accounts"
+                " WHERE id = :aid AND user_id = :uid"
+            ),
+            {"aid": account_id, "uid": user_id},
+        )
+    if result.rowcount == 0:
+        raise AccountNotFound("Account not found.")
 
 
 # ---------------------------------------------------------------------------
