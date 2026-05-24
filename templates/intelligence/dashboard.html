@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Budget Parser{% endblock %}
+
+{% block content %}
+<div class="section-stack">
+    <div>
+        <h1 class="page-title">Dashboard</h1>
+        <p class="section-text" style="margin-top: var(--space-2);">Your spending at a glance.</p>
+    </div>
+
+    <div id="widgets" class="section-stack">
+        {% include "intelligence/widgets/monthly_totals.html" %}
+        {% include "intelligence/widgets/category_trends.html" %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    // Palette cycles across datasets; muted at 0.08 alpha for fills
+    var PALETTE = [
+        '#0f766e','#2563eb','#d97706','#7c3aed',
+        '#db2777','#059669','#ea580c','#0891b2',
+    ];
+
+    function dollarTick(v) {
+        return '$' + v.toLocaleString('en-CA', { maximumFractionDigits: 0 });
+    }
+
+    function dollarTooltip(ctx) {
+        return ctx.dataset.label + ': $' + ctx.parsed.y.toLocaleString('en-CA', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        });
+    }
+
+    // --- Monthly totals (single line) ---
+    (function () {
+        var el = document.getElementById('chart-monthly-totals');
+        if (!el || !window.Chart) return;
+        var data = JSON.parse(el.dataset.chart);
+        new Chart(el, {
+            type: 'line',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    label: 'Total Spending',
+                    data: data.values,
+                    borderColor: PALETTE[0],
+                    backgroundColor: 'rgba(15, 118, 110, 0.08)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    pointBackgroundColor: PALETTE[0],
+                    pointHoverRadius: 6,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: dollarTooltip } }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { callback: dollarTick }
+                    }
+                }
+            }
+        });
+    }());
+
+    // --- Category trends (colour-coded multi-select pills, no legend) ---
+    (function () {
+        var el = document.getElementById('chart-category-trends');
+        if (!el || !window.Chart) return;
+        var data = JSON.parse(el.dataset.chart);
+        var colors = data.datasets.map(function (_, i) { return PALETTE[i % PALETTE.length]; });
+
+        var datasets = data.datasets.map(function (ds, i) {
+            return {
+                label: ds.label,
+                data: ds.data,
+                borderColor: colors[i],
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                tension: 0.3,
+                pointRadius: 3,
+                pointHoverRadius: 5,
+            };
+        });
+
+        var chart = new Chart(el, {
+            type: 'line',
+            data: { labels: data.labels, datasets: datasets },
+            options: {
+                responsive: true,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: dollarTooltip } }
+                },
+                scales: {
+                    y: { beginAtZero: true, ticks: { callback: dollarTick } }
+                }
+            }
+        });
+
+        // Colour category pills to match chart lines
+        var pills = document.querySelectorAll('#widget-category-trends .ct-pill[data-index]');
+        pills.forEach(function (pill) {
+            var i = Number(pill.dataset.index);
+            pill.style.setProperty('--pill-color', colors[i]);
+            pill.classList.add('ct-pill--active');
+        });
+
+        // All button
+        var allBtn = document.getElementById('ct-pill-all');
+        function setAll(active) {
+            data.datasets.forEach(function (_, j) {
+                chart.getDatasetMeta(j).hidden = !active;
+            });
+            pills.forEach(function (p) { p.classList.toggle('ct-pill--active', active); });
+            allBtn.classList.toggle('ct-pill--active', active);
+            chart.update();
+        }
+        allBtn.addEventListener('click', function () {
+            setAll(!allBtn.classList.contains('ct-pill--active'));
+        });
+
+        // Individual pill toggle
+        pills.forEach(function (pill) {
+            pill.addEventListener('click', function () {
+                var i = Number(pill.dataset.index);
+                var meta = chart.getDatasetMeta(i);
+                meta.hidden = !meta.hidden;
+                pill.classList.toggle('ct-pill--active', !meta.hidden);
+                var allActive = Array.from(pills).every(function (p) {
+                    return p.classList.contains('ct-pill--active');
+                });
+                allBtn.classList.toggle('ct-pill--active', allActive);
+                chart.update();
+            });
+        });
+    }());
+}());
+</script>
+{% endblock %}

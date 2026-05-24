@@ -133,8 +133,8 @@ def test_non_csv_upload_rejected(auth_client):
 # Valid CSV → report
 # ---------------------------------------------------------------------------
 
-def test_valid_csv_redirects_to_report(auth_client):
-    # Behavior: successful upload → PRG redirect to /intelligence/report (ADR-0024 Decision 2)
+def test_valid_csv_redirects_to_dashboard(auth_client):
+    # Behavior: successful upload → PRG redirect to /intelligence/dashboard
     csv = make_csv([
         {"date": "2026-01-15", "desc": "TIM HORTONS", "amount": -4.50},
         {"date": "2026-01-20", "desc": "UBER",        "amount": -12.00},
@@ -147,7 +147,7 @@ def test_valid_csv_redirects_to_report(auth_client):
         response = auth_client.post("/upload", data=data, content_type="multipart/form-data",
                                     follow_redirects=False)
     assert response.status_code == 302
-    assert "/intelligence/report" in response.headers["Location"]
+    assert "/intelligence/dashboard" in response.headers["Location"]
 
 
 # ---------------------------------------------------------------------------

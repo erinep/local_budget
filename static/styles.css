@@ -243,6 +243,28 @@ h3 {
     box-shadow: var(--shadow);
 }
 
+.ct-pill {
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--text-sm);
+    border-radius: 999px;
+    border: 1.5px solid var(--pill-color, var(--border));
+    background: transparent;
+    color: var(--pill-color, var(--muted));
+    cursor: pointer;
+    transition: opacity 0.15s;
+    opacity: 0.35;
+}
+
+.ct-pill--active {
+    background: var(--pill-color, var(--accent));
+    color: #fff;
+    opacity: 1;
+}
+
+.ct-pill--all {
+    --pill-color: var(--accent);
+}
+
 .upload-card,
 .feature-card,
 .split-card,
