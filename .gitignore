@@ -23,6 +23,8 @@ static/*.png
 .claude/settings.local.json
 .mcp.json
 .claude/worktrees/
+.claude/skills/
+docs/work-packets/
 
 # OS files
 .DS_Store
