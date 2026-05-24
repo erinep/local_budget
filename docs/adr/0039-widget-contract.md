@@ -89,11 +89,12 @@ Per-widget dataclasses *plus* a top-level union so callers can hold "any widget"
 - The "no logic in templates" rule is a discipline, not enforced by the framework. Code review has to catch violations.
 
 **Follow-ups required.**
-1. The first widget implementation (likely the category-breakdown migration of the existing donut) establishes the per-widget module template. Subsequent widgets follow it — no per-widget ADR required.
-2. Update [architecture.md](../architecture.md) with a one-paragraph note on the widget directory and registry pattern when the first widget ships.
-3. The existing `build_report_view_model` from [ADR-0024](0024-intelligence-layer-report-ownership.md) is *not* migrated to this contract in the same PR. It stays as-is until 5d's redesign replaces the report page; the old function is deleted when the old page is.
-4. The dashboard-layout schema (`dashboard_layouts (user_id, layout_json)`) gets its own ADR if and when the stretch is promoted to in-scope.
-5. If a real non-browser consumer ever appears (email digest, CLI, third-party), reopen this ADR or write a small extension ADR. Adding a JSON surface is expected to be roughly one route handler plus a one-time JSON encoder — see Notes.
+1. The first widget implementation is a **monthly-totals line graph** (total spend per month, no category breakdown). It establishes the per-widget module template; subsequent widgets follow it — no per-widget ADR required.
+2. Pause after the first widget ships. Use it personally, decide which widget to build next based on what's actually useful, then continue. A real user-feedback mechanism (survey, "request a chart" link) is deferred to Phase 6 release prep if needed by then.
+3. Update [architecture.md](../architecture.md) with a one-paragraph note on the widget directory and registry pattern when the first widget ships.
+4. The existing `build_report_view_model` from [ADR-0024](0024-intelligence-layer-report-ownership.md) is *not* migrated to this contract in the same PR. It stays as-is until 5d's redesign replaces the report page; the old function is deleted when the old page is.
+5. The dashboard-layout schema (`dashboard_layouts (user_id, layout_json)`) gets its own ADR if and when the stretch is promoted to in-scope.
+6. If a real non-browser consumer ever appears (email digest, CLI, third-party), reopen this ADR or write a small extension ADR. Adding a JSON surface is expected to be roughly one route handler plus a one-time JSON encoder — see Notes.
 
 ## Notes
 
