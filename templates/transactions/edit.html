@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}Edit Transaction{% endblock %}
+{% block title %}Transaction — Budget Parser{% endblock %}
 
 {% block content %}
 <div class="section-stack" style="max-width: 560px;">
     <div>
         <p class="eyebrow">Transaction History</p>
-        <h1 style="font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif; font-size: clamp(1.6rem, 4vw, 2.2rem); letter-spacing: -0.03em; margin: 8px 0 0;">Edit Transaction</h1>
+        <h1 style="font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif; font-size: clamp(1.6rem, 4vw, 2.2rem); letter-spacing: -0.03em; margin: 8px 0 0;">Transaction</h1>
     </div>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -17,38 +17,53 @@
     {% endwith %}
 
     <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding-bottom: 16px; margin-bottom: 20px; border-bottom: 1px solid var(--border);">
-            <div>
-                <p style="margin: 0; font-size: 0.82rem; color: var(--muted);">{{ txn.date.strftime('%b %d, %Y') }}</p>
-                <p style="margin: 4px 0 0; font-weight: 600;">{{ txn.description }}</p>
-            </div>
-            <p style="margin: 0; font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600;">{{ "%.2f"|format(txn.amount|float) }}</p>
+
+        {# — Transaction details — #}
+        <div style="margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--border);">
+            <p style="margin: 0 0 4px; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);">Date</p>
+            <p style="margin: 0 0 20px; font-size: 1rem;">{{ txn.date.strftime('%B %d, %Y') }}</p>
+
+            <p style="margin: 0 0 4px; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);">Description</p>
+            <p style="margin: 0 0 20px; font-size: 1rem; font-weight: 600;">{{ txn.description }}</p>
+
+            <p style="margin: 0 0 4px; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);">Amount</p>
+            <p style="margin: 0; font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: {% if txn.amount < 0 %}var(--text){% else %}#0f766e{% endif %};">
+                {{ "%.2f"|format(txn.amount|float) }}
+            </p>
         </div>
 
+        {# — Edit form — #}
         <form method="post" action="{{ url_for('transactions.edit_post', id=txn.id) }}" novalidate>
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="next" value="{{ next_url }}">
+            <input type="hidden" id="category_id" name="category_id" value="{{ txn.category_id or '' }}">
 
             <div class="form-group">
-                <label for="category_id">Category</label>
-                <select id="category_id" name="category_id">
-                    <option value="">No category</option>
+                <label>Category <span style="font-weight: 400; color: var(--muted);">(required)</span></label>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px;">
                     {% for cat in categories %}
-                    <option value="{{ cat.id }}" {% if txn.category_id and txn.category_id|string == cat.id %}selected{% endif %}>{{ cat.name }}</option>
+                    {% set is_active = txn.category_id and txn.category_id|string == cat.id %}
+                    <button type="button"
+                        class="cat-pill{% if is_active %} cat-pill-active{% endif %}"
+                        data-value="{{ cat.id }}"
+                        onclick="pickCategory(this)"
+                        style="padding: 6px 16px; border-radius: 999px; border: 1.5px solid {% if is_active %}var(--accent-strong){% else %}var(--border){% endif %}; background: {% if is_active %}var(--accent-strong){% else %}var(--surface){% endif %}; color: {% if is_active %}#fff{% else %}var(--text){% endif %}; font: inherit; font-size: 0.88rem; font-weight: {% if is_active %}700{% else %}500{% endif %}; cursor: pointer; transition: background 150ms ease, border-color 150ms ease, color 150ms ease;">
+                        {{ cat.name }}
+                    </button>
                     {% endfor %}
-                </select>
+                </div>
             </div>
 
-            <div class="form-group" style="margin-top: 16px;">
+            <div class="form-group" style="margin-top: 20px;">
                 <label for="keyword">Keyword pattern <span style="font-weight: 400; color: var(--muted);">(optional)</span></label>
                 {% if keyword_suggestions %}
-                <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">
+                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; margin-top: 6px;">
                     {% for suggestion in keyword_suggestions %}
                     <button type="button"
                         class="keyword-pill"
                         data-value="{{ suggestion }}"
                         onclick="pickKeyword(this)"
-                        style="padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font: inherit; font-size: 0.84rem; cursor: pointer; color: var(--text);">
+                        style="padding: 6px 16px; border-radius: 999px; border: 1.5px solid var(--border); background: var(--surface); font: inherit; font-size: 0.88rem; font-weight: 500; cursor: pointer; color: var(--text); transition: background 150ms ease, border-color 150ms ease, color 150ms ease;">
                         {{ suggestion }}
                     </button>
                     {% endfor %}
@@ -58,7 +73,7 @@
                 <p class="section-text" style="margin: 4px 0 0; font-size: 0.84rem;">Matches future transactions with similar descriptions. Leave empty to skip.</p>
             </div>
 
-            <div style="display: flex; gap: 12px; align-items: center; margin-top: 20px;">
+            <div style="display: flex; gap: 12px; align-items: center; margin-top: 24px;">
                 <button type="submit" class="button-primary">Save</button>
                 <a class="button-secondary" href="{{ next_url or url_for('transactions.history') }}">Cancel</a>
             </div>
@@ -69,23 +84,46 @@
 
 {% block scripts %}
 <script>
+function pickCategory(pill) {
+    var input = document.getElementById('category_id');
+    var val = pill.dataset.value;
+    var active = pill.classList.contains('cat-pill-active');
+    document.querySelectorAll('.cat-pill').forEach(function(p) {
+        p.classList.remove('cat-pill-active');
+        p.style.background = 'var(--surface)';
+        p.style.borderColor = 'var(--border)';
+        p.style.color = 'var(--text)';
+        p.style.fontWeight = '500';
+    });
+    if (!active) {
+        pill.classList.add('cat-pill-active');
+        pill.style.background = 'var(--accent-strong)';
+        pill.style.borderColor = 'var(--accent-strong)';
+        pill.style.color = '#fff';
+        pill.style.fontWeight = '700';
+        input.value = val;
+    } else {
+        input.value = '';
+    }
+}
+
 function pickKeyword(pill) {
     var input = document.getElementById('keyword');
     var val = pill.dataset.value;
     var active = pill.classList.contains('pill-active');
     document.querySelectorAll('.keyword-pill').forEach(function(p) {
         p.classList.remove('pill-active');
-        p.style.background = '';
-        p.style.borderColor = '';
-        p.style.color = '';
-        p.style.fontWeight = '';
+        p.style.background = 'var(--surface)';
+        p.style.borderColor = 'var(--border)';
+        p.style.color = 'var(--text)';
+        p.style.fontWeight = '500';
     });
     if (!active) {
         pill.classList.add('pill-active');
-        pill.style.background = 'var(--accent, #2563eb)';
-        pill.style.borderColor = 'var(--accent, #2563eb)';
+        pill.style.background = 'var(--accent-strong)';
+        pill.style.borderColor = 'var(--accent-strong)';
         pill.style.color = '#fff';
-        pill.style.fontWeight = '600';
+        pill.style.fontWeight = '700';
         input.value = val;
     } else {
         input.value = '';

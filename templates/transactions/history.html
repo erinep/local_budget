@@ -98,12 +98,11 @@
                         <th>Description</th>
                         <th style="text-align: right;">Amount</th>
                         <th>Category</th>
-                        <th style="width: 80px; text-align: right;">Edit</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for txn in transactions %}
-                    <tr>
+                    <tr style="cursor: pointer;" onclick="window.location='{{ url_for('transactions.edit', id=txn.id, next=request.url) }}'">
                         <td style="white-space: nowrap;">{{ txn.date.strftime('%b %d, %Y') }}</td>
                         <td>{{ txn.description }}</td>
                         <td style="text-align: right; font-variant-numeric: tabular-nums;">{{ "%.2f"|format(txn.amount|float) }}</td>
@@ -113,9 +112,6 @@
                             {% else %}
                                 <span style="color: var(--muted); font-size: 0.88rem;">Uncategorized</span>
                             {% endif %}
-                        </td>
-                        <td style="text-align: right;">
-                            <a class="nav-link" style="font-size: 0.82rem; padding: 4px 10px;" href="{{ url_for('transactions.edit', id=txn.id, next=request.url) }}">Edit</a>
                         </td>
                     </tr>
                     {% endfor %}
