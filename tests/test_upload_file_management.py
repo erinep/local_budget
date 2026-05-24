@@ -58,6 +58,7 @@ _UPLOAD_1 = Upload(
     filename="jan_2026.csv",
     uploaded_at=datetime(2026, 1, 15, 10, 0, tzinfo=timezone.utc),
     transaction_count=42,
+    account_name="Chequing",
 )
 
 _UPLOAD_2 = Upload(
@@ -65,6 +66,7 @@ _UPLOAD_2 = Upload(
     filename="feb_2026.csv",
     uploaded_at=datetime(2026, 2, 1, 9, 0, tzinfo=timezone.utc),
     transaction_count=18,
+    account_name="Chequing",
 )
 
 # ---------------------------------------------------------------------------
@@ -81,7 +83,7 @@ class TestUploadType:
 
     def test_has_required_fields(self):
         field_names = {f.name for f in dataclasses.fields(Upload)}
-        assert field_names == {"id", "filename", "uploaded_at", "transaction_count"}
+        assert field_names == {"id", "filename", "uploaded_at", "transaction_count", "account_name"}
 
     def test_is_immutable(self):
         u = Upload(
@@ -89,6 +91,7 @@ class TestUploadType:
             filename="test.csv",
             uploaded_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
             transaction_count=5,
+            account_name="Chequing",
         )
         with pytest.raises((dataclasses.FrozenInstanceError, AttributeError)):
             u.transaction_count = 99  # type: ignore[misc]

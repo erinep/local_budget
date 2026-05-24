@@ -826,6 +826,7 @@ class Upload:
     filename: str
     uploaded_at: datetime  # UTC
     transaction_count: int
+    account_name: str
 
 
 def get_uploads(user_id: str) -> "list[Upload]":
@@ -838,12 +839,12 @@ def get_uploads(user_id: str) -> "list[Upload]":
     with engine.connect() as conn:
         rows = conn.execute(
             text(
-                "SELECT u.id, u.filename, u.uploaded_at, COUNT(t.id) AS transaction_count"
+                "SELECT u.id, u.filename, u.uploaded_at, COUNT(t.id) AS transaction_count, a.name AS account_name"
                 " FROM public.uploads u"
                 " JOIN public.accounts a ON a.id = u.account_id"
                 " LEFT JOIN public.transactions t ON t.source_file_id = u.id"
                 " WHERE a.user_id = :uid"
-                " GROUP BY u.id, u.filename, u.uploaded_at"
+                " GROUP BY u.id, u.filename, u.uploaded_at, a.name"
                 " ORDER BY u.uploaded_at DESC"
             ),
             {"uid": user_id},
@@ -855,6 +856,7 @@ def get_uploads(user_id: str) -> "list[Upload]":
             filename=row[1],
             uploaded_at=row[2],
             transaction_count=int(row[3]),
+            account_name=row[4],
         )
         for row in rows
     ]
