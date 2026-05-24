@@ -101,7 +101,27 @@
                 plugins: {
                     legend: {
                         position: 'bottom',
-                        labels: { boxWidth: 12, padding: 16 }
+                        labels: { boxWidth: 12, padding: 16 },
+                        onClick: function (e, legendItem, legend) {
+                            var chart = legend.chart;
+                            var clicked = legendItem.datasetIndex;
+                            var total = chart.data.datasets.length;
+                            var allVisible = chart.data.datasets.every(function (_, i) {
+                                return !chart.getDatasetMeta(i).hidden;
+                            });
+                            var soloVisible = !allVisible &&
+                                chart.data.datasets.every(function (_, i) {
+                                    return i === clicked
+                                        ? !chart.getDatasetMeta(i).hidden
+                                        : chart.getDatasetMeta(i).hidden;
+                                });
+                            // Clicking the already-isolated line → restore all
+                            // Otherwise → isolate the clicked line
+                            chart.data.datasets.forEach(function (_, i) {
+                                chart.getDatasetMeta(i).hidden = soloVisible ? false : i !== clicked;
+                            });
+                            chart.update();
+                        },
                     },
                     tooltip: { callbacks: { label: dollarTooltip } }
                 },
