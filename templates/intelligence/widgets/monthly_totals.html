@@ -1,0 +1,14 @@
+<div class="card" id="widget-monthly-totals"
+     hx-get="{{ url_for('intelligence.widget', key='monthly_totals') }}"
+     hx-trigger="none"
+     hx-target="#widget-monthly-totals"
+     hx-swap="outerHTML">
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-4);">{{ monthly_totals.title }}</h2>
+    <div class="chart-host" style="min-height: 280px;">
+        <canvas id="chart-monthly-totals"
+                data-chart='{{ monthly_totals_chart | tojson }}'></canvas>
+    </div>
+    <p style="margin: var(--space-3) 0 0; font-size: var(--text-sm); color: var(--muted);">
+        Last {{ monthly_totals.period_months }} complete months &middot; active accounts only
+    </p>
+</div>

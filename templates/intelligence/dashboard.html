@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Budget Parser{% endblock %}
+
+{% block content %}
+<div class="section-stack">
+    <div>
+        <h1 class="page-title">Dashboard</h1>
+        <p class="section-text" style="margin-top: var(--space-2);">Your spending at a glance.</p>
+    </div>
+
+    <div id="widgets" class="section-stack">
+        {% include "intelligence/widgets/monthly_totals.html" %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    const el = document.getElementById('chart-monthly-totals');
+    if (!el || !window.Chart) return;
+    const data = JSON.parse(el.dataset.chart);
+    new Chart(el, {
+        type: 'line',
+        data: {
+            labels: data.labels,
+            datasets: [{
+                label: 'Total Spending',
+                data: data.values,
+                borderColor: '#0f766e',
+                backgroundColor: 'rgba(15, 118, 110, 0.08)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3,
+                pointRadius: 4,
+                pointBackgroundColor: '#0f766e',
+                pointHoverRadius: 6,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function (ctx) {
+                            return '$' + ctx.parsed.y.toLocaleString('en-CA', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                            });
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function (v) {
+                            return '$' + v.toLocaleString('en-CA', { maximumFractionDigits: 0 });
+                        }
+                    }
+                }
+            }
+        }
+    });
+}());
+</script>
+{% endblock %}
