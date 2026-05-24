@@ -66,25 +66,13 @@ def build_category_trends(user_id: str, period_months: int = 12) -> CategoryTren
 
     sorted_cats = sorted(totals, key=lambda c: totals[c], reverse=True)
 
-    top_cats = sorted_cats[:6]
-    other_cats = sorted_cats[6:]
-
     datasets = [
         {
             "label": cat,
             "data": [spend_by_month[mk].get(cat, 0.0) for mk in month_keys],
         }
-        for cat in top_cats
+        for cat in sorted_cats[:20]
     ]
-
-    if other_cats:
-        datasets.append({
-            "label": "Other",
-            "data": [
-                sum(spend_by_month[mk].get(cat, 0.0) for cat in other_cats)
-                for mk in month_keys
-            ],
-        })
 
     return CategoryTrendsVM(
         title="Spending by Category",
