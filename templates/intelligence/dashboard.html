@@ -132,16 +132,31 @@
         });
 
         // Individual category pill toggle
+        // If all are active, clicking one isolates it (turns off everything else).
+        // Otherwise, toggle normally.
         pills.forEach(function (pill) {
             pill.addEventListener('click', function () {
                 var i = Number(pill.dataset.index);
-                var meta = chart.getDatasetMeta(i);
-                meta.hidden = !meta.hidden;
-                pill.classList.toggle('ct-pill--active', !meta.hidden);
                 var allActive = Array.from(pills).every(function (p) {
                     return p.classList.contains('ct-pill--active');
                 });
-                allBtn.classList.toggle('ct-pill--active', allActive);
+                if (allActive) {
+                    catDatasets.forEach(function (_, j) {
+                        chart.getDatasetMeta(j).hidden = (j !== i);
+                    });
+                    pills.forEach(function (p) {
+                        p.classList.toggle('ct-pill--active', Number(p.dataset.index) === i);
+                    });
+                    allBtn.classList.remove('ct-pill--active');
+                } else {
+                    var meta = chart.getDatasetMeta(i);
+                    meta.hidden = !meta.hidden;
+                    pill.classList.toggle('ct-pill--active', !meta.hidden);
+                    var nowAllActive = Array.from(pills).every(function (p) {
+                        return p.classList.contains('ct-pill--active');
+                    });
+                    allBtn.classList.toggle('ct-pill--active', nowAllActive);
+                }
                 chart.update();
             });
         });
