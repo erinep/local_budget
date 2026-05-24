@@ -10,8 +10,12 @@
 {% if accounts %}
 <div class="card" style="margin-bottom: 24px; padding: 0; overflow: hidden;">
     {% for account in accounts %}
-    <div style="padding: 18px 20px; {% if not loop.last %}border-bottom: 1px solid var(--border);{% endif %}">
-        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; {% if not account.is_active %}opacity: 0.6;{% endif %}">
+    <div style="padding: 18px 20px; {% if not loop.last %}border-bottom: 1px solid var(--border);{% endif %}
+                {% if account.is_active %}background: rgba(15,118,110,0.08); box-shadow: inset 0 0 0 1.5px var(--accent-strong);{% endif %}
+                {% if loop.first %}border-radius: var(--radius-lg) var(--radius-lg) 0 0;{% endif %}
+                {% if loop.last %}border-radius: 0 0 var(--radius-lg) var(--radius-lg);{% endif %}
+                {% if loop.first and loop.last %}border-radius: var(--radius-lg);{% endif %}">
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
 
             <form method="POST" action="{{ url_for('settings.accounts_rename', account_id=account.id) }}"
                   style="flex: 1; display: flex; gap: 8px; min-width: 200px;">
@@ -33,23 +37,22 @@
                     {{ account.upload_count }} file{% if account.upload_count != 1 %}s{% endif %}
                 </span>
 
-                {% if not account.is_active %}
-                <span style="font-size: 0.75rem; font-weight: 700; padding: 2px 8px;
-                             border-radius: 999px; background: rgba(107,114,128,0.12);
-                             border: 1px solid rgba(107,114,128,0.25); color: var(--muted);
-                             white-space: nowrap;">
-                    Hidden from reports
-                </span>
-                {% endif %}
-
                 <form method="POST" action="{{ url_for('settings.accounts_set_active', account_id=account.id) }}"
                       style="display: inline;">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="is_active" value="{{ 'false' if account.is_active else 'true' }}">
-                    <button type="submit" class="button-secondary"
-                            style="font-size: 0.8rem; min-height: 36px; padding: 0 12px;
-                                   {% if account.is_active %}color: var(--muted);{% else %}color: var(--accent-strong); border-color: rgba(15,118,110,0.3);{% endif %}">
-                        {{ 'Hide from reports' if account.is_active else 'Include in reports' }}
+                    <button type="submit" style="display: inline-flex; align-items: center; gap: 8px;
+                                                background: none; border: none; padding: 0; cursor: pointer; font: inherit;">
+                        <span style="display: inline-flex; align-items: center; width: 44px; height: 24px;
+                                     border-radius: 999px; padding: 2px; flex-shrink: 0;
+                                     background: {% if account.is_active %}var(--accent-strong){% else %}rgba(107,114,128,0.5){% endif %};">
+                            <span style="width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+                                         background: white;
+                                         {% if account.is_active %}margin-left: auto;{% endif %}"></span>
+                        </span>
+                        <span style="font-size: 0.85rem; font-weight: 600; color: var(--text); min-width: 3.5rem;">
+                            {{ 'Active' if account.is_active else 'Hidden' }}
+                        </span>
                     </button>
                 </form>
 
