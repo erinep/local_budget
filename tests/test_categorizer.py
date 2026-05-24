@@ -35,14 +35,37 @@ def _seed_aliases() -> list[tuple[str, str]]:
 
 def test_normalize_description():
     cases = [
+        # Processor prefixes
         ("SQ * TIM HORTONS", "TIM HORTONS"),
         ("PAYPAL * NETFLIX", "NETFLIX"),
         ("TST* MCDONALDS", "MCDONALDS"),
-        ("STARBUCKS #1234", "STARBUCKS"),
-        ("SUBWAY TORONTO ON", "SUBWAY"),
         ("SP * BESTBUY", "BESTBUY"),
         ("WWW.AMAZON.CA", "AMAZON.CA"),
+        # Store number after merchant name
+        ("STARBUCKS #1234", "STARBUCKS"),
+        # Leading store number
+        ("#243 RETAIL STORE TORONTO", "RETAIL STORE TORONTO"),
+        # Trailing store number + city
         ("SHELL OIL 001", "SHELL OIL"),
+        ("GROCERY STORE 1099 SPRINGFIELD", "GROCERY STORE"),
+        ("GAS STATION 00822 OTTAWA", "GAS STATION"),
+        # City + province suffix
+        ("SUBWAY TORONTO ON", "SUBWAY"),
+        # Transaction ID after *
+        ("MERCHANT.CA*AB12CD34 MERCHANT.CA", "MERCHANT.CA"),
+        ("ONLINE STORE* XY9ZPDQMT MONTREAL", "ONLINE STORE"),
+        ("RETAILER*123456789 WWW.RETAILER.CA", "RETAILER"),
+        # Short booking code before * with domain after — use domain
+        ("BKC*MERCHANT.COM STORE", "MERCHANT.COM"),
+        # Alphanumeric code after / (must contain a digit)
+        ("TRANSIT CO/RCM5PT8W TORONTO", "TRANSIT CO"),
+        ("RAIL SERVICE/KHV7R MONTREAL", "RAIL SERVICE"),
+        # Trailing phone number — non-province word after phone must not truncate merchant
+        ("SUPPORT LINE 800-555-0100 HELP", "SUPPORT LINE"),
+        ("CHARITY ORG TO 800-555-0100", "CHARITY ORG TO"),
+        # Case normalisation — same merchant, different input case
+        ("Merchant.ca", "MERCHANT.CA"),
+        ("MERCHANT.CA", "MERCHANT.CA"),
     ]
     for raw, expected in cases:
         assert normalize_description(raw) == expected, (
