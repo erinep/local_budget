@@ -10,6 +10,7 @@
 
     <div id="widgets" class="section-stack">
         {% include "intelligence/widgets/monthly_totals.html" %}
+        {% include "intelligence/widgets/category_trends.html" %}
     </div>
 </div>
 {% endblock %}
@@ -17,53 +18,102 @@
 {% block scripts %}
 <script>
 (function () {
-    const el = document.getElementById('chart-monthly-totals');
-    if (!el || !window.Chart) return;
-    const data = JSON.parse(el.dataset.chart);
-    new Chart(el, {
-        type: 'line',
-        data: {
-            labels: data.labels,
-            datasets: [{
-                label: 'Total Spending',
-                data: data.values,
-                borderColor: '#0f766e',
-                backgroundColor: 'rgba(15, 118, 110, 0.08)',
-                borderWidth: 2,
-                fill: true,
-                tension: 0.3,
-                pointRadius: 4,
-                pointBackgroundColor: '#0f766e',
-                pointHoverRadius: 6,
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: function (ctx) {
-                            return '$' + ctx.parsed.y.toLocaleString('en-CA', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                            });
-                        }
-                    }
-                }
+    // Palette cycles across datasets; muted at 0.08 alpha for fills
+    var PALETTE = [
+        '#0f766e','#2563eb','#d97706','#7c3aed','#db2777',
+        '#059669','#ea580c','#0891b2','#65a30d','#dc2626',
+        '#9333ea','#0284c7',
+    ];
+
+    function dollarTick(v) {
+        return '$' + v.toLocaleString('en-CA', { maximumFractionDigits: 0 });
+    }
+
+    function dollarTooltip(ctx) {
+        return ctx.dataset.label + ': $' + ctx.parsed.y.toLocaleString('en-CA', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        });
+    }
+
+    // --- Monthly totals (single line) ---
+    (function () {
+        var el = document.getElementById('chart-monthly-totals');
+        if (!el || !window.Chart) return;
+        var data = JSON.parse(el.dataset.chart);
+        new Chart(el, {
+            type: 'line',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    label: 'Total Spending',
+                    data: data.values,
+                    borderColor: PALETTE[0],
+                    backgroundColor: 'rgba(15, 118, 110, 0.08)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    pointBackgroundColor: PALETTE[0],
+                    pointHoverRadius: 6,
+                }]
             },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        callback: function (v) {
-                            return '$' + v.toLocaleString('en-CA', { maximumFractionDigits: 0 });
-                        }
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: dollarTooltip } }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { callback: dollarTick }
                     }
                 }
             }
-        }
-    });
+        });
+    }());
+
+    // --- Category trends (one line per category) ---
+    (function () {
+        var el = document.getElementById('chart-category-trends');
+        if (!el || !window.Chart) return;
+        var data = JSON.parse(el.dataset.chart);
+        var datasets = data.datasets.map(function (ds, i) {
+            var color = PALETTE[i % PALETTE.length];
+            return {
+                label: ds.label,
+                data: ds.data,
+                borderColor: color,
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                tension: 0.3,
+                pointRadius: 3,
+                pointHoverRadius: 5,
+            };
+        });
+        new Chart(el, {
+            type: 'line',
+            data: { labels: data.labels, datasets: datasets },
+            options: {
+                responsive: true,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { boxWidth: 12, padding: 16 }
+                    },
+                    tooltip: { callbacks: { label: dollarTooltip } }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { callback: dollarTick }
+                    }
+                }
+            }
+        });
+    }());
 }());
 </script>
 {% endblock %}

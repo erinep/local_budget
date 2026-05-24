@@ -1,0 +1,14 @@
+<div class="card" id="widget-category-trends"
+     hx-get="{{ url_for('intelligence.widget', key='category_trends') }}"
+     hx-trigger="none"
+     hx-target="#widget-category-trends"
+     hx-swap="outerHTML">
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-4);">{{ category_trends.title }}</h2>
+    <div class="chart-host" style="min-height: 280px;">
+        <canvas id="chart-category-trends"
+                data-chart='{{ category_trends_chart | tojson }}'></canvas>
+    </div>
+    <p style="margin: var(--space-3) 0 0; font-size: var(--text-sm); color: var(--muted);">
+        Last {{ category_trends.period_months }} complete months &middot; click a category to show/hide
+    </p>
+</div>

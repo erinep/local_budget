@@ -4,6 +4,7 @@ Tests:
   GET /intelligence/dashboard  — auth gate, 200 path, template content.
   GET /intelligence/report     — 301 permanent redirect to /intelligence/dashboard.
   GET /intelligence/widgets/monthly_totals — HTMX fragment, auth gate, 200 path.
+  GET /intelligence/widgets/category_trends — HTMX fragment, auth gate, 200 path.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ from unittest.mock import patch
 import pytest
 
 from app.intelligence.widgets.monthly_totals import MonthlyPoint, MonthlyTotalsVM
+from app.intelligence.widgets.category_trends import CategoryTrendsVM
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -32,6 +34,18 @@ _FAKE_VM = MonthlyTotalsVM(
 
 _PATCH_BUILD = "app.intelligence.widgets.monthly_totals.build_monthly_totals"
 
+_FAKE_CT_VM = CategoryTrendsVM(
+    title="Spending by Category",
+    labels=["Apr 2026", "May 2026"],
+    datasets=[
+        {"label": "Groceries", "data": [400.0, 350.0]},
+        {"label": "Dining", "data": [120.0, 95.0]},
+    ],
+    period_months=12,
+)
+
+_PATCH_BUILD_CT = "app.intelligence.widgets.category_trends.build_category_trends"
+
 
 # ===========================================================================
 # GET /intelligence/dashboard
@@ -46,12 +60,14 @@ class TestDashboardRoute:
         assert "/auth/login" in response.headers.get("Location", "")
 
     def test_authenticated_returns_200(self, authenticated_client):
-        with patch(_PATCH_BUILD, return_value=_FAKE_VM):
+        with patch(_PATCH_BUILD, return_value=_FAKE_VM), \
+             patch(_PATCH_BUILD_CT, return_value=_FAKE_CT_VM):
             response = authenticated_client.get("/intelligence/dashboard")
         assert response.status_code == 200
 
     def test_response_contains_dashboard_content(self, authenticated_client):
-        with patch(_PATCH_BUILD, return_value=_FAKE_VM):
+        with patch(_PATCH_BUILD, return_value=_FAKE_VM), \
+             patch(_PATCH_BUILD_CT, return_value=_FAKE_CT_VM):
             response = authenticated_client.get("/intelligence/dashboard")
         assert response.status_code == 200
         body = response.data.lower()
@@ -103,3 +119,26 @@ class TestMonthlyTotalsWidget:
     def test_unknown_key_returns_404(self, authenticated_client):
         response = authenticated_client.get("/intelligence/widgets/nonexistent")
         assert response.status_code == 404
+
+
+# ===========================================================================
+# GET /intelligence/widgets/category_trends
+# ===========================================================================
+
+class TestCategoryTrendsWidget:
+    """HTMX fragment endpoint for category_trends widget."""
+
+    def test_unauthenticated_redirects_to_login(self, client):
+        response = client.get("/intelligence/widgets/category_trends", follow_redirects=False)
+        assert response.status_code == 302
+        assert "/auth/login" in response.headers.get("Location", "")
+
+    def test_authenticated_returns_200(self, authenticated_client):
+        with patch(_PATCH_BUILD_CT, return_value=_FAKE_CT_VM):
+            response = authenticated_client.get("/intelligence/widgets/category_trends")
+        assert response.status_code == 200
+
+    def test_response_contains_chart_data(self, authenticated_client):
+        with patch(_PATCH_BUILD_CT, return_value=_FAKE_CT_VM):
+            response = authenticated_client.get("/intelligence/widgets/category_trends")
+        assert b"chart-category-trends" in response.data
