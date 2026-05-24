@@ -6,9 +6,7 @@
     <div class="page-intro">
         <div class="section-heading">
             <p class="eyebrow">Budgeting</p>
-            <h1 style="font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif; font-size: clamp(1.8rem, 4vw, 2.6rem); letter-spacing: -0.03em; max-width: none;">
-                Propose Budgets
-            </h1>
+            <h1 class="page-title">Propose Budgets</h1>
         </div>
         <p style="color: #6b7280; margin-top: 4px;">
             Based on spending history from the 3 months before
@@ -64,7 +62,7 @@
         <p style="margin-bottom: 16px; color: #374151;">
             Apply these as your standing monthly targets:
         </p>
-        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <div class="action-row">
             <form method="post" action="{{ url_for('budgets.apply_proposed_budgets_route') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="year" value="{{ year }}">

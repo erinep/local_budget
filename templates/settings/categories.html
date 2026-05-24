@@ -4,7 +4,7 @@
 <div class="section-stack">
     <div class="page-intro">
         <div class="section-heading">
-            <h1 style="font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif; font-size: clamp(1.8rem, 4vw, 2.6rem); letter-spacing: -0.03em; max-width: none;">Categories</h1>
+            <h1 class="page-title">Categories</h1>
         </div>
         <div class="settings-actions">
             <a class="button-secondary" href="{{ url_for('account_settings.categories_new') }}">Add Category</a>
@@ -13,7 +13,7 @@
     </div>
 
     {% if uncategorized_count > 0 %}
-    <div class="card" style="border-color: #fde68a; background: #fffbeb; padding: 20px 24px;">
+    <div class="card card--warning" style="padding: 20px 24px;">
         <p style="color: #92400e; font-size: 0.92rem; margin: 0 0 12px;">
             You have {{ uncategorized_count }} uncategorized transaction{{ 's' if uncategorized_count != 1 }}.
             Re-categorize them using your current categories and merchant history.
@@ -71,7 +71,7 @@
     <div class="card" style="text-align: center; padding: 48px 24px;">
         <p style="color: var(--muted); margin: 0 0 8px; font-size: 1rem;">No categories yet.</p>
         <p style="color: var(--muted); margin: 0 0 28px; font-size: 0.92rem;">Create a category to start grouping your transactions by keyword rules.</p>
-        <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+        <div class="action-row" style="justify-content: center;">
             <a class="button-primary" href="{{ url_for('account_settings.categories_new') }}">Add Category</a>
             <a class="button-secondary" href="{{ url_for('account_settings.import_form') }}">Import from JSON</a>
         </div>

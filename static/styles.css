@@ -23,7 +23,7 @@
     --text-base: 1rem;
     --text-lg:   1.1rem;
     --text-xl:   clamp(1.45rem, 2vw, 2rem);
-    --text-2xl:  clamp(1.6rem, 3vw, 2.2rem);
+    --text-2xl:  clamp(1.8rem, 4vw, 2.6rem);
 
     /* Status colours — extracted from inline styles */
     --color-status-success:        var(--accent);
@@ -53,6 +53,7 @@
     letter-spacing: -0.03em;
     line-height: 1.05;
     margin: 0;
+    max-width: none;
 }
 
 .page-header {

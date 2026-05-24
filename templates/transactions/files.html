@@ -2,9 +2,9 @@
 {% block settings_title %}Files{% endblock %}
 
 {% block settings_content %}
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+<div class="page-header">
     <div>
-        <h1 style="font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif; font-size: clamp(1.6rem, 3vw, 2.2rem); letter-spacing: -0.03em; margin: 0 0 6px;">Files</h1>
+        <h1 class="page-title" style="margin-bottom: 6px;">Files</h1>
         <p class="section-text" style="margin: 0; font-size: 0.92rem;">Delete a file to permanently remove it and all of its transactions.</p>
     </div>
     <a class="button-primary" href="{{ url_for('transactions.upload') }}" style="font-size: 0.85rem; min-height: 38px; padding: 0 14px; flex-shrink: 0;">

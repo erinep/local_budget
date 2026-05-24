@@ -6,9 +6,7 @@
     <div class="page-intro">
         <div class="section-heading">
             <p class="eyebrow">Budgeting</p>
-            <h1 style="font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif; font-size: clamp(1.8rem, 4vw, 2.6rem); letter-spacing: -0.03em; max-width: none;">
-                Budget Progress
-            </h1>
+            <h1 class="page-title">Budget Progress</h1>
         </div>
     </div>
 
@@ -35,7 +33,7 @@
     </div>
 
     {# Action links #}
-    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+    <div class="action-row">
         <a class="btn btn-primary" href="{{ url_for('budgets.configure_budgets') }}">Configure Budgets</a>
         <a class="btn btn-secondary" href="{{ url_for('budgets.propose_budget_preview', year=year, month=month) }}">Propose Budgets</a>
     </div>

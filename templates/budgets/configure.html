@@ -6,9 +6,7 @@
     <div class="page-intro">
         <div class="section-heading">
             <p class="eyebrow">Budgeting</p>
-            <h1 style="font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif; font-size: clamp(1.8rem, 4vw, 2.6rem); letter-spacing: -0.03em; max-width: none;">
-                Configure Budgets
-            </h1>
+            <h1 class="page-title">Configure Budgets</h1>
         </div>
         <p style="color: #6b7280; margin-top: 4px;">
             Set a standing monthly target per category. Targets apply to every month you view.
@@ -24,7 +22,7 @@
     {% endif %}
     {% endwith %}
 
-    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+    <div class="action-row">
         <a class="btn btn-secondary" href="{{ url_for('budgets.budget_progress') }}">&larr; Back to Progress</a>
         <a class="btn btn-secondary" href="{{ url_for('budgets.propose_budget_preview') }}">Propose Budgets</a>
     </div>
@@ -34,7 +32,7 @@
         <h2 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 16px;">Add or Update Budget Target</h2>
         <form method="post" action="{{ url_for('budgets.save_budget') }}" novalidate>
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end;">
+            <div class="form-row">
                 <div class="form-group" style="flex: 2; min-width: 180px; margin-bottom: 0;">
                     <label for="category_id">Category</label>
                     <select id="category_id" name="category_id" required>
