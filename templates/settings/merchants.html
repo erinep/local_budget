@@ -1,0 +1,68 @@
+{% extends "settings/layout.html" %}
+{% block settings_title %}Merchants{% endblock %}
+{% block settings_content %}
+<div class="section-stack">
+    <div>
+        <h1 style="font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif; font-size: clamp(1.8rem, 4vw, 2.6rem); letter-spacing: -0.03em; max-width: none;">Merchants</h1>
+    </div>
+
+    <div class="card" style="padding: 16px 24px;">
+        <p style="margin: 0; font-size: 0.92rem; color: var(--muted);">
+            These shortcuts are learned automatically when you recategorize a transaction. You can reassign a merchant to a different category, or delete it to let the system re-learn from scratch.
+        </p>
+    </div>
+
+    {% if aliases %}
+    <div class="card">
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Merchant</th>
+                        <th>Category</th>
+                        <th style="width: 80px; text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for alias in aliases %}
+                    <tr>
+                        <td style="font-variant-numeric: tabular-nums; font-family: monospace; font-size: 0.9rem;">{{ alias.normalized_name }}</td>
+                        <td>
+                            <form method="POST" action="{{ url_for('settings.merchants_remap', alias_id=alias.id) }}" style="display: flex; gap: 8px; align-items: center;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <select name="category_id" style="padding: 6px 10px; border: 1px solid var(--border-strong);
+                                       border-radius: var(--radius-sm); background: rgba(255,255,255,0.7);
+                                       font: inherit; font-size: 0.9rem; color: var(--text); cursor: pointer;">
+                                    {% for cat in categories %}
+                                    <option value="{{ cat.id }}" {% if cat.id == alias.category_id %}selected{% endif %}>{{ cat.name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="submit" class="button-secondary" style="font-size: 0.8rem; min-height: 34px; padding: 0 12px;">
+                                    Save
+                                </button>
+                            </form>
+                        </td>
+                        <td style="text-align: right;">
+                            <form method="POST" action="{{ url_for('settings.merchants_delete', alias_id=alias.id) }}"
+                                  onsubmit="return confirm('Delete merchant shortcut &quot;{{ alias.normalized_name }}&quot;? This cannot be undone.');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" style="display: inline-flex; align-items: center; min-height: 30px; padding: 0 12px;
+                                        border: 1px solid rgba(220,38,38,0.3); border-radius: 999px;
+                                        background: rgba(220,38,38,0.06); color: #b91c1c;
+                                        font: inherit; font-size: 0.82rem; font-weight: 700; cursor: pointer;">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="card" style="text-align: center; padding: 48px 24px;">
+        <p style="color: var(--muted); margin: 0 0 8px; font-size: 1rem;">No merchants yet.</p>
+        <p style="color: var(--muted); margin: 0; font-size: 0.92rem;">Shortcuts are created automatically the first time you recategorize a transaction.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

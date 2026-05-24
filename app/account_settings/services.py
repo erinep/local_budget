@@ -541,6 +541,29 @@ def delete_merchant_alias(user_id: str, alias_id: str) -> None:
             raise ValueError("Alias not found")
 
 
+def remap_merchant_alias(user_id: str, alias_id: str, category_id: str) -> None:
+    """Reassign a merchant alias to a different category owned by user_id.
+
+    Both the alias and the target category must be owned by user_id.
+
+    Raises:
+        ValueError("Alias not found or category not yours")
+    """
+    engine = get_engine()
+    with engine.begin() as conn:
+        result = conn.execute(
+            text(
+                "UPDATE public.merchant_aliases SET category_id = :cat_id"
+                " WHERE id = :aid"
+                " AND category_id IN (SELECT id FROM public.categories WHERE user_id = :uid)"
+                " AND :cat_id IN (SELECT id FROM public.categories WHERE user_id = :uid)"
+            ),
+            {"aid": alias_id, "cat_id": category_id, "uid": user_id},
+        )
+        if result.rowcount == 0:
+            raise ValueError("Alias not found or category not yours")
+
+
 def get_merchant_aliases(user_id: str) -> list[tuple[str, str]]:
     """Return (normalized_name, category_name) for all merchant aliases of user_id."""
     engine = get_engine()
