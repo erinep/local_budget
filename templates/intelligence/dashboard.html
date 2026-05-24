@@ -11,6 +11,8 @@
     <div id="widgets" class="section-stack">
         {% include "intelligence/widgets/monthly_totals.html" %}
         {% include "intelligence/widgets/category_trends.html" %}
+        {% include "intelligence/widgets/categorization_health.html" %}
+        {% include "intelligence/widgets/category_totals.html" %}
     </div>
 </div>
 {% endblock %}
@@ -146,6 +148,89 @@
             });
         });
     }());
+
+    // --- Categorization health (donut) ---
+    (function () {
+        var el = document.getElementById('chart-categorization-health');
+        if (!el || !window.Chart) return;
+        var data = JSON.parse(el.dataset.chart);
+        var pct = parseFloat(el.dataset.pct);
+        var centerTextPlugin = {
+            id: 'centerText',
+            beforeDraw: function (chart) {
+                var ca = chart.chartArea;
+                var cx = (ca.left + ca.right) / 2;
+                var cy = (ca.top + ca.bottom) / 2;
+                var ctx = chart.ctx;
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.font = 'bold 22px sans-serif';
+                ctx.fillStyle = '#0f172a';
+                ctx.fillText(pct + '%', cx, cy - 10);
+                ctx.font = '12px sans-serif';
+                ctx.fillStyle = '#64748b';
+                ctx.fillText('categorized', cx, cy + 12);
+                ctx.restore();
+            }
+        };
+        new Chart(el, {
+            type: 'doughnut',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    data: data.values,
+                    backgroundColor: data.colors,
+                    borderWidth: 0,
+                }]
+            },
+            options: {
+                responsive: true,
+                cutout: '70%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function (ctx) {
+                                return ctx.label + ': ' + ctx.parsed + ' transactions';
+                            }
+                        }
+                    }
+                }
+            },
+            plugins: [centerTextPlugin],
+        });
+    }());
+
+    // --- Category totals (bar chart) ---
+    (function () {
+        var el = document.getElementById('chart-category-totals');
+        if (!el || !window.Chart) return;
+        var data = JSON.parse(el.dataset.chart);
+        new Chart(el, {
+            type: 'bar',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    data: data.values,
+                    backgroundColor: data.colors,
+                    borderRadius: 4,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: dollarTooltip } }
+                },
+                scales: {
+                    y: { beginAtZero: true, ticks: { callback: dollarTick } },
+                    x: { ticks: { maxRotation: 30 } }
+                }
+            }
+        });
+    }());
+
 }());
 </script>
 {% endblock %}
