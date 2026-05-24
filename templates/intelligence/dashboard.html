@@ -43,7 +43,6 @@
         var data = JSON.parse(el.dataset.chart);
         var colors = data.datasets.map(function (_, i) { return PALETTE[i % PALETTE.length]; });
 
-        // Category datasets (thin)
         var catDatasets = data.datasets.map(function (ds, i) {
             return {
                 label: ds.label,
@@ -57,7 +56,6 @@
             };
         });
 
-        // Total dataset (bold overlay, last so it renders on top)
         var totalIdx = catDatasets.length;
         var totalDataset = {
             label: 'Total',
@@ -99,7 +97,6 @@
             }
         });
 
-        // Colour category pills, mark all active, apply initial muted state (total visible by default)
         var pills = document.querySelectorAll('#widget-category-trends .ct-pill[data-index]');
         pills.forEach(function (pill) {
             pill.style.setProperty('--pill-color', colors[Number(pill.dataset.index)]);
@@ -108,7 +105,6 @@
         setCategoryOpacity(true);
         chart.update();
 
-        // Show total checkbox
         var totalCheckbox = document.getElementById('ct-total-checkbox');
         totalCheckbox.addEventListener('change', function () {
             var showing = totalCheckbox.checked;
@@ -117,7 +113,6 @@
             chart.update();
         });
 
-        // All button — controls only category datasets, not total
         var allBtn = document.getElementById('ct-pill-all');
         function setAll(active) {
             catDatasets.forEach(function (_, j) {
@@ -131,9 +126,6 @@
             setAll(!allBtn.classList.contains('ct-pill--active'));
         });
 
-        // Individual category pill toggle
-        // If all are active, clicking one isolates it (turns off everything else).
-        // Otherwise, toggle normally.
         pills.forEach(function (pill) {
             pill.addEventListener('click', function () {
                 var i = Number(pill.dataset.index);

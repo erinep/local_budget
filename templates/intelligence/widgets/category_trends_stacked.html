@@ -1,0 +1,18 @@
+{% from "intelligence/macros.html" import category_pills %}
+<div class="card" id="widget-category-trends-stacked"
+     hx-get="{{ url_for('intelligence.widget', key='category_trends_stacked') }}"
+     hx-trigger="none"
+     hx-target="#widget-category-trends-stacked"
+     hx-swap="outerHTML">
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-3);">Monthly Breakdown</h2>
+
+    {{ category_pills(category_trends.datasets, "ct-stacked-pill-all") }}
+
+    <div class="chart-host" style="min-height: 280px;">
+        <canvas id="chart-category-trends-stacked"
+                data-chart='{{ category_trends_chart | tojson }}'></canvas>
+    </div>
+    <p style="margin: var(--space-3) 0 0; font-size: var(--text-sm); color: var(--muted);">
+        Last {{ category_trends.period_months }} complete months &middot; active accounts only
+    </p>
+</div>
