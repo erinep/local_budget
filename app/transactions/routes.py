@@ -137,7 +137,7 @@ def upload():
                 error="No new transactions were found in this file.",
             )
 
-        return redirect(url_for("intelligence.report"))
+        return redirect(url_for("intelligence.dashboard"))
 
     return render_template("upload.html", accounts=accounts)
 

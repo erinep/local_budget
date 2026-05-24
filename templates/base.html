@@ -17,7 +17,7 @@
             <nav class="site-nav">
                 <a class="nav-link" href="{{ url_for('transactions.history') }}">Transactions</a>
                 <a class="nav-link" href="{{ url_for('budgets.budget_progress') }}">Budget</a>
-                <a class="nav-link" href="{{ url_for('intelligence.report') }}">Report</a>
+                <a class="nav-link" href="{{ url_for('intelligence.dashboard') }}">Dashboard</a>
                 <a class="nav-link" href="{{ url_for('settings.index') }}">Settings</a>
                 <span class="nav-email">{{ g.user.email }}</span>
                 <a class="nav-link" href="{{ url_for('auth.logout') }}">Sign out</a>

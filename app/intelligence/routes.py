@@ -1,17 +1,15 @@
-"""Intelligence Layer routes — report and dashboard.
+"""Intelligence Layer routes — dashboard.
 
 Blueprint: intelligence_bp, url_prefix="/intelligence" (ADR-0004, ADR-0024).
 
 Route table:
-  GET /intelligence/report             report     Legacy report (retained until dashboard replaces it).
-  GET /intelligence/dashboard          dashboard  New widget dashboard (Phase 5d, ADR-0039).
+  GET /intelligence/dashboard          dashboard  Widget dashboard (Phase 5d, ADR-0039).
   GET /intelligence/widgets/<key>      widget     HTMX fragment endpoint for a single widget.
+  GET /intelligence/report             →301       Permanent redirect to /intelligence/dashboard.
 """
 
-from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
+from flask import Blueprint, abort, redirect, render_template, request, url_for, g
 
-from app.account_settings.services import count_uncategorized_transactions
-from app.intelligence.services import build_report_view_model
 from app.intelligence.widgets import REGISTRY
 import app.intelligence.widgets.monthly_totals  # noqa: F401 — registers widget
 from app.middleware.auth import login_required
@@ -19,24 +17,10 @@ from app.middleware.auth import login_required
 intelligence_bp = Blueprint("intelligence", __name__, url_prefix="/intelligence")
 
 
-@intelligence_bp.route("/report", endpoint="report")
-@login_required
-def report():
-    """Legacy report page. Retained until the new dashboard covers its scope."""
-    view_model = build_report_view_model(g.user.id)
-
-    if view_model is None:
-        flash("Upload a file to see your report.", "info")
-        return redirect(url_for("transactions.upload"))
-
-    uncategorized_count = count_uncategorized_transactions(g.user.id)
-    return render_template("intelligence/report.html", uncategorized_count=uncategorized_count, **view_model)
-
-
 @intelligence_bp.route("/dashboard", endpoint="dashboard")
 @login_required
 def dashboard():
-    """New widget dashboard (Phase 5d, ADR-0039).
+    """Widget dashboard (Phase 5d, ADR-0039).
 
     Assembles all registered widgets for a full-page render. Each widget
     assembler is called with the period parsed from query params.
@@ -81,3 +65,9 @@ def widget(key: str):
         )
 
     abort(404)
+
+
+@intelligence_bp.route("/report", endpoint="report")
+def report_redirect():
+    """Permanent redirect — /intelligence/report moved to /intelligence/dashboard."""
+    return redirect(url_for("intelligence.dashboard"), 301)
