@@ -15,6 +15,9 @@ import app.intelligence.widgets.category_trends         # noqa: F401
 import app.intelligence.widgets.category_trends_stacked # noqa: F401
 import app.intelligence.widgets.category_totals         # noqa: F401
 import app.intelligence.widgets.category_profile        # noqa: F401
+import app.intelligence.widgets.top_transactions        # noqa: F401
+import app.intelligence.widgets.outlier_transactions    # noqa: F401
+import app.intelligence.widgets.budget_trend            # noqa: F401
 from app.middleware.auth import login_required
 
 intelligence_bp = Blueprint("intelligence", __name__, url_prefix="/intelligence")
@@ -44,6 +47,21 @@ def _category_profile_vm(user_id, period_months):
     return vm
 
 
+def _top_transactions_vm(user_id, period_months):
+    from app.intelligence.widgets.top_transactions import build_top_transactions
+    return build_top_transactions(user_id, period_months)
+
+
+def _outlier_transactions_vm(user_id, period_months):
+    from app.intelligence.widgets.outlier_transactions import build_outlier_transactions
+    return build_outlier_transactions(user_id, period_months)
+
+
+def _budget_trend_vm(user_id, period_months):
+    from app.intelligence.widgets.budget_trend import build_budget_trend
+    return build_budget_trend(user_id, min(period_months, 12))
+
+
 def _category_totals_vm(user_id, period_months):
     from app.intelligence.widgets.category_totals import build_category_totals
     vm = build_category_totals(user_id, period_months)
@@ -67,12 +85,18 @@ def dashboard():
     ct_vm,   ct_chart   = _category_trends_vm(g.user.id, period_months)
     ctot_vm, ctot_chart = _category_totals_vm(g.user.id, period_months)
     cp_vm               = _category_profile_vm(g.user.id, period_months)
+    tt_vm               = _top_transactions_vm(g.user.id, period_months)
+    ot_vm               = _outlier_transactions_vm(g.user.id, period_months)
+    bt_vm               = _budget_trend_vm(g.user.id, period_months)
 
     return render_template(
         "intelligence/dashboard.html",
-        category_trends=ct_vm,   category_trends_chart=ct_chart,
-        category_totals=ctot_vm, category_totals_chart=ctot_chart,
+        category_trends=ct_vm,          category_trends_chart=ct_chart,
+        category_totals=ctot_vm,        category_totals_chart=ctot_chart,
         category_profile=cp_vm,
+        top_transactions=tt_vm,
+        outlier_transactions=ot_vm,
+        budget_trend=bt_vm,
     )
 
 
@@ -96,6 +120,18 @@ def widget(key: str):
     if key == "category_profile":
         vm = _category_profile_vm(g.user.id, period_months)
         return render_template(REGISTRY[key].template, category_profile=vm)
+
+    if key == "top_transactions":
+        vm = _top_transactions_vm(g.user.id, period_months)
+        return render_template(REGISTRY[key].template, top_transactions=vm)
+
+    if key == "outlier_transactions":
+        vm = _outlier_transactions_vm(g.user.id, period_months)
+        return render_template(REGISTRY[key].template, outlier_transactions=vm)
+
+    if key == "budget_trend":
+        vm = _budget_trend_vm(g.user.id, period_months)
+        return render_template(REGISTRY[key].template, budget_trend=vm)
 
     abort(404)
 

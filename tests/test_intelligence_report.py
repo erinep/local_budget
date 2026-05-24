@@ -14,9 +14,14 @@ from unittest.mock import patch
 
 import pytest
 
+import datetime
+
 from app.intelligence.widgets.category_trends import CategoryTrendsVM
 from app.intelligence.widgets.category_totals import CategoryTotalItem, CategoryTotalsVM
 from app.intelligence.widgets.category_profile import CategoryProfileRow, CategoryProfileVM
+from app.intelligence.widgets.top_transactions import TopTransactionItem, TopTransactionsVM
+from app.intelligence.widgets.outlier_transactions import OutlierTransactionItem, OutlierTransactionsVM
+from app.intelligence.widgets.budget_trend import BudgetTrendCell, BudgetTrendRow, BudgetTrendVM
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -37,6 +42,9 @@ _FAKE_CT_VM = CategoryTrendsVM(
 _PATCH_BUILD_CT   = "app.intelligence.widgets.category_trends.build_category_trends"
 _PATCH_BUILD_CTOT = "app.intelligence.widgets.category_totals.build_category_totals"
 _PATCH_BUILD_CP   = "app.intelligence.widgets.category_profile.build_category_profile"
+_PATCH_BUILD_TT   = "app.intelligence.widgets.top_transactions.build_top_transactions"
+_PATCH_BUILD_OT   = "app.intelligence.widgets.outlier_transactions.build_outlier_transactions"
+_PATCH_BUILD_BT   = "app.intelligence.widgets.budget_trend.build_budget_trend"
 
 _FAKE_CTOT_VM = CategoryTotalsVM(
     title="Category Totals",
@@ -73,10 +81,49 @@ _FAKE_CP_VM = CategoryProfileVM(
     pct_spend_categorized=55.6,
 )
 
+_FAKE_TT_VM = TopTransactionsVM(
+    title="Top Transactions",
+    items=[
+        TopTransactionItem(rank=1, description="Big Purchase", category_name="Groceries",
+                           amount=450.0, date=datetime.date(2026, 4, 1)),
+    ],
+    period_months=12,
+    limit=20,
+)
+
+_FAKE_OT_VM = OutlierTransactionsVM(
+    title="Unusual Transactions",
+    items=[
+        OutlierTransactionItem(description="Huge Bill", category_name="Utilities",
+                               amount=320.0, date=datetime.date(2026, 4, 5),
+                               category_mean=80.0, z_score=2.4),
+    ],
+    period_months=12,
+    threshold_sigma=2.0,
+)
+
+_FAKE_BT_VM = BudgetTrendVM(
+    title="Budget Trend",
+    month_labels=["Apr 2026", "May 2026"],
+    rows=[
+        BudgetTrendRow(
+            category_name="Groceries",
+            cells=[
+                BudgetTrendCell(status="under", pct_used=72.0, actual=288.0),
+                BudgetTrendCell(status="over",  pct_used=112.0, actual=448.0),
+            ],
+        ),
+    ],
+    period_months=12,
+)
+
 _ALL_WIDGET_PATCHES = [
     (_PATCH_BUILD_CT,   _FAKE_CT_VM),
     (_PATCH_BUILD_CTOT, _FAKE_CTOT_VM),
     (_PATCH_BUILD_CP,   _FAKE_CP_VM),
+    (_PATCH_BUILD_TT,   _FAKE_TT_VM),
+    (_PATCH_BUILD_OT,   _FAKE_OT_VM),
+    (_PATCH_BUILD_BT,   _FAKE_BT_VM),
 ]
 
 

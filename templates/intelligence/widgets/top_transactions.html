@@ -1,0 +1,51 @@
+<div class="card" id="widget-top-transactions"
+     hx-get="{{ url_for('intelligence.widget', key='top_transactions') }}"
+     hx-trigger="none"
+     hx-target="#widget-top-transactions"
+     hx-swap="outerHTML">
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">{{ top_transactions.title }}</h2>
+    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-4);">
+        Last {{ top_transactions.period_months }} complete months &middot; top {{ top_transactions.limit }} by value
+    </p>
+
+    {% if top_transactions.items %}
+    <table style="width: 100%; border-collapse: collapse; font-size: var(--text-sm);">
+        <thead>
+            <tr style="border-bottom: 1px solid var(--border); color: var(--muted);">
+                <th style="text-align: right; padding: var(--space-1) var(--space-2) var(--space-1) 0; width: 2.5rem;">#</th>
+                <th style="text-align: right; padding: var(--space-1) var(--space-2); width: 6rem;">Amount</th>
+                <th style="text-align: left;  padding: var(--space-1) var(--space-2);">Description</th>
+                <th style="text-align: left;  padding: var(--space-1) var(--space-2);">Category</th>
+                <th style="text-align: right; padding: var(--space-1) 0 var(--space-1) var(--space-2);">Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in top_transactions.items %}
+            <tr style="border-bottom: 1px solid var(--border);">
+                <td style="text-align: right; padding: var(--space-2) var(--space-2) var(--space-2) 0; color: var(--muted);">{{ item.rank }}</td>
+                <td style="text-align: right; padding: var(--space-2); font-weight: 600; font-variant-numeric: tabular-nums;">
+                    ${{ "%.2f"|format(item.amount) }}
+                </td>
+                <td style="padding: var(--space-2); max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    {{ item.description }}
+                </td>
+                <td style="padding: var(--space-2);">
+                    {% if item.category_name %}
+                    <span style="font-size: var(--text-xs); background: var(--surface-2); border-radius: var(--radius-sm); padding: 2px 6px;">
+                        {{ item.category_name }}
+                    </span>
+                    {% else %}
+                    <span style="font-size: var(--text-xs); color: var(--muted);">Uncategorized</span>
+                    {% endif %}
+                </td>
+                <td style="text-align: right; padding: var(--space-2) 0 var(--space-2) var(--space-2); color: var(--muted); white-space: nowrap;">
+                    {{ item.date.strftime("%b") }} {{ item.date.day }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color: var(--muted); font-size: var(--text-sm);">No transactions in this period.</p>
+    {% endif %}
+</div>
