@@ -18,6 +18,7 @@ from app.intelligence.widgets.monthly_totals import MonthlyPoint, MonthlyTotalsV
 from app.intelligence.widgets.category_trends import CategoryTrendsVM
 from app.intelligence.widgets.categorization_health import CategorizationHealthVM
 from app.intelligence.widgets.category_totals import CategoryTotalItem, CategoryTotalsVM
+from app.intelligence.widgets.category_profile import CategoryProfileRow, CategoryProfileVM
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -54,6 +55,7 @@ _FAKE_CT_VM = CategoryTrendsVM(
 _PATCH_BUILD_CT   = "app.intelligence.widgets.category_trends.build_category_trends"
 _PATCH_BUILD_CH   = "app.intelligence.widgets.categorization_health.build_categorization_health"
 _PATCH_BUILD_CTOT = "app.intelligence.widgets.category_totals.build_category_totals"
+_PATCH_BUILD_CP   = "app.intelligence.widgets.category_profile.build_category_profile"
 
 _FAKE_CH_VM = CategorizationHealthVM(total=100, categorized=87, uncategorized=13, pct_categorized=87.0)
 
@@ -66,11 +68,23 @@ _FAKE_CTOT_VM = CategoryTotalsVM(
     period_months=12,
 )
 
+_FAKE_CP_VM = CategoryProfileVM(
+    title="Category Profile",
+    rows=[
+        CategoryProfileRow(label="Groceries", count=12, total=400.0, mean=33.33,
+                           std_dev=5.0, cv=0.15, consistency="Consistent", is_uncategorized=False),
+        CategoryProfileRow(label="Transportation", count=8, total=320.0, mean=40.0,
+                           std_dev=55.0, cv=1.38, consistency="Irregular", is_uncategorized=False),
+    ],
+    period_months=12,
+)
+
 _ALL_WIDGET_PATCHES = [
-    (_PATCH_BUILD,    _FAKE_MT_VM),
-    (_PATCH_BUILD_CT, _FAKE_CT_VM),
-    (_PATCH_BUILD_CH, _FAKE_CH_VM),
+    (_PATCH_BUILD,      _FAKE_MT_VM),
+    (_PATCH_BUILD_CT,   _FAKE_CT_VM),
+    (_PATCH_BUILD_CH,   _FAKE_CH_VM),
     (_PATCH_BUILD_CTOT, _FAKE_CTOT_VM),
+    (_PATCH_BUILD_CP,   _FAKE_CP_VM),
 ]
 
 
@@ -223,3 +237,27 @@ class TestCategoryTotalsWidget:
         with patch(_PATCH_BUILD_CTOT, return_value=_FAKE_CTOT_VM):
             response = authenticated_client.get("/intelligence/widgets/category_totals")
         assert b"chart-category-totals" in response.data
+
+
+# ===========================================================================
+# GET /intelligence/widgets/category_profile
+# ===========================================================================
+
+class TestCategoryProfileWidget:
+    """HTMX fragment endpoint for category_profile widget."""
+
+    def test_unauthenticated_redirects_to_login(self, client):
+        response = client.get("/intelligence/widgets/category_profile", follow_redirects=False)
+        assert response.status_code == 302
+        assert "/auth/login" in response.headers.get("Location", "")
+
+    def test_authenticated_returns_200(self, authenticated_client):
+        with patch(_PATCH_BUILD_CP, return_value=_FAKE_CP_VM):
+            response = authenticated_client.get("/intelligence/widgets/category_profile")
+        assert response.status_code == 200
+
+    def test_consistency_badges_in_response(self, authenticated_client):
+        with patch(_PATCH_BUILD_CP, return_value=_FAKE_CP_VM):
+            response = authenticated_client.get("/intelligence/widgets/category_profile")
+        assert b"Consistent" in response.data
+        assert b"Irregular" in response.data

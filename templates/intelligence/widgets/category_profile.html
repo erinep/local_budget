@@ -1,0 +1,42 @@
+<div class="card" id="widget-category-profile"
+     hx-get="{{ url_for('intelligence.widget', key='category_profile') }}"
+     hx-trigger="none"
+     hx-target="#widget-category-profile"
+     hx-swap="outerHTML">
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">{{ category_profile.title }}</h2>
+    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-4);">
+        Last {{ category_profile.period_months }} complete months &middot;
+        high std&nbsp;dev may indicate a category catching multiple spending behaviours
+    </p>
+
+    <div style="overflow-x: auto;">
+        <table class="profile-table">
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th class="num">Transactions</th>
+                    <th class="num">Total</th>
+                    <th class="num">Avg</th>
+                    <th class="num">Std&nbsp;Dev</th>
+                    <th>Consistency</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in category_profile.rows %}
+                <tr{% if row.is_uncategorized %} class="profile-row--uncategorized"{% endif %}>
+                    <td>{{ row.label }}</td>
+                    <td class="num">{{ row.count }}</td>
+                    <td class="num">${{ "%.2f"|format(row.total) }}</td>
+                    <td class="num">${{ "%.2f"|format(row.mean) }}</td>
+                    <td class="num">${{ "%.2f"|format(row.std_dev) }}</td>
+                    <td>
+                        <span class="consistency-badge consistency-badge--{{ row.consistency | lower | replace('—', 'unknown') }}">
+                            {{ row.consistency }}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
