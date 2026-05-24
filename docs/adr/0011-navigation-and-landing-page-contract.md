@@ -1,9 +1,15 @@
 # ADR 0011 - Navigation and Landing Page Contract
 
-- **Status:** Accepted
+- **Status:** Accepted (amended 2026-05-24)
 - **Date:** 2026-05-17
 - **Phase:** P2 (forward-looking through P4)
 - **Deciders:** Architect agent
+
+> **Amendment 2026-05-24 — partially superseded by [ADR-0038](0038-frontend-stack-for-reporting-overhaul.md) and [ADR-0039](0039-widget-contract.md).**
+>
+> The constraints "No dropdowns. No JavaScript." in the header composition rule (§2 of the Decision) are **superseded**. Phase 5d adopts HTMX + Alpine.js across the app, including the header, to enable the account switcher (backlog item #13) and similar cross-module controls. Scoped JS-driven interactivity in the header is now permitted.
+>
+> **Still in force:** the classification rule (top-level modules vs. Settings-nested configuration), the landing URL (`/`), the `home_bp` blueprint placement, the Settings IA shape, and all future-phase expectations. Future agents should treat the IA contract as authoritative and the "no JS" constraint as historical context only.
 
 ## Context
 
