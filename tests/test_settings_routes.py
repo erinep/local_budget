@@ -110,10 +110,10 @@ class TestAccountsList:
             response = authenticated_client.get("/settings/accounts")
         assert b"Chequing" in response.data
 
-    def test_inactive_account_shows_hidden_badge(self, authenticated_client):
+    def test_inactive_account_shows_hidden_state(self, authenticated_client):
         with patch(f"{_SVC}.get_accounts", return_value=[_ACCOUNT_INACTIVE]):
             response = authenticated_client.get("/settings/accounts")
-        assert b"Hidden from reports" in response.data
+        assert b"Hidden" in response.data
 
 
 # ===========================================================================
