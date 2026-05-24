@@ -1,3 +1,89 @@
+/* ==========================================================================
+ * Design tokens + layout primitives
+ * Inline-style audit: grep -rh 'style="[^"]*"' templates/ | sort | uniq -c | sort -rn
+ * Patterns flagged for backlog #12 (not converted here):
+ *   – bare <table> (3 sites): .data-table already exists; templates should adopt it
+ *   – muted caption text color:var(--muted) font-size:0.92rem (5 sites): .text-caption candidate
+ * ========================================================================== */
+
+/* --- Tokens --------------------------------------------------------------- */
+:root {
+    /* Spacing scale — 4 px base */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 24px;
+    --space-6: 32px;
+    --space-7: 48px;
+    --space-8: 64px;
+
+    /* Type scale */
+    --text-sm:   0.875rem;
+    --text-base: 1rem;
+    --text-lg:   1.1rem;
+    --text-xl:   clamp(1.45rem, 2vw, 2rem);
+    --text-2xl:  clamp(1.6rem, 3vw, 2.2rem);
+
+    /* Status colours — extracted from inline styles */
+    --color-status-success:        var(--accent);
+    --color-status-warning:        #d97706;
+    --color-status-warning-bg:     #fffbeb;
+    --color-status-warning-border: #fde68a;
+    --color-status-error:          #b91c1c;
+    --color-status-error-bg:       rgba(220, 38, 38, 0.08);
+    --color-status-error-border:   rgba(220, 38, 38, 0.28);
+
+    /* Shadow scale */
+    --shadow-sm: 0 2px 8px rgba(61, 42, 19, 0.08);
+    --shadow-md: 0 10px 24px rgba(61, 42, 19, 0.12);
+}
+
+/* --- Primitives -----------------------------------------------------------
+ * .page-title    h1 for inner pages — serif font, consistent clamp sizing
+ * .page-header   flex row: heading on the left, actions on the right
+ * .form-row      flex row of form fields that wrap on narrow viewports
+ * .action-row    flex row of buttons / links with a consistent gap
+ * .card--warning .card modifier for amber warning / notice panels
+ * -------------------------------------------------------------------------- */
+
+.page-title {
+    font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: var(--text-2xl);
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+    margin: 0;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-5);
+    flex-wrap: wrap;
+}
+
+.form-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    align-items: flex-end;
+}
+
+.action-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+}
+
+.card.card--warning {
+    border-color: var(--color-status-warning-border);
+    background: var(--color-status-warning-bg);
+}
+
+/* --- existing styles below --- */
+
 :root {
     --bg: #f6f1e8;
     --bg-accent: #efe4d2;
