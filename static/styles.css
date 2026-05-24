@@ -265,6 +265,23 @@ h3 {
     --pill-color: var(--accent);
 }
 
+.ct-total-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--muted);
+    cursor: pointer;
+    user-select: none;
+}
+
+.ct-total-toggle input[type="checkbox"] {
+    accent-color: #475569;
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+}
+
 .upload-card,
 .feature-card,
 .split-card,

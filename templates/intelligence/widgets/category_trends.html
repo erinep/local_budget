@@ -3,7 +3,13 @@
      hx-trigger="none"
      hx-target="#widget-category-trends"
      hx-swap="outerHTML">
-    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-3);">{{ category_trends.title }}</h2>
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3);">
+        <h2 style="font-size: var(--text-lg); margin: 0;">{{ category_trends.title }}</h2>
+        <label class="ct-total-toggle">
+            <input type="checkbox" id="ct-total-checkbox" checked>
+            <span>Show total</span>
+        </label>
+    </div>
 
     <div class="ct-pills" style="display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-4);">
         <button class="ct-pill ct-pill--all ct-pill--active" id="ct-pill-all">All</button>

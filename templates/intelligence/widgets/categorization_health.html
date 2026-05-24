@@ -1,0 +1,28 @@
+<div class="card" id="widget-categorization-health"
+     hx-get="{{ url_for('intelligence.widget', key='categorization_health') }}"
+     hx-trigger="none"
+     hx-target="#widget-categorization-health"
+     hx-swap="outerHTML">
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-4);">Categorization Health</h2>
+    <div style="display: flex; align-items: center; gap: var(--space-6);">
+        <div style="flex: 0 0 200px; max-width: 200px;">
+            <canvas id="chart-categorization-health"
+                    data-chart='{{ categorization_health_chart | tojson }}'
+                    data-pct="{{ categorization_health.pct_categorized }}"></canvas>
+        </div>
+        <div>
+            <p style="font-size: var(--text-2xl); font-weight: 700; margin: 0; line-height: 1;">
+                {{ categorization_health.pct_categorized }}%
+            </p>
+            <p style="font-size: var(--text-sm); color: var(--muted); margin: var(--space-1) 0 var(--space-4);">categorized</p>
+            <p style="font-size: var(--text-sm); margin: 0;">
+                {{ categorization_health.categorized | int }} of {{ categorization_health.total | int }} transactions
+            </p>
+            {% if categorization_health.uncategorized > 0 %}
+            <p style="font-size: var(--text-sm); color: var(--color-status-error); margin: var(--space-1) 0 0;">
+                {{ categorization_health.uncategorized }} uncategorized
+            </p>
+            {% endif %}
+        </div>
+    </div>
+</div>
