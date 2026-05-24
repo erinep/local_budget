@@ -43,6 +43,7 @@ from app.transactions.services import (
 from app.account_settings.services import (
     count_uncategorized_transactions,
     list_categories,
+    list_merchant_aliases_detail,
 )
 
 logger = logging.getLogger(__name__)
@@ -134,6 +135,13 @@ def accounts_set_active(account_id: str):
     except AccountNotFound:
         abort(404)
     return redirect(url_for("settings.accounts_list"))
+
+
+@settings_bp.route("/aliases", methods=["GET"])
+@login_required
+def aliases():
+    aliases = list_merchant_aliases_detail(g.user.id)
+    return render_template("settings/aliases.html", aliases=aliases)
 
 
 @settings_bp.route("/files", methods=["GET"])
