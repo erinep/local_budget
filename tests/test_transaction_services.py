@@ -610,3 +610,200 @@ class TestGetTransactionDB:
         some_other_txn_id = uuid.uuid4()
         with pytest.raises(TransactionNotFound):
             get_transaction(uid, some_other_txn_id)
+
+
+# ===========================================================================
+# Section 6 — Migration 0010 structural tests (no DB required)
+# ===========================================================================
+
+class TestMigration0010Structure:
+    """Structural/static checks for the ADR-0037 is_active migration."""
+
+    _MODULE_PATH = "migrations.versions.0010_account_is_active"
+
+    @pytest.fixture(scope="class")
+    def migration(self):
+        try:
+            mod = importlib.import_module(self._MODULE_PATH)
+        except ModuleNotFoundError as exc:
+            pytest.fail(f"Migration module not found: {self._MODULE_PATH!r}. {exc}")
+        return mod
+
+    def test_migration_imports_cleanly(self, migration):
+        assert migration is not None
+
+    def test_revision_is_0010(self, migration):
+        assert migration.revision == "0010"
+
+    def test_down_revision_is_0009(self, migration):
+        assert migration.down_revision == "0009"
+
+    def test_upgrade_is_callable(self, migration):
+        assert callable(getattr(migration, "upgrade", None))
+
+    def test_downgrade_is_callable(self, migration):
+        assert callable(getattr(migration, "downgrade", None))
+
+
+# ===========================================================================
+# Section 7 — Account visibility (ADR-0037) DB-gated tests
+# ===========================================================================
+
+import sqlalchemy as sa
+import hashlib
+from datetime import timezone
+
+
+def _insert_user_for_visibility(user_id: str) -> None:
+    engine = sa.create_engine(DATABASE_URL)
+    with engine.begin() as conn:
+        conn.execute(sa.text("INSERT INTO auth.users (id) VALUES (:uid)"), {"uid": user_id})
+
+
+def _insert_account_for_visibility(user_id: str, *, is_active: bool = True) -> str:
+    engine = sa.create_engine(DATABASE_URL)
+    with engine.begin() as conn:
+        account_id = conn.execute(
+            sa.text(
+                "INSERT INTO public.accounts (user_id, name, is_active)"
+                " VALUES (:uid, :name, :active) RETURNING id"
+            ),
+            {"uid": user_id, "name": f"Acct-{uuid.uuid4()}", "active": is_active},
+        ).scalar()
+    return str(account_id)
+
+
+def _insert_upload_for_visibility(user_id: str, account_id: str) -> str:
+    engine = sa.create_engine(DATABASE_URL)
+    with engine.begin() as conn:
+        upload_id = conn.execute(
+            sa.text(
+                "INSERT INTO public.uploads (user_id, account_id, filename, file_hash)"
+                " VALUES (:uid, :acid, :fn, :fhash) RETURNING id"
+            ),
+            {
+                "uid": user_id,
+                "acid": account_id,
+                "fn": f"upload-{uuid.uuid4()}.csv",
+                "fhash": hashlib.sha256(str(uuid.uuid4()).encode()).digest(),
+            },
+        ).scalar()
+    return str(upload_id)
+
+
+def _insert_txn_for_visibility(user_id: str, account_id: str, upload_id: str) -> str:
+    from decimal import Decimal
+    from datetime import date
+    engine = sa.create_engine(DATABASE_URL)
+    fp = hashlib.sha256(f"{user_id}-{uuid.uuid4()}".encode()).digest()
+    with engine.begin() as conn:
+        txn_id = conn.execute(
+            sa.text(
+                "INSERT INTO public.transactions"
+                " (user_id, account_id, source_file_id, date, description,"
+                "  amount, category_id, fingerprint)"
+                " VALUES (:uid, :acid, :fid, :dt, :desc, :amt, NULL, :fp)"
+                " RETURNING id"
+            ),
+            {
+                "uid": user_id, "acid": account_id, "fid": upload_id,
+                "dt": date(2026, 1, 15), "desc": "TEST MERCHANT",
+                "amt": Decimal("-10.00"), "fp": fp,
+            },
+        ).scalar()
+    return str(txn_id)
+
+
+@requires_db
+class TestAccountVisibilityGetTransactions:
+    """get_transactions must exclude transactions from inactive accounts (ADR-0037)."""
+
+    @pytest.fixture(scope="class")
+    def app_ctx(self):
+        from app import create_app
+        app = create_app()
+        app.config["TESTING"] = True
+        with app.app_context():
+            yield
+
+    def test_active_account_transactions_are_returned(self, app_ctx):
+        user_id = str(uuid.uuid4())
+        _insert_user_for_visibility(user_id)
+        account_id = _insert_account_for_visibility(user_id, is_active=True)
+        upload_id = _insert_upload_for_visibility(user_id, account_id)
+        _insert_txn_for_visibility(user_id, account_id, upload_id)
+        result = get_transactions(user_id)
+        assert result.total_count == 1
+
+    def test_inactive_account_transactions_are_excluded(self, app_ctx):
+        user_id = str(uuid.uuid4())
+        _insert_user_for_visibility(user_id)
+        account_id = _insert_account_for_visibility(user_id, is_active=False)
+        upload_id = _insert_upload_for_visibility(user_id, account_id)
+        _insert_txn_for_visibility(user_id, account_id, upload_id)
+        result = get_transactions(user_id)
+        assert result.total_count == 0
+
+    def test_only_active_accounts_mixed(self, app_ctx):
+        user_id = str(uuid.uuid4())
+        _insert_user_for_visibility(user_id)
+        active_id = _insert_account_for_visibility(user_id, is_active=True)
+        inactive_id = _insert_account_for_visibility(user_id, is_active=False)
+        upload_active = _insert_upload_for_visibility(user_id, active_id)
+        upload_inactive = _insert_upload_for_visibility(user_id, inactive_id)
+        _insert_txn_for_visibility(user_id, active_id, upload_active)
+        _insert_txn_for_visibility(user_id, inactive_id, upload_inactive)
+        result = get_transactions(user_id)
+        assert result.total_count == 1
+
+
+@requires_db
+class TestSetAccountActive:
+    """set_account_active — toggle, isolation, AccountNotFound (ADR-0037)."""
+
+    @pytest.fixture(scope="class")
+    def app_ctx(self):
+        from app import create_app
+        app = create_app()
+        app.config["TESTING"] = True
+        with app.app_context():
+            yield
+
+    def test_deactivate_account(self, app_ctx):
+        from app.transactions.services import set_account_active, AccountNotFound
+        user_id = str(uuid.uuid4())
+        _insert_user_for_visibility(user_id)
+        account_id = _insert_account_for_visibility(user_id, is_active=True)
+        set_account_active(user_id, account_id, False)
+        upload_id = _insert_upload_for_visibility(user_id, account_id)
+        _insert_txn_for_visibility(user_id, account_id, upload_id)
+        result = get_transactions(user_id)
+        assert result.total_count == 0
+
+    def test_reactivate_account(self, app_ctx):
+        from app.transactions.services import set_account_active
+        user_id = str(uuid.uuid4())
+        _insert_user_for_visibility(user_id)
+        account_id = _insert_account_for_visibility(user_id, is_active=False)
+        set_account_active(user_id, account_id, True)
+        upload_id = _insert_upload_for_visibility(user_id, account_id)
+        _insert_txn_for_visibility(user_id, account_id, upload_id)
+        result = get_transactions(user_id)
+        assert result.total_count == 1
+
+    def test_wrong_user_raises_account_not_found(self, app_ctx):
+        from app.transactions.services import set_account_active, AccountNotFound
+        user_a = str(uuid.uuid4())
+        user_b = str(uuid.uuid4())
+        _insert_user_for_visibility(user_a)
+        _insert_user_for_visibility(user_b)
+        account_id = _insert_account_for_visibility(user_a)
+        with pytest.raises(AccountNotFound):
+            set_account_active(user_b, account_id, False)
+
+    def test_nonexistent_account_raises_account_not_found(self, app_ctx):
+        from app.transactions.services import set_account_active, AccountNotFound
+        user_id = str(uuid.uuid4())
+        _insert_user_for_visibility(user_id)
+        with pytest.raises(AccountNotFound):
+            set_account_active(user_id, str(uuid.uuid4()), False)
