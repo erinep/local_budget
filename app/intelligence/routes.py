@@ -11,9 +11,10 @@ Route table:
 from flask import Blueprint, abort, redirect, render_template, request, url_for, g
 
 from app.intelligence.widgets import REGISTRY
-import app.intelligence.widgets.category_trends       # noqa: F401
-import app.intelligence.widgets.category_totals       # noqa: F401
-import app.intelligence.widgets.category_profile      # noqa: F401
+import app.intelligence.widgets.category_trends         # noqa: F401
+import app.intelligence.widgets.category_trends_stacked # noqa: F401
+import app.intelligence.widgets.category_totals         # noqa: F401
+import app.intelligence.widgets.category_profile        # noqa: F401
 from app.middleware.auth import login_required
 
 intelligence_bp = Blueprint("intelligence", __name__, url_prefix="/intelligence")
@@ -84,7 +85,7 @@ def widget(key: str):
 
     period_months = min(max(request.args.get("months", 12, type=int), 1), 36)
 
-    if key == "category_trends":
+    if key in ("category_trends", "category_trends_stacked"):
         vm, chart = _category_trends_vm(g.user.id, period_months)
         return render_template(REGISTRY[key].template, category_trends=vm, category_trends_chart=chart)
 

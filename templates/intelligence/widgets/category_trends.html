@@ -1,3 +1,4 @@
+{% from "intelligence/macros.html" import category_pills %}
 <div class="card" id="widget-category-trends"
      hx-get="{{ url_for('intelligence.widget', key='category_trends') }}"
      hx-trigger="none"
@@ -11,12 +12,7 @@
         </label>
     </div>
 
-    <div class="ct-pills" style="display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-4);">
-        <button class="ct-pill ct-pill--all ct-pill--active" id="ct-pill-all">All</button>
-        {% for ds in category_trends.datasets %}
-        <button class="ct-pill" data-index="{{ loop.index0 }}">{{ ds.label }}</button>
-        {% endfor %}
-    </div>
+    {{ category_pills(category_trends.datasets, "ct-pill-all") }}
 
     <div class="chart-host" style="min-height: 280px;">
         <canvas id="chart-category-trends"
