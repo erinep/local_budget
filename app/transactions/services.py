@@ -31,6 +31,7 @@ Public API (ADR-0017, ADR-0018, ADR-0023, ADR-0028):
   create_account(user_id, name) -> Account (ADR-0034)
   rename_account(user_id, account_id, new_name) -> None (ADR-0034)
   delete_account(user_id, account_id) -> None (ADR-0034)
+  set_account_active(user_id, account_id, is_active) -> None (ADR-0037)
   recategorize_transaction(user_id, transaction_id, category_id, apply_forward_keyword) -> RecategorizationResult
   get_spend_by_category(user_id, period, account_id) -> list[CategorySpend] (ADR-0023)
   get_spend_history(user_id, category_id, periods) -> list[PeriodSpend] (ADR-0023)
@@ -624,7 +625,7 @@ def get_transactions(
     base_from = (
         "FROM public.transactions t"
         " LEFT JOIN public.categories c ON c.id = t.category_id"
-        " JOIN public.accounts a ON a.id = t.account_id"
+        " JOIN public.accounts a ON a.id = t.account_id AND a.is_active = TRUE"
     )
 
     count_sql = text(f"SELECT COUNT(*) {base_from} WHERE {where_clause}")
@@ -892,22 +893,24 @@ class Account:
     created_at: datetime
     transaction_count: int
     upload_count: int
+    is_active: bool = True
 
 
 def get_accounts(user_id: str) -> "list[Account]":
-    """Return all accounts for user_id, oldest first."""
+    """Return all accounts for user_id, oldest first. Includes inactive accounts."""
     engine = get_engine()
     with engine.connect() as conn:
         rows = conn.execute(
             text(
                 "SELECT a.id, a.name, a.created_at,"
                 " COUNT(DISTINCT t.id) AS transaction_count,"
-                " COUNT(DISTINCT u.id) AS upload_count"
+                " COUNT(DISTINCT u.id) AS upload_count,"
+                " a.is_active"
                 " FROM public.accounts a"
                 " LEFT JOIN public.transactions t ON t.account_id = a.id"
                 " LEFT JOIN public.uploads u ON u.account_id = a.id"
                 " WHERE a.user_id = :uid"
-                " GROUP BY a.id, a.name, a.created_at"
+                " GROUP BY a.id, a.name, a.created_at, a.is_active"
                 " ORDER BY a.created_at ASC"
             ),
             {"uid": user_id},
@@ -919,6 +922,7 @@ def get_accounts(user_id: str) -> "list[Account]":
             created_at=row[2],
             transaction_count=int(row[3]),
             upload_count=int(row[4]),
+            is_active=bool(row[5]),
         )
         for row in rows
     ]
@@ -988,6 +992,26 @@ def rename_account(user_id: str, account_id: str, new_name: str) -> None:
             if "uq_accounts_user_name" in str(exc) or "unique" in str(exc).lower():
                 raise ValueError(f"An account named '{new_name}' already exists.")
             raise
+
+
+def set_account_active(user_id: str, account_id: str, is_active: bool) -> None:
+    """Set the is_active flag on an account owned by user_id.
+
+    Raises:
+        AccountNotFound: if account_id does not exist or belongs to a different user.
+    """
+    engine = get_engine()
+    with engine.begin() as conn:
+        result = conn.execute(
+            text(
+                "UPDATE public.accounts SET is_active = :active"
+                " WHERE id = :aid AND user_id = :uid"
+                " RETURNING id"
+            ),
+            {"active": is_active, "aid": account_id, "uid": user_id},
+        )
+        if result.fetchone() is None:
+            raise AccountNotFound("Account not found.")
 
 
 def delete_account(user_id: str, account_id: str) -> None:
@@ -1090,6 +1114,7 @@ def get_spend_by_category(
         " SUM(ABS(t.amount)) AS spend, COUNT(*) AS transaction_count"
         " FROM public.transactions t"
         " LEFT JOIN public.categories c ON c.id = t.category_id"
+        " JOIN public.accounts a ON a.id = t.account_id AND a.is_active = TRUE"
         " WHERE t.user_id = :user_id"
         " AND t.date >= :date_from AND t.date <= :date_to"
         " AND t.amount < 0"
@@ -1158,6 +1183,7 @@ def get_spend_history(
             " SUM(ABS(t.amount)) AS spend, COUNT(*) AS transaction_count"
             " FROM public.transactions t"
             " LEFT JOIN public.categories c ON c.id = t.category_id"
+            " JOIN public.accounts a ON a.id = t.account_id AND a.is_active = TRUE"
             " WHERE t.user_id = :user_id"
             " AND t.date >= :date_from AND t.date <= :date_to"
             " AND t.amount < 0"

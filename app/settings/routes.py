@@ -38,6 +38,7 @@ from app.transactions.services import (
     get_accounts,
     get_uploads,
     rename_account,
+    set_account_active,
 )
 from app.account_settings.services import (
     count_uncategorized_transactions,
@@ -68,7 +69,7 @@ def categories():
     cats = list_categories(user_id)
     uncategorized_count = count_uncategorized_transactions(user_id)
     return render_template(
-        "account_settings/categories.html",
+        "settings/categories.html",
         categories=cats,
         uncategorized_count=uncategorized_count,
     )
@@ -121,6 +122,17 @@ def accounts_delete(account_id: str):
     except AccountNotFound:
         abort(404)
     flash("Account and all its transactions deleted.", "success")
+    return redirect(url_for("settings.accounts_list"))
+
+
+@settings_bp.route("/accounts/<account_id>/set-active", methods=["POST"])
+@login_required
+def accounts_set_active(account_id: str):
+    is_active = request.form.get("is_active") == "true"
+    try:
+        set_account_active(g.user.id, account_id, is_active)
+    except AccountNotFound:
+        abort(404)
     return redirect(url_for("settings.accounts_list"))
 
 

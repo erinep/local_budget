@@ -68,10 +68,11 @@ def create_app(config=None):
 
     # template_folder and static_folder are relative to this file's directory
     # (app/), so "../templates" and "../static" resolve to the repo root.
+    _root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     app = Flask(
         __name__,
-        template_folder="../templates",
-        static_folder="../static",
+        template_folder=os.path.join(_root, "templates"),
+        static_folder=os.path.join(_root, "static"),
     )
 
     # CSRF protection — required on all state-changing routes (architecture doc,
@@ -85,6 +86,7 @@ def create_app(config=None):
     csrf.init_app(app)
 
     app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024  # 5 MB
+    app.config["TEMPLATES_AUTO_RELOAD"] = True
 
     # Load the generic category map from disk. This feeds `seed_defaults` on
     # first login (docs/phase2-contract.md §2.11); per-user category data lives

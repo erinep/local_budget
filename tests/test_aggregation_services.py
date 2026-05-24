@@ -795,3 +795,73 @@ class TestGetSpendHistory:
         assert result[0].total_spend == Decimal("8.00"), (
             "DST transition must not cause spend to be missed or double-counted in history"
         )
+
+
+# ===========================================================================
+# Section 4 — Account visibility (ADR-0037) aggregation tests
+# ===========================================================================
+
+def _insert_inactive_account(user_id: str) -> str:
+    """Insert an account with is_active=FALSE, return account_id as string."""
+    engine = sa.create_engine(DATABASE_URL)
+    with engine.begin() as conn:
+        account_id = conn.execute(
+            sa.text(
+                "INSERT INTO public.accounts (user_id, name, is_active)"
+                " VALUES (:uid, :name, FALSE) RETURNING id"
+            ),
+            {"uid": user_id, "name": f"Inactive-{uuid.uuid4()}"},
+        ).scalar()
+    return str(account_id)
+
+
+@requires_db
+class TestAccountVisibilityAggregation:
+    """get_spend_by_category and get_spend_history must exclude inactive accounts (ADR-0037)."""
+
+    def test_spend_by_category_excludes_inactive_account(self, app_ctx):
+        user_id = _uid()
+        inactive_id = _insert_inactive_account(user_id)
+        upload_id = _insert_upload(user_id, inactive_id)
+        _insert_transaction(
+            user_id, inactive_id, upload_id,
+            amount=Decimal("-50.00"),
+            txn_date=date(2026, 1, 10),
+        )
+        result = get_spend_by_category(user_id, _JAN_2026)
+        assert result == [], "Inactive account transactions must not appear in spend aggregates"
+
+    def test_spend_by_category_includes_active_excludes_inactive(self, app_ctx):
+        user_id = _uid()
+        active_id = _insert_account(user_id)
+        inactive_id = _insert_inactive_account(user_id)
+        upload_active = _insert_upload(user_id, active_id)
+        upload_inactive = _insert_upload(user_id, inactive_id)
+        _insert_transaction(
+            user_id, active_id, upload_active,
+            amount=Decimal("-30.00"),
+            txn_date=date(2026, 1, 5),
+        )
+        _insert_transaction(
+            user_id, inactive_id, upload_inactive,
+            amount=Decimal("-70.00"),
+            txn_date=date(2026, 1, 6),
+        )
+        result = get_spend_by_category(user_id, _JAN_2026)
+        total = sum(r.spend for r in result)
+        assert total == Decimal("30.00"), "Only active account transactions should be aggregated"
+
+    def test_spend_history_excludes_inactive_account(self, app_ctx):
+        user_id = _uid()
+        inactive_id = _insert_inactive_account(user_id)
+        upload_id = _insert_upload(user_id, inactive_id)
+        _insert_transaction(
+            user_id, inactive_id, upload_id,
+            amount=Decimal("-25.00"),
+            txn_date=date(2026, 1, 10),
+            category_id=None,
+        )
+        result = get_spend_history(user_id, category_id=None, periods=[_JAN_2026])
+        assert result[0].total_spend == Decimal("0"), (
+            "Inactive account transactions must not appear in spend history"
+        )
