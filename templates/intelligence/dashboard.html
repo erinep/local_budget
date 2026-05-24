@@ -9,7 +9,6 @@
     </div>
 
     <div id="widgets" class="section-stack">
-        {% include "intelligence/widgets/monthly_totals.html" %}
         {% include "intelligence/widgets/category_trends.html" %}
         {% include "intelligence/widgets/categorization_health.html" %}
         {% include "intelligence/widgets/category_totals.html" %}
@@ -37,52 +36,15 @@
         });
     }
 
-    // --- Monthly totals (single line) ---
-    (function () {
-        var el = document.getElementById('chart-monthly-totals');
-        if (!el || !window.Chart) return;
-        var data = JSON.parse(el.dataset.chart);
-        new Chart(el, {
-            type: 'line',
-            data: {
-                labels: data.labels,
-                datasets: [{
-                    label: 'Total Spending',
-                    data: data.values,
-                    borderColor: PALETTE[0],
-                    backgroundColor: 'rgba(15, 118, 110, 0.08)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.3,
-                    pointRadius: 4,
-                    pointBackgroundColor: PALETTE[0],
-                    pointHoverRadius: 6,
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { callbacks: { label: dollarTooltip } }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: { callback: dollarTick }
-                    }
-                }
-            }
-        });
-    }());
-
-    // --- Category trends (colour-coded multi-select pills, no legend) ---
+    // --- Spending overview: category lines + bold total overlay ---
     (function () {
         var el = document.getElementById('chart-category-trends');
         if (!el || !window.Chart) return;
         var data = JSON.parse(el.dataset.chart);
         var colors = data.datasets.map(function (_, i) { return PALETTE[i % PALETTE.length]; });
 
-        var datasets = data.datasets.map(function (ds, i) {
+        // Category datasets (thin)
+        var catDatasets = data.datasets.map(function (ds, i) {
             return {
                 label: ds.label,
                 data: ds.data,
@@ -95,9 +57,22 @@
             };
         });
 
+        // Total dataset (bold overlay, last so it renders on top)
+        var totalIdx = catDatasets.length;
+        var totalDataset = {
+            label: 'Total',
+            data: data.total,
+            borderColor: '#0f172a',
+            backgroundColor: 'transparent',
+            borderWidth: 3,
+            tension: 0.3,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+        };
+
         var chart = new Chart(el, {
             type: 'line',
-            data: { labels: data.labels, datasets: datasets },
+            data: { labels: data.labels, datasets: catDatasets.concat([totalDataset]) },
             options: {
                 responsive: true,
                 interaction: { mode: 'index', intersect: false },
@@ -111,18 +86,25 @@
             }
         });
 
-        // Colour category pills to match chart lines
+        // Colour category pills
         var pills = document.querySelectorAll('#widget-category-trends .ct-pill[data-index]');
         pills.forEach(function (pill) {
-            var i = Number(pill.dataset.index);
-            pill.style.setProperty('--pill-color', colors[i]);
-            pill.classList.add('ct-pill--active');
+            pill.style.setProperty('--pill-color', colors[Number(pill.dataset.index)]);
         });
 
-        // All button
+        // Total pill
+        var totalBtn = document.querySelector('#widget-category-trends .ct-pill[data-total]');
+        totalBtn.addEventListener('click', function () {
+            var meta = chart.getDatasetMeta(totalIdx);
+            meta.hidden = !meta.hidden;
+            totalBtn.classList.toggle('ct-pill--active', !meta.hidden);
+            chart.update();
+        });
+
+        // All button — controls only category datasets, not total
         var allBtn = document.getElementById('ct-pill-all');
         function setAll(active) {
-            data.datasets.forEach(function (_, j) {
+            catDatasets.forEach(function (_, j) {
                 chart.getDatasetMeta(j).hidden = !active;
             });
             pills.forEach(function (p) { p.classList.toggle('ct-pill--active', active); });
@@ -133,7 +115,7 @@
             setAll(!allBtn.classList.contains('ct-pill--active'));
         });
 
-        // Individual pill toggle
+        // Individual category pill toggle
         pills.forEach(function (pill) {
             pill.addEventListener('click', function () {
                 var i = Number(pill.dataset.index);

@@ -265,6 +265,10 @@ h3 {
     --pill-color: var(--accent);
 }
 
+.ct-pill--total {
+    --pill-color: #0f172a;
+}
+
 .upload-card,
 .feature-card,
 .split-card,

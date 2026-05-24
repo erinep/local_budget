@@ -34,7 +34,12 @@ _FAKE_VM = MonthlyTotalsVM(
     period_months=12,
 )
 
-_PATCH_BUILD = "app.intelligence.widgets.monthly_totals.build_monthly_totals"
+_PATCH_BUILD    = "app.intelligence.widgets.monthly_totals.build_monthly_totals"
+_FAKE_MT_POINTS = [
+    MonthlyPoint(month="2026-04", label="Apr 2026", total=Decimal("520.0")),
+    MonthlyPoint(month="2026-05", label="May 2026", total=Decimal("445.0")),
+]
+_FAKE_MT_VM = MonthlyTotalsVM(title="Monthly Spending", points=_FAKE_MT_POINTS, period_months=12)
 
 _FAKE_CT_VM = CategoryTrendsVM(
     title="Spending by Category",
@@ -62,7 +67,7 @@ _FAKE_CTOT_VM = CategoryTotalsVM(
 )
 
 _ALL_WIDGET_PATCHES = [
-    (_PATCH_BUILD,    _FAKE_VM),
+    (_PATCH_BUILD,    _FAKE_MT_VM),
     (_PATCH_BUILD_CT, _FAKE_CT_VM),
     (_PATCH_BUILD_CH, _FAKE_CH_VM),
     (_PATCH_BUILD_CTOT, _FAKE_CTOT_VM),
@@ -162,12 +167,14 @@ class TestCategoryTrendsWidget:
         assert "/auth/login" in response.headers.get("Location", "")
 
     def test_authenticated_returns_200(self, authenticated_client):
-        with patch(_PATCH_BUILD_CT, return_value=_FAKE_CT_VM):
+        with patch(_PATCH_BUILD, return_value=_FAKE_MT_VM), \
+             patch(_PATCH_BUILD_CT, return_value=_FAKE_CT_VM):
             response = authenticated_client.get("/intelligence/widgets/category_trends")
         assert response.status_code == 200
 
     def test_response_contains_chart_data(self, authenticated_client):
-        with patch(_PATCH_BUILD_CT, return_value=_FAKE_CT_VM):
+        with patch(_PATCH_BUILD, return_value=_FAKE_MT_VM), \
+             patch(_PATCH_BUILD_CT, return_value=_FAKE_CT_VM):
             response = authenticated_client.get("/intelligence/widgets/category_trends")
         assert b"chart-category-trends" in response.data
 

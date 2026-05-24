@@ -31,9 +31,16 @@ def _monthly_totals_vm(user_id, period_months):
 
 
 def _category_trends_vm(user_id, period_months):
+    from app.intelligence.widgets.monthly_totals import build_monthly_totals
     from app.intelligence.widgets.category_trends import build_category_trends
-    vm = build_category_trends(user_id, period_months)
-    return vm, {"labels": vm.labels, "datasets": vm.datasets}
+    mt_vm = build_monthly_totals(user_id, period_months)
+    ct_vm = build_category_trends(user_id, period_months)
+    chart = {
+        "labels": ct_vm.labels,
+        "total": [float(p.total) for p in mt_vm.points],
+        "datasets": ct_vm.datasets,
+    }
+    return ct_vm, chart
 
 
 def _categorization_health_vm(user_id):
@@ -64,14 +71,12 @@ def dashboard():
     """Widget dashboard (Phase 5d, ADR-0039)."""
     period_months = min(max(request.args.get("months", 12, type=int), 1), 36)
 
-    mt_vm,  mt_chart  = _monthly_totals_vm(g.user.id, period_months)
-    ct_vm,  ct_chart  = _category_trends_vm(g.user.id, period_months)
-    ch_vm,  ch_chart  = _categorization_health_vm(g.user.id)
+    ct_vm,   ct_chart   = _category_trends_vm(g.user.id, period_months)
+    ch_vm,   ch_chart   = _categorization_health_vm(g.user.id)
     ctot_vm, ctot_chart = _category_totals_vm(g.user.id, period_months)
 
     return render_template(
         "intelligence/dashboard.html",
-        monthly_totals=mt_vm,         monthly_totals_chart=mt_chart,
         category_trends=ct_vm,        category_trends_chart=ct_chart,
         categorization_health=ch_vm,  categorization_health_chart=ch_chart,
         category_totals=ctot_vm,      category_totals_chart=ctot_chart,
