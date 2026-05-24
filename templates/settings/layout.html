@@ -9,16 +9,16 @@
         <p class="eyebrow" style="margin-bottom: 14px;">Settings</p>
         {% set current = request.path %}
         {% set nav_items = [
-            ('/settings/profile',    'Profile'),
-            ('/settings/accounts',   'Accounts'),
-            ('/settings/categories', 'Categories'),
-            ('/settings/files',       'Files'),
-            ('/settings/security',   'Security'),
+            ('/settings/profile',         'Profile'),
+            ('/settings/accounts',        'Accounts'),
+            ('/settings/categories',      'Categories'),
+            ('/account-settings/aliases', 'Merchant Aliases'),
+            ('/settings/files',           'Files'),
+            ('/settings/security',        'Security'),
         ] %}
         <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px;">
             {% for path, label in nav_items %}
-            {# Categories tab activates for /account-settings/* sub-pages too #}
-            {% set is_active = current.startswith(path) or (label == 'Categories' and current.startswith('/account-settings/')) %}
+            {% set is_active = current.startswith(path) or (label == 'Categories' and current.startswith('/account-settings/') and not current.startswith('/account-settings/aliases')) %}
             <li>
                 <a href="{{ path }}" style="
                     display: block;
