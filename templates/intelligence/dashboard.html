@@ -139,6 +139,10 @@
                 var meta = chart.getDatasetMeta(i);
                 meta.hidden = !meta.hidden;
                 pill.classList.toggle('ct-pill--active', !meta.hidden);
+                var allActive = Array.from(pills).every(function (p) {
+                    return p.classList.contains('ct-pill--active');
+                });
+                allBtn.classList.toggle('ct-pill--active', allActive);
                 chart.update();
             });
         });
