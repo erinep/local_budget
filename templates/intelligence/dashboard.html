@@ -198,32 +198,111 @@
         });
     }());
 
-    // --- Category totals (bar chart) ---
+    // --- Category totals (bar chart + pill drill-down) ---
     (function () {
         var el = document.getElementById('chart-category-totals');
         if (!el || !window.Chart) return;
         var data = JSON.parse(el.dataset.chart);
-        new Chart(el, {
+        var amounts = data.amounts;
+
+        var chartOptions = {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: dollarTooltip } }
+            },
+            scales: {
+                y: { beginAtZero: true, ticks: { callback: dollarTick } },
+                x: { ticks: { maxRotation: 30 } }
+            }
+        };
+
+        var chart = new Chart(el, {
             type: 'bar',
             data: {
                 labels: data.labels,
-                datasets: [{
-                    data: data.values,
-                    backgroundColor: data.colors,
-                    borderRadius: 4,
-                }]
+                datasets: [{ data: data.values, backgroundColor: data.colors, borderRadius: 4 }]
             },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { callbacks: { label: dollarTooltip } }
-                },
-                scales: {
-                    y: { beginAtZero: true, ticks: { callback: dollarTick } },
-                    x: { ticks: { maxRotation: 30 } }
+            options: chartOptions,
+        });
+
+        var allBtn = document.getElementById('ctot-pill-all');
+        var pills = document.querySelectorAll('#widget-category-totals .ctot-pill[data-index]');
+        var activePills = new Set();
+
+        // Colour pills from PALETTE, matching category_trends
+        pills.forEach(function (pill) {
+            var i = Number(pill.dataset.index);
+            var color = pill.dataset.uncategorized ? '#dc2626' : PALETTE[i % PALETTE.length];
+            pill.style.setProperty('--pill-color', color);
+        });
+
+        function pillColor(pill) {
+            var i = Number(pill.dataset.index);
+            return pill.dataset.uncategorized ? '#dc2626' : PALETTE[i % PALETTE.length];
+        }
+
+        function showAll() {
+            activePills.clear();
+            chart.data.labels = data.labels;
+            chart.data.datasets = [{ data: data.values, backgroundColor: data.colors, borderRadius: 4, label: '' }];
+            chart.options.plugins.tooltip.callbacks.label = dollarTooltip;
+            chart.update();
+            allBtn.classList.add('ct-pill--active');
+            pills.forEach(function (p) { p.classList.remove('ct-pill--active'); });
+        }
+
+        var CTOT_MAX_BARS = 50;
+
+        function showSelected() {
+            // Flatten all selected categories into one list, sort by value desc, cap at CTOT_MAX_BARS
+            var flat = [];
+            activePills.forEach(function (pill) {
+                var color = pillColor(pill);
+                var txnData = amounts[pill.dataset.label] || { values: [] };
+                txnData.values.forEach(function (v) {
+                    flat.push({ value: v, color: color, category: pill.dataset.label });
+                });
+            });
+            flat.sort(function (a, b) { return b.value - a.value; });
+            flat = flat.slice(0, CTOT_MAX_BARS);
+
+            chart.data.labels = flat.map(function (_, j) { return '#' + (j + 1); });
+            chart.data.datasets = [{
+                data: flat.map(function (t) { return t.value; }),
+                backgroundColor: flat.map(function (t) { return t.color; }),
+                borderRadius: 4,
+                label: '',
+            }];
+            chart.options.plugins.tooltip.callbacks.label = function (ctx) {
+                var t = flat[ctx.dataIndex];
+                return t.category + ': $' + t.value.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            };
+            chart.update();
+            allBtn.classList.remove('ct-pill--active');
+        }
+
+        allBtn.addEventListener('click', showAll);
+
+        pills.forEach(function (pill) {
+            pill.addEventListener('click', function () {
+                var allActive = activePills.size === 0; // "All" is active when no pills selected
+                if (allActive) {
+                    // Isolate this category
+                    activePills.clear();
+                    activePills.add(pill);
+                    pills.forEach(function (p) { p.classList.remove('ct-pill--active'); });
+                    pill.classList.add('ct-pill--active');
+                } else if (activePills.has(pill)) {
+                    activePills.delete(pill);
+                    pill.classList.remove('ct-pill--active');
+                    if (activePills.size === 0) { showAll(); return; }
+                } else {
+                    activePills.add(pill);
+                    pill.classList.add('ct-pill--active');
                 }
-            }
+                showSelected();
+            });
         });
     }());
 
