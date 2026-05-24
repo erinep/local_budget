@@ -47,31 +47,22 @@ def _consistency(cv: float, count: int) -> str:
 
 
 def build_category_profile(user_id: str, period_months: int = 12) -> CategoryProfileVM:
-    """Return per-category transaction stats for the last period_months complete months.
+    """Return per-category transaction stats across all time.
 
-    Only outflow transactions (amount < 0) are included, matching the sign
-    convention used across all other intelligence widgets.
+    All-time scope is intentional: CV measures the structural nature of a
+    category (what kind of spending it catches), not a recent trend. More
+    transactions produce a more reliable std dev.
+
+    period_months is accepted but unused — kept for interface consistency
+    with other widget assemblers.
+
+    Only outflow transactions (amount < 0) are included.
     """
-    now = datetime.datetime.now(datetime.timezone.utc)
-    first_of_current = datetime.date(now.year, now.month, 1)
-    date_to = first_of_current - datetime.timedelta(days=1)
-
-    year, month = now.year, now.month
-    for _ in range(period_months):
-        month -= 1
-        if month == 0:
-            month = 12
-            year -= 1
-    date_from = datetime.date(year, month, 1)
-
-    # Page through all transactions in the period
     all_txns = []
     offset = 0
     page_size = 200
     while True:
         page = get_transactions(user_id, TransactionFilters(
-            date_from=date_from,
-            date_to=date_to,
             limit=page_size,
             offset=offset,
         ))
