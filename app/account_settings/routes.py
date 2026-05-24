@@ -410,9 +410,7 @@ def import_upload():
 @account_settings_bp.route("/aliases", methods=["GET"])
 @login_required
 def aliases_list():
-    """List all merchant aliases for the authenticated user."""
-    aliases = list_merchant_aliases_detail(g.user.id)
-    return render_template("settings/aliases.html", aliases=aliases)
+    return redirect(url_for("settings.merchants"))
 
 
 @account_settings_bp.route("/aliases/<alias_id>/delete", methods=["POST"])

@@ -42,8 +42,10 @@ from app.transactions.services import (
 )
 from app.account_settings.services import (
     count_uncategorized_transactions,
+    delete_merchant_alias,
     list_categories,
     list_merchant_aliases_detail,
+    remap_merchant_alias,
 )
 
 logger = logging.getLogger(__name__)
@@ -137,11 +139,33 @@ def accounts_set_active(account_id: str):
     return redirect(url_for("settings.accounts_list"))
 
 
-@settings_bp.route("/aliases", methods=["GET"])
+@settings_bp.route("/merchants", methods=["GET"])
 @login_required
-def aliases():
+def merchants():
     aliases = list_merchant_aliases_detail(g.user.id)
-    return render_template("settings/aliases.html", aliases=aliases)
+    categories = list_categories(g.user.id)
+    return render_template("settings/merchants.html", aliases=aliases, categories=categories)
+
+
+@settings_bp.route("/merchants/<alias_id>/remap", methods=["POST"])
+@login_required
+def merchants_remap(alias_id: str):
+    category_id = request.form.get("category_id", "")
+    try:
+        remap_merchant_alias(g.user.id, alias_id, category_id)
+    except ValueError:
+        abort(404)
+    return redirect(url_for("settings.merchants"))
+
+
+@settings_bp.route("/merchants/<alias_id>/delete", methods=["POST"])
+@login_required
+def merchants_delete(alias_id: str):
+    try:
+        delete_merchant_alias(g.user.id, alias_id)
+    except ValueError:
+        abort(404)
+    return redirect(url_for("settings.merchants"))
 
 
 @settings_bp.route("/files", methods=["GET"])
