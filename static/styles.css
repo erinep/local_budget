@@ -261,6 +261,10 @@ h3 {
     opacity: 1;
 }
 
+.ct-pill--all {
+    --pill-color: var(--accent);
+}
+
 .upload-card,
 .feature-card,
 .split-card,

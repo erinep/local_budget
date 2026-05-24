@@ -110,33 +110,35 @@
             }
         });
 
-        // Colour pills to match chart lines and wire up multi-select toggle
-        var pills = document.querySelectorAll('#widget-category-trends .ct-pill');
+        // Colour category pills to match chart lines
+        var pills = document.querySelectorAll('#widget-category-trends .ct-pill[data-index]');
         pills.forEach(function (pill) {
             var i = Number(pill.dataset.index);
-            var color = colors[i];
-            pill.style.setProperty('--pill-color', color);
+            pill.style.setProperty('--pill-color', colors[i]);
             pill.classList.add('ct-pill--active');
+        });
 
+        // All button
+        var allBtn = document.getElementById('ct-pill-all');
+        function setAll(active) {
+            data.datasets.forEach(function (_, j) {
+                chart.getDatasetMeta(j).hidden = !active;
+            });
+            pills.forEach(function (p) { p.classList.toggle('ct-pill--active', active); });
+            allBtn.classList.toggle('ct-pill--active', active);
+            chart.update();
+        }
+        allBtn.addEventListener('click', function () {
+            setAll(!allBtn.classList.contains('ct-pill--active'));
+        });
+
+        // Individual pill toggle
+        pills.forEach(function (pill) {
             pill.addEventListener('click', function () {
+                var i = Number(pill.dataset.index);
                 var meta = chart.getDatasetMeta(i);
-                var willHide = !meta.hidden;
-
-                // Don't allow hiding the last visible line — reset all instead
-                var visibleCount = data.datasets.filter(function (_, j) {
-                    return !chart.getDatasetMeta(j).hidden;
-                }).length;
-                if (willHide && visibleCount === 1) {
-                    pills.forEach(function (p) { p.classList.add('ct-pill--active'); });
-                    data.datasets.forEach(function (_, j) {
-                        chart.getDatasetMeta(j).hidden = false;
-                    });
-                    chart.update();
-                    return;
-                }
-
-                meta.hidden = willHide;
-                pill.classList.toggle('ct-pill--active', !willHide);
+                meta.hidden = !meta.hidden;
+                pill.classList.toggle('ct-pill--active', !meta.hidden);
                 chart.update();
             });
         });

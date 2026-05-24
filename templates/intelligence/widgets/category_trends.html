@@ -6,6 +6,7 @@
     <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-3);">{{ category_trends.title }}</h2>
 
     <div class="ct-pills" style="display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-4);">
+        <button class="ct-pill ct-pill--all ct-pill--active" id="ct-pill-all">All</button>
         {% for ds in category_trends.datasets %}
         <button class="ct-pill" data-index="{{ loop.index0 }}">{{ ds.label }}</button>
         {% endfor %}
