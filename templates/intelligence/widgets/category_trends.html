@@ -3,12 +3,20 @@
      hx-trigger="none"
      hx-target="#widget-category-trends"
      hx-swap="outerHTML">
-    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-4);">{{ category_trends.title }}</h2>
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-3);">{{ category_trends.title }}</h2>
+
+    <div class="ct-tabs" role="tablist" style="display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-4);">
+        <button class="ct-tab ct-tab--active" role="tab" data-tab="all">All</button>
+        {% for ds in category_trends.datasets %}
+        <button class="ct-tab" role="tab" data-tab="{{ loop.index0 }}">{{ ds.label }}</button>
+        {% endfor %}
+    </div>
+
     <div class="chart-host" style="min-height: 280px;">
         <canvas id="chart-category-trends"
                 data-chart='{{ category_trends_chart | tojson }}'></canvas>
     </div>
     <p style="margin: var(--space-3) 0 0; font-size: var(--text-sm); color: var(--muted);">
-        Last {{ category_trends.period_months }} complete months &middot; click a category to focus it
+        Last {{ category_trends.period_months }} complete months &middot; active accounts only
     </p>
 </div>

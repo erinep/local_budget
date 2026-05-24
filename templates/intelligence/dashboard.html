@@ -74,7 +74,7 @@
         });
     }());
 
-    // --- Category trends (one line per category) ---
+    // --- Category trends (tabs: All + one per dataset) ---
     (function () {
         var el = document.getElementById('chart-category-trends');
         if (!el || !window.Chart) return;
@@ -92,7 +92,7 @@
                 pointHoverRadius: 5,
             };
         });
-        new Chart(el, {
+        var chart = new Chart(el, {
             type: 'line',
             data: { labels: data.labels, datasets: datasets },
             options: {
@@ -102,26 +102,6 @@
                     legend: {
                         position: 'bottom',
                         labels: { boxWidth: 12, padding: 16 },
-                        onClick: function (e, legendItem, legend) {
-                            var chart = legend.chart;
-                            var clicked = legendItem.datasetIndex;
-                            var total = chart.data.datasets.length;
-                            var allVisible = chart.data.datasets.every(function (_, i) {
-                                return !chart.getDatasetMeta(i).hidden;
-                            });
-                            var soloVisible = !allVisible &&
-                                chart.data.datasets.every(function (_, i) {
-                                    return i === clicked
-                                        ? !chart.getDatasetMeta(i).hidden
-                                        : chart.getDatasetMeta(i).hidden;
-                                });
-                            // Clicking the already-isolated line → restore all
-                            // Otherwise → isolate the clicked line
-                            chart.data.datasets.forEach(function (_, i) {
-                                chart.getDatasetMeta(i).hidden = soloVisible ? false : i !== clicked;
-                            });
-                            chart.update();
-                        },
                     },
                     tooltip: { callbacks: { label: dollarTooltip } }
                 },
@@ -132,6 +112,21 @@
                     }
                 }
             }
+        });
+
+        // Tab switching
+        var tabs = document.querySelectorAll('#widget-category-trends .ct-tab');
+        tabs.forEach(function (tab) {
+            tab.addEventListener('click', function () {
+                tabs.forEach(function (t) { t.classList.remove('ct-tab--active'); });
+                tab.classList.add('ct-tab--active');
+
+                var selected = tab.dataset.tab;
+                chart.data.datasets.forEach(function (_, i) {
+                    chart.getDatasetMeta(i).hidden = selected === 'all' ? false : i !== Number(selected);
+                });
+                chart.update();
+            });
         });
     }());
 }());
