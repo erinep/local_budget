@@ -75,7 +75,7 @@ def categories_list():
     categories = list_categories(user_id)
     uncategorized_count = count_uncategorized_transactions(user_id)
     return render_template(
-        "account_settings/categories.html",
+        "settings/categories.html",
         categories=categories,
         uncategorized_count=uncategorized_count,
     )
@@ -188,7 +188,7 @@ def categories_backfill():
 @login_required
 def categories_new():
     """Render the new-category form."""
-    return render_template("account_settings/category_form.html", error=None)
+    return render_template("settings/category_form.html", error=None)
 
 
 @account_settings_bp.route("/categories", methods=["POST"])
@@ -202,7 +202,7 @@ def categories_create():
         create_category(user_id, name)
     except ValueError as exc:
         return render_template(
-            "account_settings/category_form.html",
+            "settings/category_form.html",
             error=str(exc),
         )
 
@@ -222,7 +222,7 @@ def categories_edit(category_id: str):
     if category is None:
         abort(404)
     return render_template(
-        "account_settings/category_edit.html",
+        "settings/category_edit.html",
         category=category,
         error=None,
     )
@@ -245,7 +245,7 @@ def categories_update(category_id: str):
         if category is None:
             abort(404)
         return render_template(
-            "account_settings/category_edit.html",
+            "settings/category_edit.html",
             category=category,
             error=error_msg,
         )
@@ -288,7 +288,7 @@ def keywords_add(category_id: str):
         if category is None:
             abort(404)
         return render_template(
-            "account_settings/category_edit.html",
+            "settings/category_edit.html",
             category=category,
             error=error_msg,
         )
@@ -327,7 +327,7 @@ def import_form():
     """
     has_existing = bool(list_categories(g.user.id))
     return render_template(
-        "account_settings/import.html",
+        "settings/import.html",
         error=None,
         has_existing_categories=has_existing,
     )
@@ -349,7 +349,7 @@ def import_upload():
 
     if list_categories(user_id):
         return render_template(
-            "account_settings/import.html",
+            "settings/import.html",
             error=(
                 "You already have categories. Import replaces everything — "
                 "delete your existing categories first to use the import tool."
@@ -360,7 +360,7 @@ def import_upload():
     file = request.files.get("file")
     if file is None or file.filename == "":
         return render_template(
-            "account_settings/import.html",
+            "settings/import.html",
             error="No file selected.",
             has_existing_categories=False,
         )
@@ -370,25 +370,25 @@ def import_upload():
         data = json.loads(raw_bytes)
     except json.JSONDecodeError:
         return render_template(
-            "account_settings/import.html",
+            "settings/import.html",
             error="File is not valid JSON.",
         )
 
     # Validate shape before calling the service (surface a clear error here).
     if not isinstance(data, dict):
         return render_template(
-            "account_settings/import.html",
+            "settings/import.html",
             error="Invalid category map format",
         )
     for key, val in data.items():
         if not isinstance(key, str):
             return render_template(
-                "account_settings/import.html",
+                "settings/import.html",
                 error="Invalid category map format",
             )
         if not isinstance(val, list) or not all(isinstance(kw, str) for kw in val):
             return render_template(
-                "account_settings/import.html",
+                "settings/import.html",
                 error="Invalid category map format",
             )
 
@@ -396,7 +396,7 @@ def import_upload():
         import_from_json(user_id, data)
     except ValueError as exc:
         return render_template(
-            "account_settings/import.html",
+            "settings/import.html",
             error=str(exc),
         )
 
@@ -412,7 +412,7 @@ def import_upload():
 def aliases_list():
     """List all merchant aliases for the authenticated user."""
     aliases = list_merchant_aliases_detail(g.user.id)
-    return render_template("account_settings/aliases.html", aliases=aliases)
+    return render_template("settings/aliases.html", aliases=aliases)
 
 
 @account_settings_bp.route("/aliases/<alias_id>/delete", methods=["POST"])

@@ -69,7 +69,7 @@ def categories():
     cats = list_categories(user_id)
     uncategorized_count = count_uncategorized_transactions(user_id)
     return render_template(
-        "account_settings/categories.html",
+        "settings/categories.html",
         categories=cats,
         uncategorized_count=uncategorized_count,
     )
