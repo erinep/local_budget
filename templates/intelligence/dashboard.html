@@ -74,17 +74,18 @@
         });
     }());
 
-    // --- Category trends (tabs: All + one per dataset) ---
+    // --- Category trends (colour-coded multi-select pills, no legend) ---
     (function () {
         var el = document.getElementById('chart-category-trends');
         if (!el || !window.Chart) return;
         var data = JSON.parse(el.dataset.chart);
+        var colors = data.datasets.map(function (_, i) { return PALETTE[i % PALETTE.length]; });
+
         var datasets = data.datasets.map(function (ds, i) {
-            var color = PALETTE[i % PALETTE.length];
             return {
                 label: ds.label,
                 data: ds.data,
-                borderColor: color,
+                borderColor: colors[i],
                 backgroundColor: 'transparent',
                 borderWidth: 2,
                 tension: 0.3,
@@ -92,6 +93,7 @@
                 pointHoverRadius: 5,
             };
         });
+
         var chart = new Chart(el, {
             type: 'line',
             data: { labels: data.labels, datasets: datasets },
@@ -99,32 +101,42 @@
                 responsive: true,
                 interaction: { mode: 'index', intersect: false },
                 plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: { boxWidth: 12, padding: 16 },
-                    },
+                    legend: { display: false },
                     tooltip: { callbacks: { label: dollarTooltip } }
                 },
                 scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: { callback: dollarTick }
-                    }
+                    y: { beginAtZero: true, ticks: { callback: dollarTick } }
                 }
             }
         });
 
-        // Tab switching
-        var tabs = document.querySelectorAll('#widget-category-trends .ct-tab');
-        tabs.forEach(function (tab) {
-            tab.addEventListener('click', function () {
-                tabs.forEach(function (t) { t.classList.remove('ct-tab--active'); });
-                tab.classList.add('ct-tab--active');
+        // Colour pills to match chart lines and wire up multi-select toggle
+        var pills = document.querySelectorAll('#widget-category-trends .ct-pill');
+        pills.forEach(function (pill) {
+            var i = Number(pill.dataset.index);
+            var color = colors[i];
+            pill.style.setProperty('--pill-color', color);
+            pill.classList.add('ct-pill--active');
 
-                var selected = tab.dataset.tab;
-                chart.data.datasets.forEach(function (_, i) {
-                    chart.getDatasetMeta(i).hidden = selected === 'all' ? false : i !== Number(selected);
-                });
+            pill.addEventListener('click', function () {
+                var meta = chart.getDatasetMeta(i);
+                var willHide = !meta.hidden;
+
+                // Don't allow hiding the last visible line — reset all instead
+                var visibleCount = data.datasets.filter(function (_, j) {
+                    return !chart.getDatasetMeta(j).hidden;
+                }).length;
+                if (willHide && visibleCount === 1) {
+                    pills.forEach(function (p) { p.classList.add('ct-pill--active'); });
+                    data.datasets.forEach(function (_, j) {
+                        chart.getDatasetMeta(j).hidden = false;
+                    });
+                    chart.update();
+                    return;
+                }
+
+                meta.hidden = willHide;
+                pill.classList.toggle('ct-pill--active', !willHide);
                 chart.update();
             });
         });
