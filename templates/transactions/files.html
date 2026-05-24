@@ -19,6 +19,7 @@
             <thead>
                 <tr>
                     <th>Filename</th>
+                    <th>Account</th>
                     <th>Uploaded</th>
                     <th>Transactions</th>
                     <th></th>
@@ -28,6 +29,7 @@
                 {% for f in uploads %}
                 <tr>
                     <td style="font-weight: 600;">{{ f.filename }}</td>
+                    <td style="color: var(--muted);">{{ f.account_name }}</td>
                     <td style="color: var(--muted); white-space: nowrap;">
                         {{ f.uploaded_at.strftime("%b %d, %Y %H:%M") }} UTC
                     </td>
