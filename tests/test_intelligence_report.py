@@ -45,6 +45,10 @@ _FAKE_CTOT_VM = CategoryTotalsVM(
         CategoryTotalItem(label="Uncategorized", spend=50.0, is_uncategorized=True),
     ],
     period_months=12,
+    category_amounts={
+        "Groceries": {"labels": ["Superstore", "Metro", "Loblaws"], "values": [120.0, 80.0, 60.0]},
+        "Uncategorized": {"labels": ["Unknown"], "values": [50.0]},
+    },
 )
 
 _FAKE_CP_VM = CategoryProfileVM(

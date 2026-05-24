@@ -21,6 +21,7 @@ intelligence_bp = Blueprint("intelligence", __name__, url_prefix="/intelligence"
 _ACCENT   = '#0f766e'
 _ERROR    = '#dc2626'
 _MUTED    = '#94a3b8'
+_PALETTE  = ['#0f766e','#2563eb','#d97706','#7c3aed','#db2777','#059669','#ea580c','#0891b2']
 
 
 def _category_trends_vm(user_id, period_months):
@@ -45,10 +46,13 @@ def _category_profile_vm(user_id, period_months):
 def _category_totals_vm(user_id, period_months):
     from app.intelligence.widgets.category_totals import build_category_totals
     vm = build_category_totals(user_id, period_months)
+    _TOTAL = '#475569'
+    colors = [_ERROR if item.is_uncategorized else _TOTAL for item in vm.items]
     chart = {
         "labels": [item.label for item in vm.items],
         "values": [item.spend for item in vm.items],
-        "colors": [_ERROR if item.is_uncategorized else _ACCENT for item in vm.items],
+        "colors": colors,
+        "amounts": vm.category_amounts,
     }
     return vm, chart
 

@@ -3,12 +3,25 @@
      hx-trigger="none"
      hx-target="#widget-category-totals"
      hx-swap="outerHTML">
-    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-4);">{{ category_totals.title }}</h2>
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">{{ category_totals.title }}</h2>
+    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-4);">
+        Last {{ category_totals.period_months }} complete months &middot; select one or more categories to compare their top transactions by value
+    </p>
+
+    <div style="display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-4);">
+        <button id="ctot-pill-all" class="ct-pill ct-pill--all ct-pill--active">All</button>
+        {% for item in category_totals.items %}
+        <button class="ctot-pill ct-pill"
+                data-index="{{ loop.index0 }}"
+                data-label="{{ item.label }}"
+                {% if item.is_uncategorized %}data-uncategorized="1"{% endif %}>
+            {{ item.label }}
+        </button>
+        {% endfor %}
+    </div>
+
     <div class="chart-host" style="min-height: 280px;">
         <canvas id="chart-category-totals"
                 data-chart='{{ category_totals_chart | tojson }}'></canvas>
     </div>
-    <p style="margin: var(--space-3) 0 0; font-size: var(--text-sm); color: var(--muted);">
-        Last {{ category_totals.period_months }} complete months &middot; active accounts only
-    </p>
 </div>
