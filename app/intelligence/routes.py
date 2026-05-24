@@ -11,9 +11,7 @@ Route table:
 from flask import Blueprint, abort, redirect, render_template, request, url_for, g
 
 from app.intelligence.widgets import REGISTRY
-import app.intelligence.widgets.monthly_totals        # noqa: F401
 import app.intelligence.widgets.category_trends       # noqa: F401
-import app.intelligence.widgets.categorization_health # noqa: F401
 import app.intelligence.widgets.category_totals       # noqa: F401
 import app.intelligence.widgets.category_profile      # noqa: F401
 from app.middleware.auth import login_required
@@ -25,34 +23,17 @@ _ERROR    = '#dc2626'
 _MUTED    = '#94a3b8'
 
 
-def _monthly_totals_vm(user_id, period_months):
-    from app.intelligence.widgets.monthly_totals import build_monthly_totals
-    vm = build_monthly_totals(user_id, period_months)
-    return vm, {"labels": [p.label for p in vm.points], "values": [float(p.total) for p in vm.points]}
-
-
 def _category_trends_vm(user_id, period_months):
-    from app.intelligence.widgets.monthly_totals import build_monthly_totals
     from app.intelligence.widgets.category_trends import build_category_trends
-    mt_vm = build_monthly_totals(user_id, period_months)
     ct_vm = build_category_trends(user_id, period_months)
+    n = len(ct_vm.labels)
+    total = [sum(ds["data"][i] for ds in ct_vm.datasets) for i in range(n)]
     chart = {
         "labels": ct_vm.labels,
-        "total": [float(p.total) for p in mt_vm.points],
+        "total": total,
         "datasets": ct_vm.datasets,
     }
     return ct_vm, chart
-
-
-def _categorization_health_vm(user_id):
-    from app.intelligence.widgets.categorization_health import build_categorization_health
-    vm = build_categorization_health(user_id)
-    chart = {
-        "labels": ["Categorized", "Uncategorized"],
-        "values": [vm.categorized, vm.uncategorized],
-        "colors": [_ACCENT, _ERROR],
-    }
-    return vm, chart
 
 
 def _category_profile_vm(user_id, period_months):
@@ -99,17 +80,9 @@ def widget(key: str):
 
     period_months = min(max(request.args.get("months", 12, type=int), 1), 36)
 
-    if key == "monthly_totals":
-        vm, chart = _monthly_totals_vm(g.user.id, period_months)
-        return render_template(REGISTRY[key].template, monthly_totals=vm, monthly_totals_chart=chart)
-
     if key == "category_trends":
         vm, chart = _category_trends_vm(g.user.id, period_months)
         return render_template(REGISTRY[key].template, category_trends=vm, category_trends_chart=chart)
-
-    if key == "categorization_health":
-        vm, chart = _categorization_health_vm(g.user.id)
-        return render_template(REGISTRY[key].template, categorization_health=vm, categorization_health_chart=chart)
 
     if key == "category_totals":
         vm, chart = _category_totals_vm(g.user.id, period_months)
