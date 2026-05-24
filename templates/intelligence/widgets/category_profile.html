@@ -18,7 +18,7 @@
                     <th class="num">Total</th>
                     <th class="num">Avg</th>
                     <th class="num">Std&nbsp;Dev</th>
-                    <th>Consistency</th>
+                    <th>Consistency *</th>
                 </tr>
             </thead>
             <tbody>
@@ -39,4 +39,10 @@
             </tbody>
         </table>
     </div>
+    <p style="font-size: var(--text-sm); color: var(--muted); margin: var(--space-3) 0 0;">
+        * Consistency is the coefficient of variation (CV = std dev / mean).
+        Consistent: CV below 0.5.
+        Mixed: CV between 0.5 and 1.0.
+        Irregular: CV above 1.0, meaning the spread of transaction amounts is wider than the average, which may indicate the category is catching more than one type of spending.
+    </p>
 </div>
