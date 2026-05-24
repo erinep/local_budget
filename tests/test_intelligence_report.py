@@ -77,12 +77,15 @@ _FAKE_CP_VM = CategoryProfileVM(
                            std_dev=55.0, cv=1.38, consistency="Irregular", is_uncategorized=False),
     ],
     period_months=12,
+    total_txns=100,
+    categorized_count=87,
+    uncategorized_count=13,
+    pct_categorized=87.0,
 )
 
 _ALL_WIDGET_PATCHES = [
     (_PATCH_BUILD,      _FAKE_MT_VM),
     (_PATCH_BUILD_CT,   _FAKE_CT_VM),
-    (_PATCH_BUILD_CH,   _FAKE_CH_VM),
     (_PATCH_BUILD_CTOT, _FAKE_CTOT_VM),
     (_PATCH_BUILD_CP,   _FAKE_CP_VM),
 ]
@@ -261,3 +264,9 @@ class TestCategoryProfileWidget:
             response = authenticated_client.get("/intelligence/widgets/category_profile")
         assert b"Consistent" in response.data
         assert b"Irregular" in response.data
+
+    def test_health_summary_in_response(self, authenticated_client):
+        with patch(_PATCH_BUILD_CP, return_value=_FAKE_CP_VM):
+            response = authenticated_client.get("/intelligence/widgets/category_profile")
+        assert b"87.0" in response.data
+        assert b"chart-categorization-health" in response.data

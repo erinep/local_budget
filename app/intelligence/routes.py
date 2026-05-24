@@ -79,15 +79,13 @@ def dashboard():
     period_months = min(max(request.args.get("months", 12, type=int), 1), 36)
 
     ct_vm,   ct_chart   = _category_trends_vm(g.user.id, period_months)
-    ch_vm,   ch_chart   = _categorization_health_vm(g.user.id)
     ctot_vm, ctot_chart = _category_totals_vm(g.user.id, period_months)
     cp_vm               = _category_profile_vm(g.user.id, period_months)
 
     return render_template(
         "intelligence/dashboard.html",
-        category_trends=ct_vm,        category_trends_chart=ct_chart,
-        categorization_health=ch_vm,  categorization_health_chart=ch_chart,
-        category_totals=ctot_vm,      category_totals_chart=ctot_chart,
+        category_trends=ct_vm,   category_trends_chart=ct_chart,
+        category_totals=ctot_vm, category_totals_chart=ctot_chart,
         category_profile=cp_vm,
     )
 

@@ -34,6 +34,10 @@ class CategoryProfileVM:
     title: str
     rows: list[CategoryProfileRow]
     period_months: int
+    total_txns: int
+    categorized_count: int
+    uncategorized_count: int
+    pct_categorized: float
 
 
 def _consistency(cv: float, count: int) -> str:
@@ -70,6 +74,12 @@ def build_category_profile(user_id: str, period_months: int = 12) -> CategoryPro
         if len(all_txns) >= page.total_count:
             break
         offset += page_size
+
+    # Health stats from all transactions (inflow + outflow)
+    total_txns = len(all_txns)
+    uncategorized_count = sum(1 for t in all_txns if not t.category_name)
+    categorized_count = max(total_txns - uncategorized_count, 0)
+    pct_categorized = round(categorized_count / total_txns * 100, 1) if total_txns > 0 else 0.0
 
     # Group outflow amounts by category
     category_amounts: dict[str, list[float]] = {}
@@ -111,6 +121,10 @@ def build_category_profile(user_id: str, period_months: int = 12) -> CategoryPro
         title="Category Profile",
         rows=categorized + uncategorized,
         period_months=period_months,
+        total_txns=total_txns,
+        categorized_count=categorized_count,
+        uncategorized_count=uncategorized_count,
+        pct_categorized=pct_categorized,
     )
 
 
