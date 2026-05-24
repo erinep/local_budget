@@ -71,7 +71,7 @@ def build_category_trends(user_id: str, period_months: int = 12) -> CategoryTren
             "label": cat,
             "data": [spend_by_month[mk].get(cat, 0.0) for mk in month_keys],
         }
-        for cat in sorted_cats[:20]
+        for cat in sorted_cats[:8]
     ]
 
     return CategoryTrendsVM(
