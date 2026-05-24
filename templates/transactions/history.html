@@ -6,7 +6,7 @@
     <div class="page-intro">
         <div class="section-heading">
             <p class="eyebrow">Transaction Engine</p>
-            <h1 style="font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif; font-size: clamp(1.8rem, 4vw, 2.6rem); letter-spacing: -0.03em; max-width: none;">Transaction History</h1>
+            <h1 class="page-title">Transaction History</h1>
         </div>
     </div>
 
@@ -21,7 +21,7 @@
     {# Filter form #}
     <div class="card">
         <form method="get" action="{{ url_for('transactions.history') }}" novalidate>
-            <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end;">
+            <div class="form-row">
                 <div class="form-group" style="flex: 1; min-width: 140px; margin-bottom: 0;">
                     <label for="date_from">From</label>
                     <input type="date" id="date_from" name="date_from" value="{{ date_from }}">
@@ -57,7 +57,7 @@
 
     {# Backfill CTA — shown when viewing uncategorized transactions #}
     {% if uncategorized_only and uncategorized_count > 0 %}
-    <div class="card" style="border-color: #fde68a; background: #fffbeb; padding: 20px 24px;">
+    <div class="card card--warning" style="padding: 20px 24px;">
         <p style="color: #92400e; font-size: 0.92rem; margin: 0 0 12px;">
             <strong>{{ uncategorized_count }} transaction{{ 's' if uncategorized_count != 1 }} uncategorized.</strong>
             Auto-categorize applies your merchant history and category rules in one step.
