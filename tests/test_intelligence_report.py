@@ -81,6 +81,13 @@ _FAKE_CP_VM = CategoryProfileVM(
     categorized_count=87,
     uncategorized_count=13,
     pct_categorized=87.0,
+    consistent_count=1,
+    mixed_count=0,
+    irregular_count=1,
+    total_spend=720.0,
+    categorized_spend=400.0,
+    uncategorized_spend=320.0,
+    pct_spend_categorized=55.6,
 )
 
 _ALL_WIDGET_PATCHES = [

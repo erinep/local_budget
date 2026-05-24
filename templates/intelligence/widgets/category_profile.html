@@ -4,26 +4,39 @@
      hx-target="#widget-category-profile"
      hx-swap="outerHTML">
 
-    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-4);">Categorization Health</h2>
-    <div style="display: flex; align-items: center; gap: var(--space-6); margin-bottom: var(--space-6);">
-        <div style="flex: 0 0 160px; max-width: 160px;">
-            <canvas id="chart-categorization-health"
-                    data-chart='{"labels":["Categorized","Uncategorized"],"values":[{{ category_profile.categorized_count }},{{ category_profile.uncategorized_count }}],"colors":["#0f766e","#dc2626"]}'
-                    data-pct="{{ category_profile.pct_categorized }}"></canvas>
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">Categorization Health</h2>
+    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-5);">All time &middot; based on all transactions</p>
+    <div style="display: flex; gap: var(--space-8); margin-bottom: var(--space-6);">
+        <div style="display: flex; align-items: center; gap: var(--space-4);">
+            <div style="flex: 0 0 auto;">
+                <canvas id="chart-categorization-health" width="64" height="64" style="width: 64px; height: 64px; display: block;"
+                        data-chart='{"labels":["Categorized","Uncategorized"],"values":[{{ category_profile.categorized_count }},{{ category_profile.uncategorized_count }}],"colors":["#0f766e","#dc2626"]}'></canvas>
+            </div>
+            <div style="flex: 1;">
+                <p style="font-size: var(--text-sm); font-weight: 600; margin: 0; line-height: 1.4;">{{ category_profile.pct_categorized }}% of transactions categorized</p>
+                <p style="font-size: var(--text-sm); color: var(--muted); margin: var(--space-1) 0 0;">
+                    {{ category_profile.categorized_count | int }} of {{ category_profile.total_txns | int }}
+                    {% if category_profile.uncategorized_count > 0 %}
+                    &middot; <span style="color: var(--color-status-error);">{{ category_profile.uncategorized_count }} uncategorized</span>
+                    {% endif %}
+                </p>
+            </div>
         </div>
-        <div>
-            <p style="font-size: var(--text-2xl); font-weight: 700; margin: 0; line-height: 1;">
-                {{ category_profile.pct_categorized }}%
-            </p>
-            <p style="font-size: var(--text-sm); color: var(--muted); margin: var(--space-1) 0 var(--space-4);">categorized</p>
-            <p style="font-size: var(--text-sm); margin: 0;">
-                {{ category_profile.categorized_count | int }} of {{ category_profile.total_txns | int }} transactions
-            </p>
-            {% if category_profile.uncategorized_count > 0 %}
-            <p style="font-size: var(--text-sm); color: var(--color-status-error); margin: var(--space-1) 0 0;">
-                {{ category_profile.uncategorized_count }} uncategorized
-            </p>
-            {% endif %}
+        <div style="align-self: stretch; border-left: 1px solid var(--border); margin: 0 var(--space-2);"></div>
+        <div style="display: flex; align-items: center; gap: var(--space-4);">
+            <div style="flex: 0 0 auto;">
+                <canvas id="chart-spend-coverage" width="64" height="64" style="width: 64px; height: 64px; display: block;"
+                        data-chart='{"labels":["Categorized","Uncategorized"],"values":[{{ category_profile.categorized_spend }},{{ category_profile.uncategorized_spend }}],"colors":["#0f766e","#dc2626"]}'></canvas>
+            </div>
+            <div style="flex: 1;">
+                <p style="font-size: var(--text-sm); font-weight: 600; margin: 0; line-height: 1.4;">{{ category_profile.pct_spend_categorized }}% of spend categorized</p>
+                <p style="font-size: var(--text-sm); color: var(--muted); margin: var(--space-1) 0 0;">
+                    ${{ "%.2f"|format(category_profile.categorized_spend) }} of ${{ "%.2f"|format(category_profile.total_spend) }}
+                    {% if category_profile.uncategorized_spend > 0 %}
+                    &middot; <span style="color: var(--color-status-error);">${{ "%.2f"|format(category_profile.uncategorized_spend) }} uncategorized</span>
+                    {% endif %}
+                </p>
+            </div>
         </div>
     </div>
 

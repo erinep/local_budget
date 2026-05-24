@@ -38,6 +38,13 @@ class CategoryProfileVM:
     categorized_count: int
     uncategorized_count: int
     pct_categorized: float
+    consistent_count: int
+    mixed_count: int
+    irregular_count: int
+    total_spend: float
+    categorized_spend: float
+    uncategorized_spend: float
+    pct_spend_categorized: float
 
 
 def _consistency(cv: float, count: int) -> str:
@@ -81,6 +88,12 @@ def build_category_profile(user_id: str, period_months: int = 12) -> CategoryPro
     categorized_count = max(total_txns - uncategorized_count, 0)
     pct_categorized = round(categorized_count / total_txns * 100, 1) if total_txns > 0 else 0.0
 
+    # Spend coverage — outflow only
+    categorized_spend = sum(abs(float(t.amount)) for t in all_txns if float(t.amount) < 0 and t.category_name)
+    uncategorized_spend = sum(abs(float(t.amount)) for t in all_txns if float(t.amount) < 0 and not t.category_name)
+    total_spend = categorized_spend + uncategorized_spend
+    pct_spend_categorized = round(categorized_spend / total_spend * 100, 1) if total_spend > 0 else 0.0
+
     # Group outflow amounts by category
     category_amounts: dict[str, list[float]] = {}
     for txn in all_txns:
@@ -117,14 +130,22 @@ def build_category_profile(user_id: str, period_months: int = 12) -> CategoryPro
     )
     uncategorized = [r for r in rows if r.is_uncategorized]
 
+    all_rows = categorized + uncategorized
     return CategoryProfileVM(
         title="Category Profile",
-        rows=categorized + uncategorized,
+        rows=all_rows,
         period_months=period_months,
         total_txns=total_txns,
         categorized_count=categorized_count,
         uncategorized_count=uncategorized_count,
         pct_categorized=pct_categorized,
+        consistent_count=sum(1 for r in all_rows if r.consistency == "Consistent"),
+        mixed_count=sum(1 for r in all_rows if r.consistency == "Mixed"),
+        irregular_count=sum(1 for r in all_rows if r.consistency == "Irregular"),
+        total_spend=round(total_spend, 2),
+        categorized_spend=round(categorized_spend, 2),
+        uncategorized_spend=round(uncategorized_spend, 2),
+        pct_spend_categorized=pct_spend_categorized,
     )
 
 

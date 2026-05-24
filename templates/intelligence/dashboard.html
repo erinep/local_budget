@@ -147,56 +147,39 @@
         });
     }());
 
-    // --- Categorization health (donut) ---
+    // --- Categorization health (pie) ---
     (function () {
         var el = document.getElementById('chart-categorization-health');
         if (!el || !window.Chart) return;
         var data = JSON.parse(el.dataset.chart);
-        var pct = parseFloat(el.dataset.pct);
-        var centerTextPlugin = {
-            id: 'centerText',
-            beforeDraw: function (chart) {
-                var ca = chart.chartArea;
-                var cx = (ca.left + ca.right) / 2;
-                var cy = (ca.top + ca.bottom) / 2;
-                var ctx = chart.ctx;
-                ctx.save();
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.font = 'bold 22px sans-serif';
-                ctx.fillStyle = '#0f172a';
-                ctx.fillText(pct + '%', cx, cy - 10);
-                ctx.font = '12px sans-serif';
-                ctx.fillStyle = '#64748b';
-                ctx.fillText('categorized', cx, cy + 12);
-                ctx.restore();
-            }
-        };
         new Chart(el, {
-            type: 'doughnut',
+            type: 'pie',
             data: {
                 labels: data.labels,
-                datasets: [{
-                    data: data.values,
-                    backgroundColor: data.colors,
-                    borderWidth: 0,
-                }]
+                datasets: [{ data: data.values, backgroundColor: data.colors, borderWidth: 0 }]
             },
             options: {
-                responsive: true,
-                cutout: '70%',
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: function (ctx) {
-                                return ctx.label + ': ' + ctx.parsed + ' transactions';
-                            }
-                        }
-                    }
-                }
+                responsive: false,
+                plugins: { legend: { display: false }, tooltip: { enabled: false } },
             },
-            plugins: [centerTextPlugin],
+        });
+    }());
+
+    // --- Spend coverage (pie) ---
+    (function () {
+        var el = document.getElementById('chart-spend-coverage');
+        if (!el || !window.Chart) return;
+        var data = JSON.parse(el.dataset.chart);
+        new Chart(el, {
+            type: 'pie',
+            data: {
+                labels: data.labels,
+                datasets: [{ data: data.values, backgroundColor: data.colors, borderWidth: 0 }]
+            },
+            options: {
+                responsive: false,
+                plugins: { legend: { display: false }, tooltip: { enabled: false } },
+            },
         });
     }());
 
