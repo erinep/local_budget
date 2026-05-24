@@ -15,7 +15,7 @@ Phases, work items, and exit criteria. Updated as phases ship.
 | 4 | Budgeting Module | Shipped | 2–3 weeks | 2026-05-18 |
 | 5a | Intelligence Layer — Report Page | Shipped | (delivered with 3c) | 2026-05-18 |
 | 5b | Categorizer v2 | Shipped | 2–3 weeks | 2026-05-19 |
-| 5c | Account Management & User Settings | Not started | 1–2 weeks | — |
+| 5c | Account Management & User Settings | Shipped | 1–2 weeks | 2026-05-23 |
 | 5d | Reporting Overhaul | Not started | 3–4 weeks | — |
 | 5e | Categorizer v3 | Not started | 2–3 weeks | — |
 | 6 | Public-Release Hardening | Not started | 3–4 weeks | — |
@@ -156,7 +156,7 @@ Delivered as part of Phase 3c. Stable GET route at `/intelligence/report`, view-
 
 1. Account management UI — list, rename, archive, and delete accounts. Hard delete is in scope: `ON DELETE CASCADE` on `transactions.account_id` means the DB handles the purge automatically with no cross-module coordination (ADR-0034).
 2. Settings consolidation page — single `/settings` entry point with sub-pages: Profile, Categories (existing, link in), Accounts (new), Security (password change, sessions).
-3. Profile management — display name, email change with verification.
+3. ~~Profile management — display name, email change with verification.~~ → moved to Phase 6.
 
 **ADRs needed.** Account lifecycle ADR — archive vs. delete semantics; archived-account visibility in reports and budgets.
 
