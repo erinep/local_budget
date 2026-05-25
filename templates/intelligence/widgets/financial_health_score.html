@@ -1,0 +1,35 @@
+<div class="card" id="widget-financial-health-score">
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">{{ financial_health_score.title }}</h2>
+    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-4);">
+        Based on last {{ financial_health_score.period_months }} months of data
+    </p>
+
+    <div style="display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-5);">
+        <div style="text-align: center;">
+            {% set grade = financial_health_score.grade %}
+            {% if grade in ('A', 'B') %}{% set score_color = '#16a34a' %}
+            {% elif grade == 'C' %}{% set score_color = '#d97706' %}
+            {% else %}{% set score_color = '#dc2626' %}{% endif %}
+            <div style="font-size: 3rem; font-weight: 700; color: {{ score_color }}; line-height: 1;">{{ financial_health_score.total_score|round(0)|int }}</div>
+            <div style="font-size: var(--text-sm); color: var(--muted);">/ 100</div>
+        </div>
+        <div>
+            <span style="font-size: 2.5rem; font-weight: 700; color: {{ score_color }};">{{ financial_health_score.grade }}</span>
+        </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+        {% for comp in financial_health_score.components %}
+        <div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: var(--text-xs);">
+                <span style="font-weight: 500;">{{ comp.name }}</span>
+                <span style="color: var(--muted);">{{ comp.score|round(1) }} / {{ comp.max_score|int }}</span>
+            </div>
+            <div style="background: var(--surface-2); border-radius: var(--radius-sm); height: 6px; overflow: hidden; margin-bottom: 3px;">
+                <div style="background: var(--accent); height: 100%; width: {{ (comp.score / comp.max_score * 100)|round(1) }}%; border-radius: var(--radius-sm);"></div>
+            </div>
+            <div style="font-size: var(--text-xs); color: var(--muted);">{{ comp.label }}</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>

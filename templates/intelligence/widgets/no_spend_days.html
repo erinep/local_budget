@@ -1,0 +1,9 @@
+<div class="card" id="widget-no-spend-days">
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">{{ no_spend_days.title }}</h2>
+    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-4);">
+        Best month: {{ no_spend_days.best_month }} with {{ no_spend_days.best_count }} no-spend days.
+    </p>
+    <canvas id="chart-no-spend-days"
+            data-chart="{{ no_spend_days_chart|tojson }}"
+            style="max-height: 260px;"></canvas>
+</div>

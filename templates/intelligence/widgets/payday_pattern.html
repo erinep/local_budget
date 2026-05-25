@@ -1,0 +1,9 @@
+<div class="card" id="widget-payday-pattern">
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">{{ payday_pattern.title }}</h2>
+    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-4);">
+        Average spend by day of month &mdash; spikes may indicate payday activity.
+    </p>
+    <canvas id="chart-payday-pattern"
+            data-chart="{{ payday_pattern_chart|tojson }}"
+            style="max-height: 260px;"></canvas>
+</div>

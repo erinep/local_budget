@@ -15,6 +15,31 @@
         {% include "intelligence/widgets/top_transactions.html" %}
         {% include "intelligence/widgets/outlier_transactions.html" %}
         {% include "intelligence/widgets/budget_trend.html" %}
+        {% include "intelligence/widgets/spend_calendar.html" %}
+        {% include "intelligence/widgets/category_radar.html" %}
+        {% include "intelligence/widgets/day_of_week_spend.html" %}
+        {% include "intelligence/widgets/subscription_detector.html" %}
+        {% include "intelligence/widgets/budget_progress_mtd.html" %}
+        {% include "intelligence/widgets/category_momentum.html" %}
+        {% include "intelligence/widgets/spend_forecast.html" %}
+        {% include "intelligence/widgets/no_spend_days.html" %}
+        {% include "intelligence/widgets/transaction_histogram.html" %}
+        {% include "intelligence/widgets/biggest_spending_days.html" %}
+        {% include "intelligence/widgets/category_seasonality.html" %}
+        {% include "intelligence/widgets/merchant_frequency.html" %}
+        {% include "intelligence/widgets/small_purchase_drain.html" %}
+        {% include "intelligence/widgets/income_vs_outflow.html" %}
+        {% include "intelligence/widgets/spend_by_account.html" %}
+        {% include "intelligence/widgets/category_rank_changes.html" %}
+        {% include "intelligence/widgets/budget_win_rate.html" %}
+        {% include "intelligence/widgets/financial_health_score.html" %}
+        {% include "intelligence/widgets/rolling_average_spend.html" %}
+        {% include "intelligence/widgets/cumulative_ytd.html" %}
+        {% include "intelligence/widgets/spending_concentration.html" %}
+        {% include "intelligence/widgets/new_merchant_detector.html" %}
+        {% include "intelligence/widgets/daily_spend_average.html" %}
+        {% include "intelligence/widgets/weekend_splurge.html" %}
+        {% include "intelligence/widgets/payday_pattern.html" %}
     </div>
 </div>
 {% endblock %}
@@ -302,5 +327,256 @@
     }());
 
 }());
+
+    // --- Category radar (radar chart: this month vs. historical avg) ---
+    (function () {
+        var el = document.getElementById('chart-category-radar');
+        if (!el || !window.Chart) return;
+        var data = JSON.parse(el.dataset.chart);
+        new Chart(el, {
+            type: 'radar',
+            data: {
+                labels: data.labels,
+                datasets: [
+                    {
+                        label: data.current_label,
+                        data: data.current,
+                        borderColor: '#0f766e',
+                        backgroundColor: 'rgba(15,118,110,0.15)',
+                        borderWidth: 2,
+                        pointRadius: 3,
+                    },
+                    {
+                        label: 'Monthly Avg',
+                        data: data.avg,
+                        borderColor: '#94a3b8',
+                        backgroundColor: 'rgba(148,163,184,0.08)',
+                        borderWidth: 2,
+                        borderDash: [4, 4],
+                        pointRadius: 3,
+                    },
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: true, position: 'bottom' },
+                    tooltip: {
+                        callbacks: {
+                            label: function (ctx) {
+                                return ctx.dataset.label + ': $' + ctx.parsed.r.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        ticks: { callback: function (v) { return '$' + v.toLocaleString('en-CA', { maximumFractionDigits: 0 }); } }
+                    }
+                }
+            }
+        });
+    }());
+
+    // --- Spend forecast ---
+    (function() {
+        var el = document.getElementById('chart-spend-forecast');
+        if (!el || !window.Chart) return;
+        var data = JSON.parse(el.dataset.chart);
+        new Chart(el, {
+            type: 'line',
+            data: {
+                labels: data.labels,
+                datasets: [
+                    { label: 'Actual', data: data.actuals, borderColor: '#0f766e', backgroundColor: 'rgba(15,118,110,0.1)', borderWidth: 2, fill: true, tension: 0.2, spanGaps: false },
+                    { label: 'Projected', data: data.forecast, borderColor: '#94a3b8', borderWidth: 2, borderDash: [5,5], fill: false, tension: 0.2, spanGaps: false },
+                ]
+            },
+            options: { responsive: true, plugins: { legend: { display: true, position: 'bottom' }, tooltip: { callbacks: { label: dollarTooltip } } }, scales: { y: { beginAtZero: true, ticks: { callback: dollarTick } } } }
+        });
+    }());
+
+    // --- No-spend days ---
+    (function() {
+        var el = document.getElementById('chart-no-spend-days');
+        if (!el || !window.Chart) return;
+        var data = JSON.parse(el.dataset.chart);
+        new Chart(el, {
+            type: 'bar',
+            data: { labels: data.labels, datasets: [{ label: 'No-spend days', data: data.values, backgroundColor: '#0f766e', borderRadius: 4 }] },
+            options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+        });
+    }());
+
+    // --- Transaction histogram ---
+    (function() {
+        var el = document.getElementById('chart-transaction-histogram');
+        if (!el || !window.Chart) return;
+        var data = JSON.parse(el.dataset.chart);
+        new Chart(el, {
+            type: 'bar',
+            data: { labels: data.labels, datasets: [{ label: 'Transactions', data: data.counts, backgroundColor: PALETTE.slice(0, data.labels.length), borderRadius: 4 }] },
+            options: { responsive: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(ctx) { var i = ctx.dataIndex; return ctx.parsed.y + ' transactions · $' + data.totals[i].toLocaleString('en-CA', {maximumFractionDigits: 0}) + ' total'; } } } }, scales: { y: { beginAtZero: true } } }
+        });
+    }());
+
+    // --- Small purchase drain ---
+    (function() {
+        var el = document.getElementById('chart-small-purchase-drain');
+        if (!el || !window.Chart) return;
+        var data = JSON.parse(el.dataset.chart);
+        new Chart(el, {
+            type: 'bar',
+            data: { labels: data.labels, datasets: [
+                { label: 'Total ($)', data: data.totals, backgroundColor: '#d97706', borderRadius: 4, yAxisID: 'y' },
+                { label: 'Count', data: data.counts, backgroundColor: '#fef9c3', borderRadius: 4, yAxisID: 'y2' },
+            ]},
+            options: { responsive: true, plugins: { legend: { display: true, position: 'bottom' } }, scales: { y: { beginAtZero: true, ticks: { callback: dollarTick }, position: 'left' }, y2: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false } } } }
+        });
+    }());
+
+    // --- Income vs outflow ---
+    (function() {
+        var el = document.getElementById('chart-income-vs-outflow');
+        if (!el || !window.Chart) return;
+        var data = JSON.parse(el.dataset.chart);
+        new Chart(el, {
+            type: 'bar',
+            data: { labels: data.labels, datasets: [
+                { label: 'Income', data: data.income, backgroundColor: '#0f766e', borderRadius: 4 },
+                { label: 'Spend', data: data.outflow, backgroundColor: '#dc2626', borderRadius: 4 },
+            ]},
+            options: { responsive: true, interaction: { mode: 'index' }, plugins: { legend: { display: true, position: 'bottom' }, tooltip: { callbacks: { label: dollarTooltip } } }, scales: { y: { beginAtZero: true, ticks: { callback: dollarTick } } } }
+        });
+    }());
+
+    // --- Spend by account ---
+    (function() {
+        var el = document.getElementById('chart-spend-by-account');
+        if (!el || !window.Chart) return;
+        var data = JSON.parse(el.dataset.chart);
+        new Chart(el, {
+            type: 'doughnut',
+            data: { labels: data.labels, datasets: [{ data: data.values, backgroundColor: PALETTE.slice(0, data.labels.length), borderWidth: 0 }] },
+            options: { responsive: true, plugins: { legend: { display: true, position: 'right' }, tooltip: { callbacks: { label: function(ctx) { return ctx.label + ': $' + ctx.parsed.toLocaleString('en-CA', {maximumFractionDigits: 0}) + ' (' + data.pcts[ctx.dataIndex].toFixed(1) + '%)'; } } } } }
+        });
+    }());
+
+    // --- Rolling average spend ---
+    (function() {
+        var el = document.getElementById('chart-rolling-average');
+        if (!el || !window.Chart) return;
+        var data = JSON.parse(el.dataset.chart);
+        new Chart(el, {
+            type: 'bar',
+            data: { labels: data.labels, datasets: [
+                { label: 'Monthly', data: data.monthly, backgroundColor: 'rgba(15,118,110,0.3)', borderRadius: 4, order: 2 },
+                { type: 'line', label: '3-month avg', data: data.rolling, borderColor: '#0f766e', borderWidth: 2, tension: 0.4, pointRadius: 3, fill: false, spanGaps: false, order: 1 },
+            ]},
+            options: { responsive: true, plugins: { legend: { display: true, position: 'bottom' }, tooltip: { callbacks: { label: dollarTooltip } } }, scales: { y: { beginAtZero: true, ticks: { callback: dollarTick } } } }
+        });
+    }());
+
+    // --- Cumulative YTD ---
+    (function() {
+        var el = document.getElementById('chart-cumulative-ytd');
+        if (!el || !window.Chart) return;
+        var data = JSON.parse(el.dataset.chart);
+        var datasets = [{ label: data.current_label, data: data.current, borderColor: '#0f766e', backgroundColor: 'rgba(15,118,110,0.1)', fill: true, borderWidth: 2, tension: 0.2 }];
+        if (data.has_prior) { datasets.push({ label: data.prior_label, data: data.prior, borderColor: '#94a3b8', borderDash: [4,4], fill: false, borderWidth: 2, tension: 0.2, spanGaps: false }); }
+        new Chart(el, { type: 'line', data: { labels: data.labels, datasets: datasets }, options: { responsive: true, plugins: { legend: { display: true, position: 'bottom' }, tooltip: { callbacks: { label: dollarTooltip } } }, scales: { y: { beginAtZero: true, ticks: { callback: dollarTick } } } } });
+    }());
+
+    // --- Spending concentration ---
+    (function() {
+        var el = document.getElementById('chart-spending-concentration');
+        if (!el || !window.Chart) return;
+        var data = JSON.parse(el.dataset.chart);
+        new Chart(el, {
+            type: 'line',
+            data: { labels: data.labels, datasets: [
+                { label: 'Top 1 category', data: data.top1, borderColor: '#dc2626', backgroundColor: 'rgba(220,38,38,0.1)', fill: true, tension: 0.3, borderWidth: 2 },
+                { label: 'Top 3 categories', data: data.top3, borderColor: '#d97706', backgroundColor: 'rgba(217,119,6,0.1)', fill: '-1', tension: 0.3, borderWidth: 2 },
+                { label: 'Top 5 categories', data: data.top5, borderColor: '#0f766e', backgroundColor: 'rgba(15,118,110,0.1)', fill: '-1', tension: 0.3, borderWidth: 2 },
+            ]},
+            options: { responsive: true, plugins: { legend: { display: true, position: 'bottom' } }, scales: { y: { beginAtZero: true, max: 100, ticks: { callback: function(v) { return v + '%'; } } } } }
+        });
+    }());
+
+    // --- Daily spend average sparkline ---
+    (function() {
+        var el = document.getElementById('chart-daily-avg-sparkline');
+        if (!el || !window.Chart) return;
+        var data = JSON.parse(el.dataset.chart);
+        new Chart(el, {
+            type: 'line',
+            data: { labels: data.labels, datasets: [{ data: data.values, borderColor: '#0f766e', borderWidth: 2, tension: 0.3, pointRadius: 2, fill: false }] },
+            options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { display: true, ticks: { maxRotation: 30 } }, y: { beginAtZero: true, ticks: { callback: dollarTick } } } }
+        });
+    }());
+
+    // --- Weekend splurge ---
+    (function() {
+        var el = document.getElementById('chart-weekend-splurge');
+        if (!el || !window.Chart) return;
+        var data = JSON.parse(el.dataset.chart);
+        new Chart(el, {
+            type: 'bar',
+            data: { labels: data.labels, datasets: [
+                { label: 'Weekday', data: data.weekday, backgroundColor: '#2563eb', borderRadius: 4 },
+                { label: 'Weekend', data: data.weekend, backgroundColor: '#db2777', borderRadius: 4 },
+            ]},
+            options: { responsive: true, plugins: { legend: { display: true, position: 'bottom' }, tooltip: { callbacks: { label: dollarTooltip } } }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { callback: dollarTick } } } }
+        });
+    }());
+
+    // --- Payday pattern ---
+    (function() {
+        var el = document.getElementById('chart-payday-pattern');
+        if (!el || !window.Chart) return;
+        var data = JSON.parse(el.dataset.chart);
+        new Chart(el, {
+            type: 'bar',
+            data: { labels: data.labels, datasets: [{ data: data.values, backgroundColor: PALETTE[1], borderRadius: 2 }] },
+            options: { responsive: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(ctx) { return 'Day ' + ctx.label + ': ' + dollarTick(ctx.parsed.y) + ' avg (' + data.counts[ctx.dataIndex] + ' months)'; } } } }, scales: { y: { beginAtZero: true, ticks: { callback: dollarTick } } } }
+        });
+    }());
+
+    // --- Day of week spend (polar area chart) ---
+    (function () {
+        var el = document.getElementById('chart-day-of-week');
+        if (!el || !window.Chart) return;
+        var data = JSON.parse(el.dataset.chart);
+        var colors = data.labels.map(function (_, i) { return PALETTE[i % PALETTE.length]; });
+        new Chart(el, {
+            type: 'polarArea',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    data: data.values,
+                    backgroundColor: colors.map(function (c) { return c + 'cc'; }),
+                    borderColor: colors,
+                    borderWidth: 1,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: true, position: 'right' },
+                    tooltip: {
+                        callbacks: {
+                            label: function (ctx) {
+                                return ctx.label + ': $' + ctx.parsed.r.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    r: { ticks: { callback: function (v) { return '$' + v; } } }
+                }
+            }
+        });
+    }());
 </script>
 {% endblock %}

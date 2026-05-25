@@ -1,0 +1,10 @@
+<div class="card" id="widget-cumulative-ytd">
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">{{ cumulative_ytd.title }}</h2>
+    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-4);">
+        {{ cumulative_ytd.current_year_label }} vs {{ cumulative_ytd.prior_year_label }} &middot; cumulative outflow
+        {% if not cumulative_ytd.has_prior_year %}&middot; no prior-year data{% endif %}
+    </p>
+    <canvas id="chart-cumulative-ytd"
+            data-chart="{{ cumulative_ytd_chart|tojson }}"
+            style="max-height: 260px;"></canvas>
+</div>

@@ -1,0 +1,9 @@
+<div class="card" id="widget-weekend-splurge">
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">{{ weekend_splurge.title }}</h2>
+    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-4);">
+        On average {{ weekend_splurge.avg_weekend_pct|round(1) }}% of your spend is on weekends.
+    </p>
+    <canvas id="chart-weekend-splurge"
+            data-chart="{{ weekend_splurge_chart|tojson }}"
+            style="max-height: 260px;"></canvas>
+</div>

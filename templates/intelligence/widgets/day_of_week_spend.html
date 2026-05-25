@@ -1,0 +1,19 @@
+<div id="widget-day-of-week-spend" class="widget-card">
+    <div class="widget-header">
+        <h2 class="widget-title">{{ day_of_week_spend.title }}</h2>
+        <p class="widget-subtitle" style="color: var(--muted); font-size: var(--text-sm);">
+            Average spend per active day, last {{ day_of_week_spend.period_months }} months
+        </p>
+    </div>
+
+    {% set has_data = day_of_week_spend.averages | sum > 0 %}
+    {% if has_data %}
+        <canvas id="chart-day-of-week"
+                data-chart='{{ day_of_week_chart | tojson }}'
+                style="max-height: 380px;"></canvas>
+    {% else %}
+        <p style="color: var(--muted); font-size: var(--text-sm);">
+            No outflow transactions found in the selected period.
+        </p>
+    {% endif %}
+</div>

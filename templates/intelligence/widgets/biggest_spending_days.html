@@ -1,0 +1,41 @@
+<div class="card" id="widget-biggest-spending-days">
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">{{ biggest_spending_days.title }}</h2>
+    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-4);">
+        Top 10 highest-spend days over the last {{ biggest_spending_days.period_months }} months
+    </p>
+
+    {% if biggest_spending_days.items %}
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; font-size: var(--text-sm);">
+            <thead>
+                <tr style="border-bottom: 1px solid var(--border);">
+                    <th style="text-align: center; padding: var(--space-2); color: var(--muted); font-weight: 500; width: 2rem;">#</th>
+                    <th style="text-align: left; padding: var(--space-2); color: var(--muted); font-weight: 500;">Date</th>
+                    <th style="text-align: right; padding: var(--space-2); color: var(--muted); font-weight: 500;">Total</th>
+                    <th style="text-align: center; padding: var(--space-2); color: var(--muted); font-weight: 500;">Txns</th>
+                    <th style="text-align: left; padding: var(--space-2); color: var(--muted); font-weight: 500;">Top category</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in biggest_spending_days.items %}
+                <tr style="border-bottom: 1px solid var(--border);">
+                    <td style="padding: var(--space-2); text-align: center; color: var(--muted);">{{ loop.index }}</td>
+                    <td style="padding: var(--space-2);">{{ item.date_str }}</td>
+                    <td style="padding: var(--space-2); text-align: right; font-weight: 600; font-variant-numeric: tabular-nums;">${{ "%.2f"|format(item.total) }}</td>
+                    <td style="padding: var(--space-2); text-align: center; color: var(--muted);">{{ item.transaction_count }}</td>
+                    <td style="padding: var(--space-2);">
+                        {% if item.top_category %}
+                        <span style="background: var(--surface-2); border-radius: var(--radius-sm); padding: 2px 6px; font-size: var(--text-xs);">{{ item.top_category }}</span>
+                        {% else %}
+                        <span style="color: var(--muted); font-size: var(--text-xs);">&mdash;</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: var(--muted); font-size: var(--text-sm);">No transactions found in this period.</p>
+    {% endif %}
+</div>

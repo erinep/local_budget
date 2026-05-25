@@ -1,0 +1,9 @@
+<div class="card" id="widget-spending-concentration">
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">{{ spending_concentration.title }}</h2>
+    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-4);">
+        Last {{ spending_concentration.period_months }} months &middot; % of monthly spend in top categories
+    </p>
+    <canvas id="chart-spending-concentration"
+            data-chart="{{ spending_concentration_chart|tojson }}"
+            style="max-height: 260px;"></canvas>
+</div>

@@ -1,0 +1,43 @@
+<div class="card" id="widget-category-rank-changes">
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">{{ category_rank_changes.title }}</h2>
+    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-4);">
+        {{ category_rank_changes.current_label }} vs {{ category_rank_changes.prior_label }}
+    </p>
+
+    {% if category_rank_changes.items %}
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; font-size: var(--text-sm);">
+            <thead>
+                <tr style="border-bottom: 1px solid var(--border);">
+                    <th style="text-align: center; padding: var(--space-2); color: var(--muted); font-weight: 500; width: 2.5rem;">Rank</th>
+                    <th style="text-align: left; padding: var(--space-2); color: var(--muted); font-weight: 500;">Category</th>
+                    <th style="text-align: right; padding: var(--space-2); color: var(--muted); font-weight: 500;">Spend</th>
+                    <th style="text-align: center; padding: var(--space-2); color: var(--muted); font-weight: 500;">Change</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in category_rank_changes.items %}
+                <tr style="border-bottom: 1px solid var(--border);">
+                    <td style="padding: var(--space-2); text-align: center; font-weight: 600;">#{{ item.current_rank }}</td>
+                    <td style="padding: var(--space-2);">{{ item.category_name }}</td>
+                    <td style="padding: var(--space-2); text-align: right; font-variant-numeric: tabular-nums;">${{ "%.2f"|format(item.current_spend) }}</td>
+                    <td style="padding: var(--space-2); text-align: center;">
+                        {% if item.prior_rank is none %}
+                        <span style="background: #dbeafe; color: #1e40af; border-radius: var(--radius-sm); padding: 2px 6px; font-size: var(--text-xs);">NEW</span>
+                        {% elif item.rank_change > 0 %}
+                        <span style="color: #dc2626; font-size: var(--text-xs);">&#8593;{{ item.rank_change }}</span>
+                        {% elif item.rank_change < 0 %}
+                        <span style="color: #16a34a; font-size: var(--text-xs);">&#8595;{{ item.rank_change|abs }}</span>
+                        {% else %}
+                        <span style="color: var(--muted); font-size: var(--text-xs);">&mdash;</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color: var(--muted); font-size: var(--text-sm);">Not enough data to compute rank changes.</p>
+    {% endif %}
+</div>

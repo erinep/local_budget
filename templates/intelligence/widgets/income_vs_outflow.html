@@ -1,0 +1,16 @@
+<div class="card" id="widget-income-vs-outflow">
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">{{ income_vs_outflow.title }}</h2>
+    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-4);">
+        Last {{ income_vs_outflow.period_months }} complete months
+    </p>
+
+    {% if not income_vs_outflow.has_income %}
+    <p style="color: var(--muted); font-size: var(--text-sm); margin-bottom: var(--space-3);">
+        No income transactions detected in this period. Positive-amount transactions will appear as income.
+    </p>
+    {% endif %}
+
+    <canvas id="chart-income-vs-outflow"
+            data-chart="{{ income_vs_outflow_chart|tojson }}"
+            style="max-height: 260px;"></canvas>
+</div>

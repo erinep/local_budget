@@ -1,0 +1,11 @@
+<div class="card" id="widget-small-purchase-drain">
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">{{ small_purchase_drain.title }}</h2>
+    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-3);">
+        {{ small_purchase_drain.total_count }} purchases under ${{ small_purchase_drain.threshold|int }}
+        = ${{ small_purchase_drain.total_spend|round(0)|int }} total
+        (~${{ small_purchase_drain.avg_per_month|round(0)|int }}/month)
+    </p>
+    <canvas id="chart-small-purchase-drain"
+            data-chart="{{ small_purchase_drain_chart|tojson }}"
+            style="max-height: 260px;"></canvas>
+</div>

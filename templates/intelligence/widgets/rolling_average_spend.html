@@ -1,0 +1,9 @@
+<div class="card" id="widget-rolling-average-spend">
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">{{ rolling_average_spend.title }}</h2>
+    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-4);">
+        Last {{ rolling_average_spend.period_months }} months &middot; bars = monthly, line = 3-month rolling avg
+    </p>
+    <canvas id="chart-rolling-average"
+            data-chart="{{ rolling_average_chart|tojson }}"
+            style="max-height: 260px;"></canvas>
+</div>

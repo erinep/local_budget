@@ -1,0 +1,18 @@
+<div id="widget-category-radar" class="widget-card">
+    <div class="widget-header">
+        <h2 class="widget-title">{{ category_radar.title }}</h2>
+        <p class="widget-subtitle" style="color: var(--muted); font-size: var(--text-sm);">
+            {{ category_radar.current_month_label }} vs. {{ category_radar.period_months }}-month average
+        </p>
+    </div>
+
+    {% if category_radar.labels %}
+        <canvas id="chart-category-radar"
+                data-chart='{{ category_radar_chart | tojson }}'
+                style="max-height: 400px;"></canvas>
+    {% else %}
+        <p style="color: var(--muted); font-size: var(--text-sm);">
+            No categorized transactions found in the selected period.
+        </p>
+    {% endif %}
+</div>

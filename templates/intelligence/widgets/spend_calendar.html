@@ -1,0 +1,74 @@
+<div id="widget-spend-calendar" class="widget-card">
+    <div class="widget-header">
+        <h2 class="widget-title">{{ spend_calendar.title }}</h2>
+        <p class="widget-subtitle" style="color: var(--muted); font-size: var(--text-sm);">
+            Daily spend over the last {{ spend_calendar.period_days }} days
+            {% if spend_calendar.max_day_spend > 0 %}
+            &mdash; max ${{ "%.2f"|format(spend_calendar.max_day_spend) }} in a day
+            {% endif %}
+        </p>
+    </div>
+
+    <div style="overflow-x: auto; padding-bottom: var(--space-2);">
+        {# Month label row #}
+        <div style="display: flex; gap: 2px; margin-bottom: 4px; margin-left: 20px;">
+            {% set month_marker_dict = {} %}
+            {% for marker in spend_calendar.month_markers %}
+                {% if month_marker_dict.update({marker[0]: marker[1]}) %}{% endif %}
+            {% endfor %}
+            {% for col_idx in range(spend_calendar.weeks|length) %}
+                <div style="width: 11px; flex-shrink: 0; font-size: 9px; color: var(--muted); white-space: nowrap; overflow: visible;">
+                    {{ month_marker_dict.get(col_idx, "") }}
+                </div>
+            {% endfor %}
+        </div>
+
+        {# Calendar grid: 7 rows (Mon–Sun), each row spans all weeks #}
+        <div style="display: flex; gap: 4px;">
+            {# Day-of-week labels #}
+            <div style="display: flex; flex-direction: column; gap: 2px; width: 16px; flex-shrink: 0;">
+                {% for label in ["M", "", "W", "", "F", "", "S"] %}
+                    <div style="height: 11px; font-size: 9px; color: var(--muted); line-height: 11px; text-align: right;">{{ label }}</div>
+                {% endfor %}
+            </div>
+
+            {# Week columns #}
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+                {% for dow in range(7) %}
+                    <div style="display: flex; gap: 2px;">
+                        {% for week in spend_calendar.weeks %}
+                            {% set cell = week[dow] %}
+                            {% if cell is none %}
+                                <div style="width: 11px; height: 11px; border-radius: 2px; background: transparent; flex-shrink: 0;"></div>
+                            {% else %}
+                                {% if cell.level == 0 %}
+                                    {% set bg = "#f1f5f9" %}
+                                {% elif cell.level == 1 %}
+                                    {% set bg = "#fecaca" %}
+                                {% elif cell.level == 2 %}
+                                    {% set bg = "#fca5a5" %}
+                                {% elif cell.level == 3 %}
+                                    {% set bg = "#f87171" %}
+                                {% else %}
+                                    {% set bg = "#dc2626" %}
+                                {% endif %}
+                                <div style="width: 11px; height: 11px; border-radius: 2px; background: {{ bg }}; flex-shrink: 0;"
+                                     title="{% if cell.amount > 0 %}{{ cell.date_str }}: ${{ '%.2f'|format(cell.amount) }}{% else %}{{ cell.date_str }}: no spend{% endif %}">
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        {# Legend #}
+        <div style="display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); margin-left: 20px;">
+            <span style="font-size: var(--text-xs); color: var(--muted);">Less</span>
+            {% for bg in ["#f1f5f9", "#fecaca", "#fca5a5", "#f87171", "#dc2626"] %}
+                <div style="width: 11px; height: 11px; border-radius: 2px; background: {{ bg }};"></div>
+            {% endfor %}
+            <span style="font-size: var(--text-xs); color: var(--muted);">More</span>
+        </div>
+    </div>
+</div>

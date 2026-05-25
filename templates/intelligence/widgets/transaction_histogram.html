@@ -1,0 +1,9 @@
+<div class="card" id="widget-transaction-histogram">
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">{{ transaction_histogram.title }}</h2>
+    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-4);">
+        Last {{ transaction_histogram.period_months }} months &middot; outflow transactions by dollar amount
+    </p>
+    <canvas id="chart-transaction-histogram"
+            data-chart="{{ transaction_histogram_chart|tojson }}"
+            style="max-height: 260px;"></canvas>
+</div>

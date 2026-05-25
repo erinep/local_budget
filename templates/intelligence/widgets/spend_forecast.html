@@ -1,0 +1,11 @@
+<div class="card" id="widget-spend-forecast">
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">{{ spend_forecast.title }}</h2>
+    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-4);">
+        Day {{ spend_forecast.today_day }} of {{ spend_forecast.days_in_month }}
+        &middot; projected ${{ spend_forecast.projected_total|round(0)|int }}
+        vs last month ${{ spend_forecast.last_month_total|round(0)|int }}
+    </p>
+    <canvas id="chart-spend-forecast"
+            data-chart="{{ spend_forecast_chart|tojson }}"
+            style="max-height: 260px;"></canvas>
+</div>

@@ -1,0 +1,25 @@
+<div class="card" id="widget-merchant-frequency">
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">{{ merchant_frequency.title }}</h2>
+    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-4);">
+        Top 15 most-visited merchants &middot; last {{ merchant_frequency.period_months }} months
+    </p>
+
+    {% if merchant_frequency.items %}
+    {% set max_count = merchant_frequency.items[0].visit_count %}
+    <div style="display: flex; flex-direction: column; gap: var(--space-2);">
+        {% for item in merchant_frequency.items %}
+        <div>
+            <div style="display: flex; justify-content: space-between; font-size: var(--text-xs); margin-bottom: 3px;">
+                <span style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%;">{{ item.description }}</span>
+                <span style="color: var(--muted);">{{ item.visit_count }} visits &middot; ${{ "%.0f"|format(item.avg_amount) }}/avg</span>
+            </div>
+            <div style="background: var(--surface-2); border-radius: var(--radius-sm); height: 8px; overflow: hidden;">
+                <div style="background: var(--accent); height: 100%; width: {{ (item.visit_count / max_count * 100)|round(1) }}%; border-radius: var(--radius-sm);"></div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p style="color: var(--muted); font-size: var(--text-sm);">No outflow transactions found in this period.</p>
+    {% endif %}
+</div>

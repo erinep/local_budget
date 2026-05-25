@@ -1,0 +1,50 @@
+<div id="widget-subscription-detector" class="widget-card">
+    <div class="widget-header">
+        <h2 class="widget-title">{{ subscription_detector.title }}</h2>
+        <p class="widget-subtitle" style="color: var(--muted); font-size: var(--text-sm);">
+            Recurring charges detected over the last {{ subscription_detector.period_months }} months
+        </p>
+    </div>
+
+    {% if subscription_detector.items %}
+        <div style="background: var(--surface-2); border-radius: var(--radius-sm); padding: var(--space-3); margin-bottom: var(--space-4); display: flex; align-items: center; gap: var(--space-2);">
+            <span style="font-size: var(--text-lg); font-weight: 600; color: var(--accent);">
+                ~${{ "%.2f"|format(subscription_detector.monthly_total) }}/month
+            </span>
+            <span style="color: var(--muted); font-size: var(--text-sm);">in recurring charges detected</span>
+        </div>
+
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: var(--text-sm);">
+                <thead>
+                    <tr style="border-bottom: 1px solid var(--border);">
+                        <th style="text-align: left; padding: var(--space-2) var(--space-3); color: var(--muted); font-weight: 500;">Description</th>
+                        <th style="text-align: left; padding: var(--space-2) var(--space-3); color: var(--muted); font-weight: 500;">Category</th>
+                        <th style="text-align: right; padding: var(--space-2) var(--space-3); color: var(--muted); font-weight: 500;">Amount</th>
+                        <th style="text-align: right; padding: var(--space-2) var(--space-3); color: var(--muted); font-weight: 500;">Months seen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in subscription_detector.items %}
+                        <tr style="border-bottom: 1px solid var(--border);">
+                            <td style="padding: var(--space-2) var(--space-3);">{{ item.description }}</td>
+                            <td style="padding: var(--space-2) var(--space-3); color: var(--muted);">
+                                {{ item.category_name or "Uncategorized" }}
+                            </td>
+                            <td style="padding: var(--space-2) var(--space-3); text-align: right; font-variant-numeric: tabular-nums;">
+                                ${{ "%.2f"|format(item.typical_amount) }}
+                            </td>
+                            <td style="padding: var(--space-2) var(--space-3); text-align: right; color: var(--muted);">
+                                {{ item.months_seen }}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p style="color: var(--muted); font-size: var(--text-sm);">
+            No recurring charges detected in the selected period. Charges appearing in 3 or more distinct months with consistent amounts will appear here.
+        </p>
+    {% endif %}
+</div>

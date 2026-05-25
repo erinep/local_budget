@@ -1,0 +1,14 @@
+<div class="card" id="widget-spend-by-account">
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">{{ spend_by_account.title }}</h2>
+    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-4);">
+        Last {{ spend_by_account.period_months }} months &middot; total ${{ spend_by_account.total_spend|round(0)|int }}
+    </p>
+
+    {% if not spend_by_account.has_multiple_accounts %}
+    <p style="color: var(--muted); font-size: var(--text-sm); margin-bottom: var(--space-3);">Only one account detected.</p>
+    {% endif %}
+
+    <canvas id="chart-spend-by-account"
+            data-chart="{{ spend_by_account_chart|tojson }}"
+            style="max-height: 280px;"></canvas>
+</div>
