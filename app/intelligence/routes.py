@@ -15,6 +15,7 @@ import app.intelligence.widgets.category_trends         # noqa: F401
 import app.intelligence.widgets.category_trends_stacked # noqa: F401
 import app.intelligence.widgets.category_profile        # noqa: F401
 import app.intelligence.widgets.category_radar          # noqa: F401
+import app.intelligence.widgets.category_movers         # noqa: F401
 from app.middleware.auth import login_required
 
 intelligence_bp = Blueprint("intelligence", __name__, url_prefix="/intelligence")
@@ -51,6 +52,11 @@ def _category_radar_vm(user_id, period_months):
     return vm, chart
 
 
+def _category_movers_vm(user_id, period_months):
+    from app.intelligence.widgets.category_movers import build_category_movers
+    return build_category_movers(user_id, period_months)
+
+
 def _category_profile_vm(user_id, period_months):
     from app.intelligence.widgets.category_profile import build_category_profile
     vm = build_category_profile(user_id, period_months)
@@ -66,11 +72,13 @@ def dashboard():
     ct_vm,   ct_chart   = _category_trends_vm(g.user.id, period_months)
     cp_vm               = _category_profile_vm(g.user.id, period_months)
     cr_vm,   cr_chart   = _category_radar_vm(g.user.id, period_months)
+    cm_vm               = _category_movers_vm(g.user.id, period_months)
     return render_template(
         "intelligence/dashboard.html",
         category_trends=ct_vm,         category_trends_chart=ct_chart,
         category_profile=cp_vm,
         category_radar=cr_vm,          category_radar_chart=cr_chart,
+        category_movers=cm_vm,
     )
 
 
@@ -94,6 +102,10 @@ def widget(key: str):
     if key == "category_radar":
         vm, chart = _category_radar_vm(g.user.id, period_months)
         return render_template(REGISTRY[key].template, category_radar=vm, category_radar_chart=chart)
+
+    if key == "category_movers":
+        vm = _category_movers_vm(g.user.id, period_months)
+        return render_template(REGISTRY[key].template, category_movers=vm)
 
     abort(404)
 
