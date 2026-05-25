@@ -15,8 +15,8 @@ from unittest.mock import patch
 import pytest
 
 from app.intelligence.widgets.category_trends import CategoryTrendsVM
-from app.intelligence.widgets.category_totals import CategoryTotalItem, CategoryTotalsVM
 from app.intelligence.widgets.category_profile import CategoryProfileRow, CategoryProfileVM
+from app.intelligence.widgets.category_radar import CategoryRadarVM, RadarMonthData, RadarTransaction
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -35,21 +35,8 @@ _FAKE_CT_VM = CategoryTrendsVM(
 )
 
 _PATCH_BUILD_CT   = "app.intelligence.widgets.category_trends.build_category_trends"
-_PATCH_BUILD_CTOT = "app.intelligence.widgets.category_totals.build_category_totals"
 _PATCH_BUILD_CP   = "app.intelligence.widgets.category_profile.build_category_profile"
-
-_FAKE_CTOT_VM = CategoryTotalsVM(
-    title="Category Totals",
-    items=[
-        CategoryTotalItem(label="Groceries", spend=400.0, is_uncategorized=False),
-        CategoryTotalItem(label="Uncategorized", spend=50.0, is_uncategorized=True),
-    ],
-    period_months=12,
-    category_amounts={
-        "Groceries": {"labels": ["Superstore", "Metro", "Loblaws"], "values": [120.0, 80.0, 60.0]},
-        "Uncategorized": {"labels": ["Unknown"], "values": [50.0]},
-    },
-)
+_PATCH_BUILD_CR   = "app.intelligence.widgets.category_radar.build_category_radar"
 
 _FAKE_CP_VM = CategoryProfileVM(
     title="Category Profile",
@@ -73,10 +60,37 @@ _FAKE_CP_VM = CategoryProfileVM(
     pct_spend_categorized=55.6,
 )
 
+_FAKE_RADAR_TXN = RadarTransaction(description="Grocery Run", category_name="Groceries", amount=120.0, is_outlier=False)
+
+def _radar_month(label, data, is_current):
+    return RadarMonthData(label=label, data=data, is_current=is_current,
+                          total=sum(data), top_transactions=[_FAKE_RADAR_TXN])
+
+_FAKE_CR_VM = CategoryRadarVM(
+    title="Category Radar",
+    labels=["Groceries", "Dining", "Transport"],
+    months=[
+        _radar_month("May (MTD)", [300.0, 80.0, 50.0], True),
+        _radar_month("Apr",       [350.0, 95.0, 60.0], False),
+        _radar_month("Mar",       [320.0, 90.0, 55.0], False),
+        _radar_month("Feb",       [310.0, 85.0, 52.0], False),
+        _radar_month("Jan",       [330.0, 92.0, 58.0], False),
+        _radar_month("Dec",       [400.0, 120.0, 65.0], False),
+        _radar_month("Nov",       [360.0, 100.0, 61.0], False),
+        _radar_month("Oct",       [340.0, 88.0, 57.0], False),
+        _radar_month("Sep",       [315.0, 82.0, 53.0], False),
+        _radar_month("Aug",       [325.0, 87.0, 56.0], False),
+        _radar_month("Jul",       [335.0, 91.0, 59.0], False),
+        _radar_month("Jun",       [345.0, 94.0, 62.0], False),
+    ],
+)
+
+import datetime as _dt
+
 _ALL_WIDGET_PATCHES = [
     (_PATCH_BUILD_CT,   _FAKE_CT_VM),
-    (_PATCH_BUILD_CTOT, _FAKE_CTOT_VM),
     (_PATCH_BUILD_CP,   _FAKE_CP_VM),
+    (_PATCH_BUILD_CR,   _FAKE_CR_VM),
 ]
 
 
@@ -165,28 +179,6 @@ class TestCategoryTrendsWidget:
         assert response.status_code == 404
 
 
-# ===========================================================================
-# GET /intelligence/widgets/category_totals
-# ===========================================================================
-
-class TestCategoryTotalsWidget:
-    """HTMX fragment endpoint for category_totals widget."""
-
-    def test_unauthenticated_redirects_to_login(self, client):
-        response = client.get("/intelligence/widgets/category_totals", follow_redirects=False)
-        assert response.status_code == 302
-        assert "/auth/login" in response.headers.get("Location", "")
-
-    def test_authenticated_returns_200(self, authenticated_client):
-        with patch(_PATCH_BUILD_CTOT, return_value=_FAKE_CTOT_VM):
-            response = authenticated_client.get("/intelligence/widgets/category_totals")
-        assert response.status_code == 200
-
-    def test_response_contains_chart_canvas(self, authenticated_client):
-        with patch(_PATCH_BUILD_CTOT, return_value=_FAKE_CTOT_VM):
-            response = authenticated_client.get("/intelligence/widgets/category_totals")
-        assert b"chart-category-totals" in response.data
-
 
 # ===========================================================================
 # GET /intelligence/widgets/category_profile
@@ -216,3 +208,29 @@ class TestCategoryProfileWidget:
             response = authenticated_client.get("/intelligence/widgets/category_profile")
         assert b"87.0" in response.data
         assert b"chart-categorization-health" in response.data
+
+
+# ===========================================================================
+# GET /intelligence/widgets/category_radar
+# ===========================================================================
+
+class TestCategoryRadarWidget:
+    """HTMX fragment endpoint for category_radar widget."""
+
+    def test_unauthenticated_redirects_to_login(self, client):
+        response = client.get("/intelligence/widgets/category_radar", follow_redirects=False)
+        assert response.status_code == 302
+        assert "/auth/login" in response.headers.get("Location", "")
+
+    def test_authenticated_returns_200(self, authenticated_client):
+        with patch(_PATCH_BUILD_CR, return_value=_FAKE_CR_VM):
+            response = authenticated_client.get("/intelligence/widgets/category_radar")
+        assert response.status_code == 200
+
+    def test_response_contains_chart_canvas(self, authenticated_client):
+        with patch(_PATCH_BUILD_CR, return_value=_FAKE_CR_VM):
+            response = authenticated_client.get("/intelligence/widgets/category_radar")
+        assert b"chart-category-radar" in response.data
+
+
+
