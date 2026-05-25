@@ -75,7 +75,7 @@ _FAKE_CP_CHARTS = [
 ]
 _FAKE_CP = (_FAKE_CP_VM, _FAKE_CP_CHARTS)
 
-_FAKE_RADAR_TXN = RadarTransaction(description="Grocery Run", category_name="Groceries", amount=120.0, is_outlier=False)
+_FAKE_RADAR_TXN = RadarTransaction(description="Grocery Run", category_name="Groceries", amount=120.0, is_outlier=False, transaction_id="00000000-0000-0000-0000-000000000030")
 
 def _radar_month(label, data, is_current):
     return RadarMonthData(label=label, data=data, is_current=is_current,

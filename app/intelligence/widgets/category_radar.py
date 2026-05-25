@@ -29,6 +29,7 @@ class RadarTransaction:
     category_name: str | None
     amount: float
     is_outlier: bool
+    transaction_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -157,6 +158,7 @@ def build_category_radar(user_id: str, period_months: int = 12) -> CategoryRadar
                 category_name=t.category_name,
                 amount=round(amt, 2),
                 is_outlier=is_outlier,
+                transaction_id=str(t.id) if getattr(t, "id", None) else None,
             ))
 
         total = round(sum(abs(float(t.amount)) for t in outflows), 2)

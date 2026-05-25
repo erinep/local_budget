@@ -82,6 +82,20 @@
             });
         }
 
+        var MONTH_MAP = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+        function daysInMonth(y, m) { return new Date(y, m, 0).getDate(); }
+        function labelToRange(label) {
+            var parts = label.split(' ');
+            var m = MONTH_MAP[parts[0]];
+            var y = parseInt(parts[1], 10);
+            if (!m || !y) return null;
+            var pad = function (n) { return n < 10 ? '0' + n : '' + n; };
+            return {
+                from: y + '-' + pad(m) + '-01',
+                to:   y + '-' + pad(m) + '-' + daysInMonth(y, m),
+            };
+        }
+
         var chart = new Chart(el, {
             type: 'line',
             data: { labels: data.labels, datasets: catDatasets.concat([totalDataset]) },
@@ -94,7 +108,26 @@
                 },
                 scales: {
                     y: { beginAtZero: true, ticks: { callback: dollarTick } }
-                }
+                },
+                onClick: function (evt) {
+                    var nearest = chart.getElementsAtEventForMode(evt.native, 'nearest', { intersect: true }, false);
+                    if (!nearest.length) return;
+                    var pointIdx   = nearest[0].index;
+                    var datasetIdx = nearest[0].datasetIndex;
+                    var label = data.labels[pointIdx];
+                    var range = labelToRange(label);
+                    if (!range) return;
+                    var ds = data.datasets[datasetIdx];
+                    var url = '/transactions?date_from=' + range.from + '&date_to=' + range.to;
+                    if (ds && ds.category_id) {
+                        url += '&category_id=' + ds.category_id;
+                    }
+                    window.location.href = url;
+                },
+                onHover: function (evt) {
+                    var points = chart.getElementsAtEventForMode(evt.native, 'nearest', { intersect: true }, false);
+                    evt.native.target.style.cursor = points.length ? 'pointer' : 'default';
+                },
             }
         });
 
