@@ -293,5 +293,73 @@
         applyState();
     }());
 
+    // --- Category profile: expandable transaction bar charts ---
+    (function () {
+        if (!window.Chart) return;
+        var chartInstances = {};
+
+        document.querySelectorAll('#widget-category-profile [data-profile-row]').forEach(function (row) {
+            row.addEventListener('click', function () {
+                var idx = row.dataset.profileRow;
+                var detailRow = document.querySelector('[data-profile-detail="' + idx + '"]');
+                var chevron   = document.querySelector('[data-profile-chevron="' + idx + '"]');
+                var isOpen = detailRow.style.display !== 'none';
+
+                detailRow.style.display = isOpen ? 'none' : '';
+                chevron.style.transform = isOpen ? '' : 'rotate(90deg)';
+
+                if (!isOpen && !chartInstances[idx]) {
+                    var canvas = detailRow.querySelector('[data-profile-chart="' + idx + '"]');
+                    var txns   = JSON.parse(canvas.dataset.txns);
+                    var labels = txns.map(function (t) { return t.label; });
+                    var values = txns.map(function (t) { return t.amount; });
+                    var ids    = txns.map(function (t) { return t.id; });
+
+                    chartInstances[idx] = new Chart(canvas, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                data: values,
+                                backgroundColor: 'rgba(15,118,110,0.7)',
+                                borderColor: '#0f766e',
+                                borderWidth: 1,
+                                borderRadius: 3,
+                            }]
+                        },
+                        options: {
+                            indexAxis: 'y',
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            onClick: function (evt, elements) {
+                                if (elements.length > 0) {
+                                    var i = elements[0].index;
+                                    window.location.href = '/transactions/' + ids[i] + '/edit';
+                                }
+                            },
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function (ctx) {
+                                            return '$' + ctx.parsed.x.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' — click to edit';
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: { beginAtZero: true, ticks: { callback: function (v) { return '$' + v.toLocaleString('en-CA', { maximumFractionDigits: 0 }); } } },
+                                y: { ticks: { font: { size: 11 } } }
+                            },
+                            onHover: function (evt) {
+                                evt.native.target.style.cursor = evt.chart.getElementsAtEventForMode(evt.native, 'nearest', { intersect: true }, false).length ? 'pointer' : 'default';
+                            }
+                        }
+                    });
+                }
+            });
+        });
+    }());
+
 </script>
 {% endblock %}

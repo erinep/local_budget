@@ -60,7 +60,12 @@ def _category_movers_vm(user_id, period_months):
 def _category_profile_vm(user_id, period_months):
     from app.intelligence.widgets.category_profile import build_category_profile
     vm = build_category_profile(user_id, period_months)
-    return vm
+    row_charts = [
+        [{"id": t.transaction_id, "label": t.description, "amount": t.amount}
+         for t in row.top_transactions]
+        for row in vm.rows
+    ]
+    return vm, row_charts
 
 
 @intelligence_bp.route("/dashboard", endpoint="dashboard")
@@ -70,13 +75,13 @@ def dashboard():
     period_months = min(max(request.args.get("months", 12, type=int), 1), 36)
 
     ct_vm,   ct_chart   = _category_trends_vm(g.user.id, period_months)
-    cp_vm               = _category_profile_vm(g.user.id, period_months)
+    cp_vm,   cp_charts  = _category_profile_vm(g.user.id, period_months)
     cr_vm,   cr_chart   = _category_radar_vm(g.user.id, period_months)
     cm_vm               = _category_movers_vm(g.user.id, period_months)
     return render_template(
         "intelligence/dashboard.html",
         category_trends=ct_vm,         category_trends_chart=ct_chart,
-        category_profile=cp_vm,
+        category_profile=cp_vm,        category_profile_charts=cp_charts,
         category_radar=cr_vm,          category_radar_chart=cr_chart,
         category_movers=cm_vm,
     )
@@ -96,8 +101,8 @@ def widget(key: str):
         return render_template(REGISTRY[key].template, category_trends=vm, category_trends_chart=chart)
 
     if key == "category_profile":
-        vm = _category_profile_vm(g.user.id, period_months)
-        return render_template(REGISTRY[key].template, category_profile=vm)
+        vm, cp_charts = _category_profile_vm(g.user.id, period_months)
+        return render_template(REGISTRY[key].template, category_profile=vm, category_profile_charts=cp_charts)
 
     if key == "category_radar":
         vm, chart = _category_radar_vm(g.user.id, period_months)

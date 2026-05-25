@@ -62,8 +62,16 @@
             </thead>
             <tbody>
                 {% for row in category_profile.rows %}
-                <tr{% if row.is_uncategorized %} class="profile-row--uncategorized"{% endif %}>
-                    <td>{{ row.label }}</td>
+                {%- set row_idx = loop.index0 -%}
+                <tr{% if row.is_uncategorized %} class="profile-row--uncategorized"{% endif %}
+                    data-profile-row="{{ row_idx }}"
+                    style="cursor: pointer;"
+                    title="Click to view transaction breakdown">
+                    <td style="display: flex; align-items: center; gap: var(--space-2);">
+                        <span class="profile-chevron" data-profile-chevron="{{ row_idx }}"
+                              style="font-size: var(--text-xs); color: var(--muted); transition: transform 0.15s; display: inline-block;">▶</span>
+                        {{ row.label }}
+                    </td>
                     <td class="num">{{ row.count }}</td>
                     <td class="num">${{ "%.2f"|format(row.total) }}</td>
                     <td class="num">${{ "%.2f"|format(row.mean) }}</td>
@@ -72,6 +80,16 @@
                         <span class="consistency-badge consistency-badge--{{ row.consistency | lower | replace('—', 'unknown') }}">
                             {{ row.consistency }}
                         </span>
+                    </td>
+                </tr>
+                <tr class="profile-detail-row" data-profile-detail="{{ row_idx }}" style="display: none;">
+                    <td colspan="6" style="padding: 0; background: var(--surface-2);">
+                        <div style="padding: var(--space-4);">
+                            <canvas class="profile-bar-chart"
+                                    data-profile-chart="{{ row_idx }}"
+                                    data-txns='{{ category_profile_charts[row_idx] | tojson }}'
+                                    style="height: {{ [category_profile_charts[row_idx] | length * 28, 120] | max }}px; width: 100%;"></canvas>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}
