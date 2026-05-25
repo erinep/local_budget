@@ -52,8 +52,9 @@
                 backgroundColor: 'transparent',
                 borderWidth: 2,
                 tension: 0.3,
-                pointRadius: 3,
-                pointHoverRadius: 5,
+                pointRadius: 4,
+                pointHoverRadius: 8,
+                pointHitRadius: 16,
             };
         });
 
@@ -66,7 +67,8 @@
             borderWidth: 3,
             tension: 0.3,
             pointRadius: 4,
-            pointHoverRadius: 6,
+            pointHoverRadius: 8,
+            pointHitRadius: 16,
         };
 
         function hexToRgba(hex, alpha) {
@@ -101,16 +103,16 @@
             data: { labels: data.labels, datasets: catDatasets.concat([totalDataset]) },
             options: {
                 responsive: true,
-                interaction: { mode: 'index', intersect: false },
+                interaction: { mode: 'nearest', intersect: false },
                 plugins: {
                     legend: { display: false },
-                    tooltip: { callbacks: { label: dollarTooltip } }
+                    tooltip: { callbacks: { label: dollarTooltip, footer: function () { return 'Click to see transactions'; } } }
                 },
                 scales: {
                     y: { beginAtZero: true, ticks: { callback: dollarTick } }
                 },
                 onClick: function (evt) {
-                    var nearest = chart.getElementsAtEventForMode(evt.native, 'nearest', { intersect: true }, false);
+                    var nearest = chart.getElementsAtEventForMode(evt.native, 'nearest', { intersect: false }, false);
                     if (!nearest.length) return;
                     var pointIdx   = nearest[0].index;
                     var datasetIdx = nearest[0].datasetIndex;
@@ -121,6 +123,8 @@
                     var url = '/transactions?date_from=' + range.from + '&date_to=' + range.to;
                     if (ds && ds.category_id) {
                         url += '&category_id=' + ds.category_id;
+                    } else if (ds && ds.label === 'Uncategorized') {
+                        url += '&uncategorized=1';
                     }
                     window.location.href = url;
                 },
