@@ -261,9 +261,18 @@
                     legend: { display: false },
                     tooltip: {
                         callbacks: {
-                            label: function (ctx) {
-                                return ctx.dataset.label + ': $' + ctx.parsed.r.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                            }
+                            title: function (items) {
+                                return items.length ? items[0].dataset.label : '';
+                            },
+                            beforeBody: function (items) {
+                                if (!items.length) return [];
+                                var ds = items[0].dataset;
+                                return data.labels.map(function (label, i) {
+                                    var val = ds.data[i] || 0;
+                                    return label + ': $' + val.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                });
+                            },
+                            label: function () { return null; }
                         }
                     }
                 },
