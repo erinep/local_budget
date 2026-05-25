@@ -15,7 +15,7 @@ from unittest.mock import patch
 import pytest
 
 from app.intelligence.widgets.category_trends import CategoryTrendsVM
-from app.intelligence.widgets.category_profile import CategoryProfileRow, CategoryProfileVM
+from app.intelligence.widgets.category_profile import CategoryProfileRow, CategoryProfileVM, CategoryTransactionBar
 from app.intelligence.widgets.category_radar import CategoryRadarVM, RadarMonthData, RadarTransaction
 from app.intelligence.widgets.category_movers import CategoryMoversVM, MoverItem
 
@@ -36,17 +36,25 @@ _FAKE_CT_VM = CategoryTrendsVM(
 )
 
 _PATCH_BUILD_CT   = "app.intelligence.widgets.category_trends.build_category_trends"
-_PATCH_BUILD_CP   = "app.intelligence.widgets.category_profile.build_category_profile"
+_PATCH_BUILD_CP   = "app.intelligence.routes._category_profile_vm"
 _PATCH_BUILD_CR   = "app.intelligence.widgets.category_radar.build_category_radar"
 _PATCH_BUILD_CM   = "app.intelligence.widgets.category_movers.build_category_movers"
 
 _FAKE_CP_VM = CategoryProfileVM(
     title="Category Profile",
     rows=[
-        CategoryProfileRow(label="Groceries", count=12, total=400.0, mean=33.33,
-                           std_dev=5.0, cv=0.15, consistency="Consistent", is_uncategorized=False),
-        CategoryProfileRow(label="Transportation", count=8, total=320.0, mean=40.0,
-                           std_dev=55.0, cv=1.38, consistency="Irregular", is_uncategorized=False),
+        CategoryProfileRow(label="Groceries", category_id="00000000-0000-0000-0000-000000000010",
+                           count=12, total=400.0, mean=33.33, std_dev=5.0, cv=0.15,
+                           consistency="Consistent", is_uncategorized=False,
+                           top_transactions=[CategoryTransactionBar(
+                               transaction_id="00000000-0000-0000-0000-000000000020",
+                               description="Superstore", amount=120.0)]),
+        CategoryProfileRow(label="Transportation", category_id="00000000-0000-0000-0000-000000000011",
+                           count=8, total=320.0, mean=40.0, std_dev=55.0, cv=1.38,
+                           consistency="Irregular", is_uncategorized=False,
+                           top_transactions=[CategoryTransactionBar(
+                               transaction_id="00000000-0000-0000-0000-000000000021",
+                               description="Uber", amount=95.0)]),
     ],
     period_months=12,
     total_txns=100,
@@ -61,8 +69,13 @@ _FAKE_CP_VM = CategoryProfileVM(
     uncategorized_spend=320.0,
     pct_spend_categorized=55.6,
 )
+_FAKE_CP_CHARTS = [
+    [{"id": "00000000-0000-0000-0000-000000000020", "label": "Superstore", "amount": 120.0}],
+    [{"id": "00000000-0000-0000-0000-000000000021", "label": "Uber", "amount": 95.0}],
+]
+_FAKE_CP = (_FAKE_CP_VM, _FAKE_CP_CHARTS)
 
-_FAKE_RADAR_TXN = RadarTransaction(description="Grocery Run", category_name="Groceries", amount=120.0, is_outlier=False)
+_FAKE_RADAR_TXN = RadarTransaction(description="Grocery Run", category_name="Groceries", amount=120.0, is_outlier=False, transaction_id="00000000-0000-0000-0000-000000000030")
 
 def _radar_month(label, data, is_current):
     return RadarMonthData(label=label, data=data, is_current=is_current,
@@ -102,7 +115,7 @@ _FAKE_CM_VM = CategoryMoversVM(
 
 _ALL_WIDGET_PATCHES = [
     (_PATCH_BUILD_CT,   _FAKE_CT_VM),
-    (_PATCH_BUILD_CP,   _FAKE_CP_VM),
+    (_PATCH_BUILD_CP,   _FAKE_CP),
     (_PATCH_BUILD_CR,   _FAKE_CR_VM),
     (_PATCH_BUILD_CM,   _FAKE_CM_VM),
 ]
@@ -207,18 +220,18 @@ class TestCategoryProfileWidget:
         assert "/auth/login" in response.headers.get("Location", "")
 
     def test_authenticated_returns_200(self, authenticated_client):
-        with patch(_PATCH_BUILD_CP, return_value=_FAKE_CP_VM):
+        with patch(_PATCH_BUILD_CP, return_value=_FAKE_CP):
             response = authenticated_client.get("/intelligence/widgets/category_profile")
         assert response.status_code == 200
 
     def test_consistency_badges_in_response(self, authenticated_client):
-        with patch(_PATCH_BUILD_CP, return_value=_FAKE_CP_VM):
+        with patch(_PATCH_BUILD_CP, return_value=_FAKE_CP):
             response = authenticated_client.get("/intelligence/widgets/category_profile")
         assert b"Consistent" in response.data
         assert b"Irregular" in response.data
 
     def test_health_summary_in_response(self, authenticated_client):
-        with patch(_PATCH_BUILD_CP, return_value=_FAKE_CP_VM):
+        with patch(_PATCH_BUILD_CP, return_value=_FAKE_CP):
             response = authenticated_client.get("/intelligence/widgets/category_profile")
         assert b"87.0" in response.data
         assert b"chart-categorization-health" in response.data

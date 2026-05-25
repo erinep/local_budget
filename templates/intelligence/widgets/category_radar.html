@@ -65,7 +65,12 @@
                 <table style="width: 100%; border-collapse: collapse; font-size: var(--text-base);">
                     <tbody>
                         {% for txn in month.top_transactions %}
-                        <tr style="border-top: 1px solid var(--border);">
+                        <tr style="border-top: 1px solid var(--border);
+                                   {% if txn.transaction_id %}cursor: pointer;{% endif %}"
+                            {% if txn.transaction_id %}
+                            onclick="window.location.href='/transactions/{{ txn.transaction_id }}/edit'"
+                            title="Edit transaction"
+                            {% endif %}>
                             <td style="padding: var(--space-2) var(--space-2) var(--space-2) 0;
                                        max-width: 0; width: 50%;
                                        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">

@@ -44,6 +44,7 @@ def build_category_trends(user_id: str, period_months: int = 12) -> CategoryTren
     labels: list[str] = []
     month_keys: list[str] = []
     spend_by_month: dict[str, dict[str, float]] = {}
+    cat_ids: dict[str, str | None] = {}  # category_name → UUID string
 
     for y, m in months:
         label = datetime.date(y, m, 1).strftime("%b %Y")
@@ -57,6 +58,10 @@ def build_category_trends(user_id: str, period_months: int = 12) -> CategoryTren
             for row in rows
             if row.spend > Decimal("0")
         }
+        for row in rows:
+            cat = row.category_name or "Uncategorized"
+            if cat not in cat_ids:
+                cat_ids[cat] = str(row.category_id) if row.category_id else None
 
     # Collect all categories and rank by total spend
     totals: dict[str, float] = {}
@@ -72,6 +77,7 @@ def build_category_trends(user_id: str, period_months: int = 12) -> CategoryTren
     datasets = [
         {
             "label": cat,
+            "category_id": cat_ids.get(cat),
             "data": [spend_by_month[mk].get(cat, 0.0) for mk in month_keys],
         }
         for cat in top_cats
@@ -80,6 +86,7 @@ def build_category_trends(user_id: str, period_months: int = 12) -> CategoryTren
     if other_cats:
         datasets.append({
             "label": "Other",
+            "category_id": None,
             "data": [
                 sum(spend_by_month[mk].get(cat, 0.0) for cat in other_cats)
                 for mk in month_keys

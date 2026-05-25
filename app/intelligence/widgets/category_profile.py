@@ -17,9 +17,20 @@ from app.intelligence.widgets import REGISTRY, WidgetDef
 from app.transactions.services import TransactionFilters, get_transactions
 
 
+_TOP_TXNS_PER_CAT = 40
+
+
+@dataclass(frozen=True)
+class CategoryTransactionBar:
+    transaction_id: str
+    description: str
+    amount: float
+
+
 @dataclass(frozen=True)
 class CategoryProfileRow:
     label: str
+    category_id: str | None  # None for uncategorized rows
     count: int
     total: float
     mean: float
@@ -27,6 +38,7 @@ class CategoryProfileRow:
     cv: float            # coefficient of variation: std_dev / mean
     consistency: str     # "Consistent" | "Mixed" | "Irregular" | "—"
     is_uncategorized: bool
+    top_transactions: list  # list[CategoryTransactionBar], top _TOP_TXNS_PER_CAT by amount desc
 
 
 @dataclass(frozen=True)
@@ -94,16 +106,20 @@ def build_category_profile(user_id: str, period_months: int = 12) -> CategoryPro
     total_spend = categorized_spend + uncategorized_spend
     pct_spend_categorized = round(categorized_spend / total_spend * 100, 1) if total_spend > 0 else 0.0
 
-    # Group outflow amounts by category
-    category_amounts: dict[str, list[float]] = {}
+    # Group outflow transactions by category
+    category_txns: dict[str, list] = {}
+    category_ids: dict[str, str | None] = {}
     for txn in all_txns:
         if float(txn.amount) >= 0:
             continue
         label = txn.category_name or "Uncategorized"
-        category_amounts.setdefault(label, []).append(abs(float(txn.amount)))
+        category_txns.setdefault(label, []).append(txn)
+        if label not in category_ids:
+            category_ids[label] = str(txn.category_id) if txn.category_id else None
 
     rows: list[CategoryProfileRow] = []
-    for label, amounts in category_amounts.items():
+    for label, txns in category_txns.items():
+        amounts = [abs(float(t.amount)) for t in txns]
         count = len(amounts)
         total = sum(amounts)
         mean = total / count
@@ -112,8 +128,20 @@ def build_category_profile(user_id: str, period_months: int = 12) -> CategoryPro
         else:
             std_dev = 0.0
         cv = std_dev / mean if mean > 0 else 0.0
+
+        top_txns = sorted(txns, key=lambda t: abs(float(t.amount)), reverse=True)[:_TOP_TXNS_PER_CAT]
+        top_bars = [
+            CategoryTransactionBar(
+                transaction_id=str(t.id),
+                description=t.description,
+                amount=round(abs(float(t.amount)), 2),
+            )
+            for t in top_txns
+        ]
+
         rows.append(CategoryProfileRow(
             label=label,
+            category_id=category_ids.get(label),
             count=count,
             total=round(total, 2),
             mean=round(mean, 2),
@@ -121,6 +149,7 @@ def build_category_profile(user_id: str, period_months: int = 12) -> CategoryPro
             cv=round(cv, 2),
             consistency=_consistency(cv, count),
             is_uncategorized=(label == "Uncategorized"),
+            top_transactions=top_bars,
         ))
 
     categorized = sorted(
