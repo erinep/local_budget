@@ -17,6 +17,7 @@ import pytest
 from app.intelligence.widgets.category_trends import CategoryTrendsVM
 from app.intelligence.widgets.category_profile import CategoryProfileRow, CategoryProfileVM
 from app.intelligence.widgets.category_radar import CategoryRadarVM, RadarMonthData, RadarTransaction
+from app.intelligence.widgets.category_movers import CategoryMoversVM, MoverItem
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -37,6 +38,7 @@ _FAKE_CT_VM = CategoryTrendsVM(
 _PATCH_BUILD_CT   = "app.intelligence.widgets.category_trends.build_category_trends"
 _PATCH_BUILD_CP   = "app.intelligence.widgets.category_profile.build_category_profile"
 _PATCH_BUILD_CR   = "app.intelligence.widgets.category_radar.build_category_radar"
+_PATCH_BUILD_CM   = "app.intelligence.widgets.category_movers.build_category_movers"
 
 _FAKE_CP_VM = CategoryProfileVM(
     title="Category Profile",
@@ -87,10 +89,22 @@ _FAKE_CR_VM = CategoryRadarVM(
 
 import datetime as _dt
 
+_FAKE_CM_VM = CategoryMoversVM(
+    title="Category Movers",
+    items=[
+        MoverItem(category_name="Groceries",  current=420.0, prior=335.0, delta=85.0,  pct_change=25.4),
+        MoverItem(category_name="Dining",     current=180.0, prior=210.0, delta=-30.0, pct_change=-14.3),
+        MoverItem(category_name="Transport",  current=95.0,  prior=80.0,  delta=15.0,  pct_change=18.8),
+    ],
+    current_label="April 2026",
+    prior_label="March 2026",
+)
+
 _ALL_WIDGET_PATCHES = [
     (_PATCH_BUILD_CT,   _FAKE_CT_VM),
     (_PATCH_BUILD_CP,   _FAKE_CP_VM),
     (_PATCH_BUILD_CR,   _FAKE_CR_VM),
+    (_PATCH_BUILD_CM,   _FAKE_CM_VM),
 ]
 
 
@@ -233,4 +247,26 @@ class TestCategoryRadarWidget:
         assert b"chart-category-radar" in response.data
 
 
+# ===========================================================================
+# GET /intelligence/widgets/category_movers
+# ===========================================================================
 
+class TestCategoryMoversWidget:
+    """HTMX fragment endpoint for category_movers widget."""
+
+    def test_unauthenticated_redirects_to_login(self, client):
+        response = client.get("/intelligence/widgets/category_movers", follow_redirects=False)
+        assert response.status_code == 302
+        assert "/auth/login" in response.headers.get("Location", "")
+
+    def test_authenticated_returns_200(self, authenticated_client):
+        with patch(_PATCH_BUILD_CM, return_value=_FAKE_CM_VM):
+            response = authenticated_client.get("/intelligence/widgets/category_movers")
+        assert response.status_code == 200
+
+    def test_response_contains_categories_and_deltas(self, authenticated_client):
+        with patch(_PATCH_BUILD_CM, return_value=_FAKE_CM_VM):
+            response = authenticated_client.get("/intelligence/widgets/category_movers")
+        assert b"Groceries" in response.data
+        assert b"85.00" in response.data
+        assert b"30.00" in response.data
