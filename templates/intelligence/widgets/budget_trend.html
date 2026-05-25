@@ -1,0 +1,57 @@
+<style>
+.bt-cell { text-align: center; padding: var(--space-2) var(--space-1); font-size: var(--text-xs); font-variant-numeric: tabular-nums; border-radius: var(--radius-sm); }
+.bt-cell--under   { background: #dcfce7; color: #166534; }
+.bt-cell--near    { background: #fef9c3; color: #854d0e; }
+.bt-cell--over    { background: #fee2e2; color: #991b1b; }
+.bt-cell--no_data { background: var(--surface-2); color: var(--muted); }
+</style>
+
+<div class="card" id="widget-budget-trend"
+     hx-get="{{ url_for('intelligence.widget', key='budget_trend') }}"
+     hx-trigger="none"
+     hx-target="#widget-budget-trend"
+     hx-swap="outerHTML">
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">{{ budget_trend.title }}</h2>
+    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-4);">
+        Last {{ budget_trend.period_months }} complete months &middot; budgeted categories only
+    </p>
+
+    {% if budget_trend.rows %}
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: separate; border-spacing: 3px; font-size: var(--text-sm);">
+            <thead>
+                <tr>
+                    <th style="text-align: left; padding: var(--space-1) var(--space-2) var(--space-1) 0; color: var(--muted); font-weight: 500; white-space: nowrap; min-width: 130px;"></th>
+                    {% for label in budget_trend.month_labels %}
+                    <th style="text-align: center; padding: var(--space-1); color: var(--muted); font-weight: 500; white-space: nowrap; min-width: 72px;">{{ label }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in budget_trend.rows %}
+                <tr>
+                    <td style="padding: var(--space-1) var(--space-2) var(--space-1) 0; white-space: nowrap; font-size: var(--text-sm);">{{ row.category_name }}</td>
+                    {% for cell in row.cells %}
+                    <td class="bt-cell bt-cell--{{ cell.status }}" title="${{ '%.2f'|format(cell.actual) }}{% if cell.pct_used %} ({{ cell.pct_used }}% of budget){% endif %}">
+                        {% if cell.status != 'no_data' %}
+                        {{ cell.pct_used|int }}%
+                        {% else %}
+                        &mdash;
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div style="display: flex; gap: var(--space-4); margin-top: var(--space-4); font-size: var(--text-xs); color: var(--muted);">
+        <span><span class="bt-cell bt-cell--under" style="display:inline-block;padding:2px 8px;">Under</span> &lt;80%</span>
+        <span><span class="bt-cell bt-cell--near"  style="display:inline-block;padding:2px 8px;">Near</span> 80–100%</span>
+        <span><span class="bt-cell bt-cell--over"  style="display:inline-block;padding:2px 8px;">Over</span> &gt;100%</span>
+    </div>
+    {% else %}
+    <p style="color: var(--muted); font-size: var(--text-sm);">No budget targets set. Add budgets to see your trend.</p>
+    {% endif %}
+</div>

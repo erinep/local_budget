@@ -1,0 +1,115 @@
+<div class="card" id="widget-category-radar"
+     hx-get="{{ url_for('intelligence.widget', key='category_radar') }}"
+     hx-trigger="none"
+     hx-target="#widget-category-radar"
+     hx-swap="outerHTML">
+
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--space-3);">
+        <div>
+            <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">{{ category_radar.title }}</h2>
+            <p style="font-size: var(--text-sm); color: var(--muted); margin: 0;">
+                Top {{ category_radar.labels | length }} categories &middot; click a month to compare
+            </p>
+        </div>
+        <button id="cr-overlay-toggle"
+                style="font-size: var(--text-xs); padding: 4px 12px; border-radius: 999px;
+                       border: 1px solid var(--border); background: transparent;
+                       color: var(--muted); cursor: pointer; white-space: nowrap; flex-shrink: 0;">
+            Compare prev. month
+        </button>
+    </div>
+
+    {% if category_radar.labels %}
+
+    {# Month pill strip #}
+    <div style="display: flex; flex-wrap: wrap; gap: var(--space-1); margin-bottom: var(--space-4);">
+        {% for month in category_radar.months %}
+        <button class="cr-pill{% if loop.first %} cr-pill--active{% endif %}"
+                data-cr-index="{{ loop.index0 }}"
+                style="font-size: var(--text-xs); padding: 3px 10px; border-radius: 999px;
+                       border: 1px solid var(--border); cursor: pointer;
+                       background: {% if loop.first %}var(--accent){% else %}transparent{% endif %};
+                       color: {% if loop.first %}#fff{% else %}var(--text){% endif %};">
+            {{ month.label }}
+        </button>
+        {% endfor %}
+    </div>
+
+    {# Chart + detail: square canvas container alongside fixed-width detail panel #}
+    <div style="display: grid; grid-template-columns: minmax(0, 1fr) 440px; gap: var(--space-6); align-items: start;">
+
+        {# Aspect-ratio wrapper keeps the radar square so labels never overflow #}
+        <div style="position: relative; aspect-ratio: 1 / 1; width: 100%; max-width: 600px;">
+            <canvas id="chart-category-radar"
+                    data-chart='{{ category_radar_chart | tojson }}'
+                    style="position: absolute; inset: 0; width: 100% !important; height: 100% !important;">
+            </canvas>
+        </div>
+
+        {# Detail panel — only the active month block is shown #}
+        <div id="cr-detail">
+            {% for month in category_radar.months %}
+            <div class="cr-month-detail" data-cr-detail-index="{{ loop.index0 }}"
+                 style="display: {% if loop.first %}block{% else %}none{% endif %};">
+
+                <p style="font-size: var(--text-xs); color: var(--muted); text-transform: uppercase;
+                           letter-spacing: 0.06em; margin: 0 0 var(--space-1);">Total spend</p>
+                <p style="font-size: var(--text-2xl); font-weight: 700;
+                           font-variant-numeric: tabular-nums; margin: 0 0 var(--space-4);">
+                    ${{ "%.2f"|format(month.total) }}
+                </p>
+
+                {% if month.top_transactions %}
+                <p style="font-size: var(--text-xs); color: var(--muted); text-transform: uppercase;
+                           letter-spacing: 0.06em; margin: 0 0 var(--space-2);">Top transactions</p>
+                <table style="width: 100%; border-collapse: collapse; font-size: var(--text-base);">
+                    <tbody>
+                        {% for txn in month.top_transactions %}
+                        <tr style="border-top: 1px solid var(--border);">
+                            <td style="padding: var(--space-2) var(--space-2) var(--space-2) 0;
+                                       max-width: 0; width: 50%;
+                                       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                {{ txn.description }}
+                            </td>
+                            <td style="padding: var(--space-2); white-space: nowrap;">
+                                <span style="font-size: var(--text-xs); background: var(--surface-2);
+                                             border-radius: var(--radius-sm); padding: 2px 6px;
+                                             color: var(--muted);">
+                                    {{ txn.category_name or "—" }}
+                                </span>
+                                {% if txn.is_outlier %}
+                                <span style="font-size: var(--text-xs); background: #fef3c7;
+                                             color: #92400e; border-radius: var(--radius-sm);
+                                             padding: 2px 6px; margin-left: 2px;">
+                                    unusual
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td style="padding: var(--space-2) 0 var(--space-2) var(--space-2);
+                                       text-align: right; font-weight: 600;
+                                       font-variant-numeric: tabular-nums; white-space: nowrap;">
+                                ${{ "%.2f"|format(txn.amount) }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <p style="font-size: var(--text-xs); color: var(--muted); margin: var(--space-3) 0 0;">
+                    <span style="background: #fef3c7; color: #92400e; border-radius: var(--radius-sm); padding: 2px 6px;">unusual</span>
+                    flags transactions more than 2 standard deviations above the 12-month average for that category.
+                </p>
+                {% else %}
+                <p style="color: var(--muted); font-size: var(--text-sm);">No transactions this period.</p>
+                {% endif %}
+
+            </div>
+            {% endfor %}
+        </div>
+
+    </div>
+
+    {% else %}
+    <p style="color: var(--muted); font-size: var(--text-sm);">No categorized transactions found in this period.</p>
+    {% endif %}
+
+</div>

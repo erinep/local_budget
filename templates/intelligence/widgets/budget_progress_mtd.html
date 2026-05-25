@@ -1,0 +1,48 @@
+<div class="card" id="widget-budget-progress-mtd"
+     hx-get="{{ url_for('intelligence.widget', key='budget_progress_mtd') }}"
+     hx-trigger="none"
+     hx-target="#widget-budget-progress-mtd"
+     hx-swap="outerHTML">
+    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">{{ budget_progress_mtd.title }}</h2>
+    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-4);">
+        {{ budget_progress_mtd.current_month_label }}
+        &middot; day {{ budget_progress_mtd.days_elapsed }} of {{ budget_progress_mtd.days_in_month }}
+        &middot; {{ budget_progress_mtd.pct_of_month | int }}% through the month
+    </p>
+
+    {% if budget_progress_mtd.items %}
+    <div>
+        {% for item in budget_progress_mtd.items %}
+        {% if item.status == "over" %}{% set fill = "#dc2626" %}
+        {% elif item.status == "projected_over" %}{% set fill = "#ea580c" %}
+        {% elif item.status == "near" %}{% set fill = "#d97706" %}
+        {% else %}{% set fill = "#0f766e" %}{% endif %}
+
+        <div style="margin-bottom: var(--space-4);">
+            <div style="display: flex; justify-content: space-between; margin-bottom: var(--space-1); font-size: var(--text-sm);">
+                <span>{{ item.category_name }}</span>
+                <span style="color: var(--muted); font-variant-numeric: tabular-nums;">
+                    ${{ "%.2f"|format(item.actual) }} / ${{ "%.2f"|format(item.target) }}
+                </span>
+            </div>
+            <div style="position: relative; height: 8px; background: var(--surface-2); border-radius: 4px;">
+                <div style="position: absolute; left: 0; top: 0; height: 100%; width: {{ [item.pct_actual, 100] | min }}%; background: {{ fill }}; border-radius: 4px;"></div>
+                {% if item.pct_projected > 0 and item.pct_projected <= 150 %}
+                <div style="position: absolute; left: {{ [item.pct_projected, 100] | min }}%; top: -3px; height: 14px; width: 2px; background: var(--muted); border-radius: 1px;"
+                     title="Projected: ${{ '%.2f'|format(item.projected) }}"></div>
+                {% endif %}
+            </div>
+            {% if item.status == "over" %}
+            <p style="font-size: var(--text-xs); color: #dc2626; margin: var(--space-1) 0 0;">Over budget</p>
+            {% elif item.status == "projected_over" %}
+            <p style="font-size: var(--text-xs); color: #ea580c; margin: var(--space-1) 0 0;">
+                Projected to reach ${{ "%.2f"|format(item.projected) }} by month end
+            </p>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p style="color: var(--muted); font-size: var(--text-sm);">No budget targets set for this month.</p>
+    {% endif %}
+</div>
