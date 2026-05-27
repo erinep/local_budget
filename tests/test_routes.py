@@ -208,3 +208,34 @@ def test_oversized_upload_rejected(auth_client):
     with patch("app.transactions.routes.get_accounts", return_value=[]):
         response = auth_client.post("/upload", data=data, content_type="multipart/form-data")
     assert response.status_code == 413
+
+
+# ---------------------------------------------------------------------------
+# Header validation
+# ---------------------------------------------------------------------------
+
+def test_missing_required_column_shows_error(auth_client):
+    # CSV that omits CAD$ — should surface a clear error, not a 500.
+    csv = io.BytesIO(b"Transaction Date,Description 1\n2026-01-15,GROCERY STORE\n")
+    csv.name = "transactions.csv"
+    with patch("app.transactions.routes.get_accounts", return_value=[]), \
+         patch("app.transactions.routes.list_categories", return_value=[]), \
+         patch("app.transactions.routes.get_merchant_aliases", return_value=[]):
+        data = {"file": (csv, "transactions.csv")}
+        response = auth_client.post("/upload", data=data, content_type="multipart/form-data")
+    assert response.status_code == 200
+    assert b"Missing required column" in response.data
+    assert b"CAD$" in response.data
+
+
+def test_unparseable_csv_shows_error(auth_client):
+    # Simulate pandas raising a ParserError (e.g. corrupt encoding, truncated file).
+    import pandas as pd
+    with patch("app.transactions.routes.get_accounts", return_value=[]), \
+         patch("app.transactions.routes.list_categories", return_value=[]), \
+         patch("app.transactions.routes.get_merchant_aliases", return_value=[]), \
+         patch("app.transactions.routes.pd.read_csv", side_effect=pd.errors.ParserError("bad")):
+        data = {"file": (io.BytesIO(b"garbage"), "transactions.csv")}
+        response = auth_client.post("/upload", data=data, content_type="multipart/form-data")
+    assert response.status_code == 200
+    assert b"Could not parse the file" in response.data

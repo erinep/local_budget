@@ -91,7 +91,27 @@ def upload():
         aliases = get_merchant_aliases(g.user.id)
         categorize = make_categorizer_v2(g.user.id, keywords, aliases)
 
-        df = pd.read_csv(io.BytesIO(file_bytes), encoding="latin1")
+        try:
+            df = pd.read_csv(io.BytesIO(file_bytes), encoding="latin1")
+        except Exception:
+            return render_template(
+                "upload.html",
+                accounts=accounts,
+                error="Could not parse the file. Make sure it is a valid CSV export.",
+            )
+
+        required_columns = {"Transaction Date", "Description 1", "CAD$"}
+        missing = required_columns - set(df.columns)
+        if missing:
+            return render_template(
+                "upload.html",
+                accounts=accounts,
+                error=(
+                    f"Missing required column(s): {', '.join(sorted(missing))}. "
+                    "Expected columns: Transaction Date, Description 1, CAD$."
+                ),
+            )
+
         df = df[["Transaction Date", "Description 1", "CAD$"]]
 
         df["Transaction Date"] = pd.to_datetime(
