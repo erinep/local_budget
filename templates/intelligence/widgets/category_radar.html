@@ -73,7 +73,6 @@
                         {% for txn in month.top_transactions %}
                         {% set no_budget = txn.category_name not in category_radar.labels %}
                         <tr style="border-top: 1px solid var(--border);
-                                   {% if no_budget %}background: #fef2f2;{% endif %}
                                    {% if txn.transaction_id %}cursor: pointer;{% endif %}"
                             {% if txn.transaction_id %}
                             onclick="window.location.href='/transactions/{{ txn.transaction_id }}/edit'"
@@ -90,6 +89,13 @@
                                              color: var(--muted);">
                                     {{ txn.category_name or "—" }}
                                 </span>
+                                {% if no_budget %}
+                                <span style="font-size: var(--text-xs); background: #fee2e2;
+                                             color: #991b1b; border-radius: var(--radius-sm);
+                                             padding: 2px 6px; margin-left: 2px;">
+                                    no budget
+                                </span>
+                                {% endif %}
                                 {% if txn.is_outlier %}
                                 <span style="font-size: var(--text-xs); background: #fef3c7;
                                              color: #92400e; border-radius: var(--radius-sm);
