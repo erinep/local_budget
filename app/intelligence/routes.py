@@ -26,13 +26,15 @@ _MUTED    = '#94a3b8'
 _PALETTE  = ['#0f766e','#2563eb','#d97706','#7c3aed','#db2777','#059669','#ea580c','#0891b2']
 
 
-def _category_trends_vm(user_id, period_months):
+def _category_trends_vm(user_id, period_months, granularity="month"):
     from app.intelligence.widgets.category_trends import build_category_trends
-    ct_vm = build_category_trends(user_id, period_months)
+    ct_vm = build_category_trends(user_id, period_months, granularity)
     n = len(ct_vm.labels)
     total = [sum(ds["data"][i] for ds in ct_vm.datasets) for i in range(n)]
     chart = {
         "labels": ct_vm.labels,
+        "dates": ct_vm.dates,
+        "granularity": ct_vm.granularity,
         "total": total,
         "datasets": ct_vm.datasets,
     }
@@ -48,6 +50,8 @@ def _category_radar_vm(user_id, period_months):
             {"label": m.label, "data": m.data, "is_current": m.is_current}
             for m in vm.months
         ],
+        "budget_data": vm.budget_data,   # always [100.0, ...] after normalisation
+        "has_budgets": vm.has_budgets,
     }
     return vm, chart
 
@@ -72,9 +76,12 @@ def _category_profile_vm(user_id, period_months):
 @login_required
 def dashboard():
     """Widget dashboard (Phase 5d, ADR-0039)."""
-    period_months = min(max(request.args.get("months", 12, type=int), 1), 36)
+    period_months = min(max(request.args.get("months", 12, type=int), 0), 36)
+    granularity = request.args.get("granularity", "month")
+    if granularity not in ("day", "week", "month"):
+        granularity = "month"
 
-    ct_vm,   ct_chart   = _category_trends_vm(g.user.id, period_months)
+    ct_vm,   ct_chart   = _category_trends_vm(g.user.id, period_months, granularity)
     cp_vm,   cp_charts  = _category_profile_vm(g.user.id, period_months)
     cr_vm,   cr_chart   = _category_radar_vm(g.user.id, period_months)
     cm_vm               = _category_movers_vm(g.user.id, period_months)
@@ -84,6 +91,7 @@ def dashboard():
         category_profile=cp_vm,        category_profile_charts=cp_charts,
         category_radar=cr_vm,          category_radar_chart=cr_chart,
         category_movers=cm_vm,
+        period_months=period_months,
     )
 
 
@@ -94,10 +102,13 @@ def widget(key: str):
     if key not in REGISTRY:
         abort(404)
 
-    period_months = min(max(request.args.get("months", 12, type=int), 1), 36)
+    period_months = min(max(request.args.get("months", 12, type=int), 0), 36)
+    granularity = request.args.get("granularity", "month")
+    if granularity not in ("day", "week", "month"):
+        granularity = "month"
 
     if key in ("category_trends", "category_trends_stacked"):
-        vm, chart = _category_trends_vm(g.user.id, period_months)
+        vm, chart = _category_trends_vm(g.user.id, period_months, granularity)
         return render_template(REGISTRY[key].template, category_trends=vm, category_trends_chart=chart)
 
     if key == "category_profile":

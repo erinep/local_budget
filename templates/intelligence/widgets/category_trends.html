@@ -1,15 +1,32 @@
 {% from "intelligence/macros.html" import category_pills %}
 <div class="card" id="widget-category-trends"
-     hx-get="{{ url_for('intelligence.widget', key='category_trends') }}"
-     hx-trigger="none"
+     x-data="ctWidget"
      hx-target="#widget-category-trends"
      hx-swap="outerHTML">
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-3);">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-3);">
         <h2 style="font-size: var(--text-lg); margin: 0;">{{ category_trends.title }}</h2>
-        <label class="ct-total-toggle">
-            <input type="checkbox" id="ct-total-checkbox" checked>
-            <span>Show total</span>
-        </label>
+        <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
+            <nav class="date-range-picker" aria-label="Date range">
+                {% for label, months in [("This month", 0), ("3M", 3), ("6M", 6), ("12M", 12), ("24M", 24)] %}
+                <a hx-get="{{ url_for('intelligence.widget', key='category_trends', months=months, granularity=category_trends.granularity) }}"
+                   class="drp-pill{% if category_trends.period_months == months %} drp-pill--active{% endif %}">
+                    {{ label }}
+                </a>
+                {% endfor %}
+            </nav>
+            <nav class="date-range-picker" aria-label="Granularity">
+                {% for label, gran in [("Daily", "day"), ("Weekly", "week"), ("Monthly", "month")] %}
+                <a hx-get="{{ url_for('intelligence.widget', key='category_trends', months=category_trends.period_months, granularity=gran) }}"
+                   class="drp-pill{% if category_trends.granularity == gran %} drp-pill--active{% endif %}">
+                    {{ label }}
+                </a>
+                {% endfor %}
+            </nav>
+            <label class="ct-total-toggle">
+                <input type="checkbox" id="ct-total-checkbox">
+                <span>Show total</span>
+            </label>
+        </div>
     </div>
 
     {{ category_pills(category_trends.datasets, "ct-pill-all") }}
@@ -19,6 +36,13 @@
                 data-chart='{{ category_trends_chart | tojson }}'></canvas>
     </div>
     <p style="margin: var(--space-3) 0 0; font-size: var(--text-sm); color: var(--muted);">
-        Last {{ category_trends.period_months }} complete months &middot; active accounts only
+        {% if category_trends.period_months == 0 %}
+            Current month
+        {% else %}
+            Last {{ category_trends.period_months }} months
+        {% endif %}
+        &middot;
+        {% if category_trends.granularity == "day" %}daily{% elif category_trends.granularity == "week" %}weekly{% else %}monthly{% endif %}
+        &middot; active accounts only
     </p>
 </div>

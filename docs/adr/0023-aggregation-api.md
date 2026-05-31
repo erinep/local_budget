@@ -341,7 +341,7 @@ The `try/except Exception` wrapper in `_get_spending_summary` is preserved as-is
 - **Positive.** Uncategorized transactions are represented as `category_id=None` rows rather than a magic sentinel string — the Budgeting Module can handle them without special-casing a string comparison.
 - **Positive.** `transaction_count` on `CategorySpend` is available at no extra query cost and supports future UI elements ("47 coffee transactions this month").
 - **Negative.** The new covering index `idx_transactions_user_date_category` adds minor write overhead on every transaction insert. At personal-finance scale this is negligible and the read benefit justifies it.
-- **Negative.** `get_spend_history` issues N queries for N periods. For a 12-month trend view that is 12 small indexed queries. Acceptable at this scale; a future optimization (single query with date bucketing) does not change the contract.
+- **Negative (resolved in Phase 5d).** `get_spend_history` issues N queries for N periods. For a 12-month trend view that is 12 small indexed queries. Acceptable at Phase 3c scale. The Intelligence Dashboard's date range picker made this a live performance issue; [ADR-0042](0042-batched-monthly-spend-query.md) resolves it by adding `get_spend_by_category_monthly` — a single query that groups by `(year, month, category)` across the full range.
 - **Negative.** The Phase 3c Alembic migration must be authored and reviewed before this contract can be exercised in production. The implementation agent holds the migration write-lock for that revision.
 - **Follow-up.** The implementation agent must add `DateRange`, `CategorySpend`, and `PeriodSpend` to the module docstring's "Public API" list and reference ADR-0023.
 - **Follow-up.** The test-writer agent must cover: empty-period result, uncategorized-only month, mixed categorized/uncategorized, `account_id` filter, `get_spend_history` with non-overlapping and overlapping periods, and the `ValueError` cases.
@@ -350,6 +350,9 @@ The `try/except Exception` wrapper in `_get_spending_summary` is preserved as-is
 
 ## Notes
 
-ADR-0017 listed `get_spend_by_category` and `get_spend_history` as the Phase 3c additions and explicitly deferred their contract to this ADR. The four-method shape of the Transaction Engine read API is now complete: `get_transactions`, `get_transaction` (ADR-0017), `get_spend_by_category`, `get_spend_history` (this ADR). Any addition beyond these four requires a new ADR.
+ADR-0017 listed `get_spend_by_category` and `get_spend_history` as the Phase 3c additions and explicitly deferred their contract to this ADR. The four-method shape of the Transaction Engine read API was complete at the time of writing: `get_transactions`, `get_transaction` (ADR-0017), `get_spend_by_category`, `get_spend_history` (this ADR). Any addition beyond these four requires a new ADR.
+
+**Phase 5d addition — batched monthly spend query ([ADR-0042](0042-batched-monthly-spend-query.md)).**
+The Intelligence Dashboard's multi-month widgets (`category_trends`, `category_radar`) exhibited an N+1 query pattern: one `get_spend_by_category` call per month slot. ADR-0042 adds `CategorySpendMonthly` and `get_spend_by_category_monthly` to the exported API surface as a fifth method. The existing four methods are unchanged. See ADR-0042 for the full decision record, SQL shape, and new dataclass definition.
 
 The `DateRange` type is defined in `app/transactions/services.py` (the Transaction Engine module) rather than in a shared utility module. This keeps it co-located with the functions that consume it and avoids creating a shared-utilities module — a pattern that tends to become a catch-all. If Phase 4 or 5 needs an equivalent date-window type, they import `DateRange` from `app.transactions.services` directly, which is consistent with ADR-0003 (all cross-module reads via the Transaction Engine service layer).

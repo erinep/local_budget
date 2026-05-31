@@ -27,12 +27,14 @@ _USER_ID = "00000000-0000-0000-0000-000000000001"
 
 _FAKE_CT_VM = CategoryTrendsVM(
     title="Spending by Category",
-    labels=["Apr 2026", "May 2026"],
+    labels=["Apr 2026", "May 2026 (MTD)"],
+    dates=["2026-04-01", "2026-05-01"],
     datasets=[
         {"label": "Groceries", "data": [400.0, 350.0]},
         {"label": "Dining", "data": [120.0, 95.0]},
     ],
     period_months=12,
+    granularity="month",
 )
 
 _PATCH_BUILD_CT   = "app.intelligence.widgets.category_trends.build_category_trends"
@@ -83,21 +85,24 @@ def _radar_month(label, data, is_current):
 
 _FAKE_CR_VM = CategoryRadarVM(
     title="Category Radar",
-    labels=["Groceries", "Dining", "Transport"],
+    labels=["Groceries", "Dining"],          # Transport excluded — no budget
     months=[
-        _radar_month("May (MTD)", [300.0, 80.0, 50.0], True),
-        _radar_month("Apr",       [350.0, 95.0, 60.0], False),
-        _radar_month("Mar",       [320.0, 90.0, 55.0], False),
-        _radar_month("Feb",       [310.0, 85.0, 52.0], False),
-        _radar_month("Jan",       [330.0, 92.0, 58.0], False),
-        _radar_month("Dec",       [400.0, 120.0, 65.0], False),
-        _radar_month("Nov",       [360.0, 100.0, 61.0], False),
-        _radar_month("Oct",       [340.0, 88.0, 57.0], False),
-        _radar_month("Sep",       [315.0, 82.0, 53.0], False),
-        _radar_month("Aug",       [325.0, 87.0, 56.0], False),
-        _radar_month("Jul",       [335.0, 91.0, 59.0], False),
-        _radar_month("Jun",       [345.0, 94.0, 62.0], False),
+        _radar_month("May (MTD)", [75.0,  53.3], True),
+        _radar_month("Apr",       [87.5,  63.3], False),
+        _radar_month("Mar",       [80.0,  60.0], False),
+        _radar_month("Feb",       [77.5,  56.7], False),
+        _radar_month("Jan",       [82.5,  61.3], False),
+        _radar_month("Dec",       [100.0, 80.0], False),
+        _radar_month("Nov",       [90.0,  66.7], False),
+        _radar_month("Oct",       [85.0,  58.7], False),
+        _radar_month("Sep",       [78.8,  54.7], False),
+        _radar_month("Aug",       [81.3,  58.0], False),
+        _radar_month("Jul",       [83.8,  60.7], False),
+        _radar_month("Jun",       [86.3,  62.7], False),
     ],
+    budget_data=[100.0, 100.0],
+    has_budgets=True,
+    unbudgeted_cats=["Transport"],
 )
 
 import datetime as _dt
