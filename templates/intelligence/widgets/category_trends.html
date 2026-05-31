@@ -1,6 +1,5 @@
 {% from "intelligence/macros.html" import category_pills %}
 <div class="card" id="widget-category-trends"
-     x-data="ctWidget"
      hx-target="#widget-category-trends"
      hx-swap="outerHTML">
     <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-3);">
@@ -31,7 +30,7 @@
 
     {{ category_pills(category_trends.datasets, "ct-pill-all") }}
 
-    <div class="chart-host" style="min-height: 280px;">
+    <div class="chart-host" style="height: 300px;">
         <canvas id="chart-category-trends"
                 data-chart='{{ category_trends_chart | tojson }}'></canvas>
     </div>

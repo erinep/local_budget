@@ -37,200 +37,216 @@
         });
     }
 
+    // --- Category Trends: localStorage helpers ---
+    function _ctLoadHidden() {
+        try { return JSON.parse(localStorage.getItem('ct-category-hidden')) || {}; } catch (e) { return {}; }
+    }
+    function _ctSaveHidden(v) { localStorage.setItem('ct-category-hidden', JSON.stringify(v)); }
+    function _ctLoadShowTotal() {
+        var v = localStorage.getItem('ct-show-total');
+        return v === null ? true : v === 'true';
+    }
+    function _ctSaveShowTotal(v) { localStorage.setItem('ct-show-total', String(v)); }
+
     // --- Spending overview: category lines + bold total overlay ---
-    // Alpine component — hidden categories and showTotal persist across HTMX
-    // fragment swaps via $persist (localStorage). The pickers trigger hx-get
-    // swaps of just this widget; Alpine re-inits on the new element and restores
-    // state from localStorage automatically (ADR-0038).
-    document.addEventListener('alpine:init', function () {
-        Alpine.data('ctWidget', function () {
+    function _initCategoryTrends() {
+        var widget = document.getElementById('widget-category-trends');
+        if (!widget || !window.Chart) return;
+        var el = widget.querySelector('#chart-category-trends');
+        if (!el) return;
+
+        var existing = Chart.getChart(el);
+        if (existing) existing.destroy();
+
+        var hidden    = _ctLoadHidden();
+        var showTotal = _ctLoadShowTotal();
+
+        var data   = JSON.parse(el.dataset.chart);
+        var colors = data.datasets.map(function (_, i) { return PALETTE[i % PALETTE.length]; });
+
+        var catDatasets = data.datasets.map(function (ds, i) {
             return {
-                hidden:    this.$persist({}).as('ct-category-hidden'),
-                showTotal: this.$persist(true).as('ct-show-total'),
-
-                init: function () {
-                    var self = this;
-                    var el = self.$el.querySelector('#chart-category-trends');
-                    if (!el || !window.Chart) return;
-
-                    // Destroy any prior Chart.js instance on this canvas (HTMX re-use)
-                    var existing = Chart.getChart(el);
-                    if (existing) { existing.destroy(); }
-
-                    var data = JSON.parse(el.dataset.chart);
-                    var colors = data.datasets.map(function (_, i) { return PALETTE[i % PALETTE.length]; });
-
-                    var catDatasets = data.datasets.map(function (ds, i) {
-                        return {
-                            label: ds.label,
-                            data: ds.data,
-                            borderColor: colors[i],
-                            backgroundColor: 'transparent',
-                            borderWidth: 2,
-                            tension: 0.3,
-                            pointRadius: 4,
-                            pointHoverRadius: 8,
-                            pointHitRadius: 16,
-                        };
-                    });
-
-                    var totalIdx = catDatasets.length;
-                    var totalDataset = {
-                        label: 'Total',
-                        data: data.total,
-                        borderColor: '#475569',
-                        backgroundColor: 'transparent',
-                        borderWidth: 3,
-                        tension: 0.3,
-                        pointRadius: 4,
-                        pointHoverRadius: 8,
-                        pointHitRadius: 16,
-                    };
-
-                    function hexToRgba(hex, alpha) {
-                        var r = parseInt(hex.slice(1, 3), 16);
-                        var g = parseInt(hex.slice(3, 5), 16);
-                        var b = parseInt(hex.slice(5, 7), 16);
-                        return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
-                    }
-
-                    function setCategoryOpacity(muted) {
-                        catDatasets.forEach(function (_, i) {
-                            chart.data.datasets[i].borderColor = muted ? hexToRgba(colors[i], 0.3) : colors[i];
-                        });
-                    }
-
-                    function daysInMonth(y, m) { return new Date(y, m, 0).getDate(); }
-                    function pad(n) { return n < 10 ? '0' + n : '' + n; }
-                    function labelToRange(idx) {
-                        var d = data.dates && data.dates[idx];
-                        if (!d) return null;
-                        if (data.granularity === 'day') {
-                            return { from: d, to: d };
-                        } else if (data.granularity === 'week') {
-                            var dt = new Date(d + 'T00:00:00');
-                            dt.setDate(dt.getDate() + 6);
-                            var to = dt.getFullYear() + '-' + pad(dt.getMonth() + 1) + '-' + pad(dt.getDate());
-                            return { from: d, to: to };
-                        } else {
-                            var parts = d.split('-');
-                            var y = parseInt(parts[0], 10);
-                            var m = parseInt(parts[1], 10);
-                            return { from: d, to: y + '-' + pad(m) + '-' + daysInMonth(y, m) };
-                        }
-                    }
-
-                    var chart = new Chart(el, {
-                        type: 'line',
-                        data: { labels: data.labels, datasets: catDatasets.concat([totalDataset]) },
-                        options: {
-                            responsive: true,
-                            interaction: { mode: 'nearest', intersect: false },
-                            plugins: {
-                                legend: { display: false },
-                                tooltip: { callbacks: { label: dollarTooltip, footer: function () { return 'Click to see transactions'; } } }
-                            },
-                            scales: {
-                                x: { offset: true },
-                                y: { beginAtZero: true, ticks: { callback: dollarTick } }
-                            },
-                            onClick: function (evt) {
-                                var nearest = chart.getElementsAtEventForMode(evt.native, 'nearest', { intersect: false }, false);
-                                if (!nearest.length) return;
-                                var pointIdx   = nearest[0].index;
-                                var datasetIdx = nearest[0].datasetIndex;
-                                var range = labelToRange(pointIdx);
-                                if (!range) return;
-                                var ds = data.datasets[datasetIdx];
-                                var url = '/transactions?date_from=' + range.from + '&date_to=' + range.to;
-                                if (ds && ds.category_id) {
-                                    url += '&category_id=' + ds.category_id;
-                                } else if (ds && ds.label === 'Uncategorized') {
-                                    url += '&uncategorized=1';
-                                }
-                                window.location.href = url;
-                            },
-                            onHover: function (evt) {
-                                var points = chart.getElementsAtEventForMode(evt.native, 'nearest', { intersect: true }, false);
-                                evt.native.target.style.cursor = points.length ? 'pointer' : 'default';
-                            },
-                        }
-                    });
-
-                    // Restore persisted hidden categories and set pill colours
-                    var pills = self.$el.querySelectorAll('.ct-pill[data-index]');
-                    pills.forEach(function (pill) {
-                        var i = Number(pill.dataset.index);
-                        var label = data.datasets[i] && data.datasets[i].label;
-                        pill.style.setProperty('--pill-color', colors[i]);
-                        if (label && self.hidden[label]) {
-                            chart.getDatasetMeta(i).hidden = true;
-                        } else {
-                            pill.classList.add('ct-pill--active');
-                        }
-                    });
-
-                    var allVisible = Array.from(pills).every(function (p) { return p.classList.contains('ct-pill--active'); });
-                    var allBtn = self.$el.querySelector('#ct-pill-all');
-                    allBtn.classList.toggle('ct-pill--active', allVisible);
-
-                    // Restore persisted showTotal state
-                    var totalCheckbox = self.$el.querySelector('#ct-total-checkbox');
-                    totalCheckbox.checked = self.showTotal;
-                    chart.getDatasetMeta(totalIdx).hidden = !self.showTotal;
-                    setCategoryOpacity(self.showTotal);
-                    chart.update();
-
-                    totalCheckbox.addEventListener('change', function () {
-                        self.showTotal = totalCheckbox.checked;
-                        chart.getDatasetMeta(totalIdx).hidden = !self.showTotal;
-                        setCategoryOpacity(self.showTotal);
-                        chart.update();
-                    });
-
-                    function setAll(active) {
-                        var newHidden = {};
-                        catDatasets.forEach(function (_, j) {
-                            chart.getDatasetMeta(j).hidden = !active;
-                            if (!active && data.datasets[j]) { newHidden[data.datasets[j].label] = true; }
-                        });
-                        pills.forEach(function (p) { p.classList.toggle('ct-pill--active', active); });
-                        allBtn.classList.toggle('ct-pill--active', active);
-                        self.hidden = newHidden;
-                        chart.update();
-                    }
-                    allBtn.addEventListener('click', function () {
-                        setAll(!allBtn.classList.contains('ct-pill--active'));
-                    });
-
-                    pills.forEach(function (pill) {
-                        pill.addEventListener('click', function () {
-                            var i = Number(pill.dataset.index);
-                            var label = data.datasets[i] && data.datasets[i].label;
-                            var allActive = Array.from(pills).every(function (p) { return p.classList.contains('ct-pill--active'); });
-                            var newHidden = Object.assign({}, self.hidden);
-                            if (allActive) {
-                                catDatasets.forEach(function (_, j) {
-                                    chart.getDatasetMeta(j).hidden = (j !== i);
-                                    if (data.datasets[j]) { newHidden[data.datasets[j].label] = (j !== i); }
-                                });
-                                pills.forEach(function (p) { p.classList.toggle('ct-pill--active', Number(p.dataset.index) === i); });
-                                allBtn.classList.remove('ct-pill--active');
-                            } else {
-                                var meta = chart.getDatasetMeta(i);
-                                meta.hidden = !meta.hidden;
-                                pill.classList.toggle('ct-pill--active', !meta.hidden);
-                                if (label) { newHidden[label] = !!meta.hidden; }
-                                var nowAllActive = Array.from(pills).every(function (p) { return p.classList.contains('ct-pill--active'); });
-                                allBtn.classList.toggle('ct-pill--active', nowAllActive);
-                            }
-                            self.hidden = newHidden;
-                            chart.update();
-                        });
-                    });
-                }
+                label: ds.label,
+                data: ds.data,
+                borderColor: colors[i],
+                backgroundColor: 'transparent',
+                borderWidth: 2,
+                tension: 0.3,
+                pointRadius: 4,
+                pointHoverRadius: 8,
+                pointHitRadius: 16,
             };
         });
+
+        var totalIdx = catDatasets.length;
+        var totalDataset = {
+            label: 'Total',
+            data: data.total,
+            borderColor: '#475569',
+            backgroundColor: 'transparent',
+            borderWidth: 3,
+            tension: 0.3,
+            pointRadius: 4,
+            pointHoverRadius: 8,
+            pointHitRadius: 16,
+        };
+
+        function hexToRgba(hex, alpha) {
+            var r = parseInt(hex.slice(1, 3), 16);
+            var g = parseInt(hex.slice(3, 5), 16);
+            var b = parseInt(hex.slice(5, 7), 16);
+            return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+        }
+
+        function setCategoryOpacity(muted) {
+            catDatasets.forEach(function (_, i) {
+                chart.data.datasets[i].borderColor = muted ? hexToRgba(colors[i], 0.3) : colors[i];
+            });
+        }
+
+        function daysInMonth(y, m) { return new Date(y, m, 0).getDate(); }
+        function pad(n) { return n < 10 ? '0' + n : '' + n; }
+        function labelToRange(idx) {
+            var d = data.dates && data.dates[idx];
+            if (!d) return null;
+            if (data.granularity === 'day') {
+                return { from: d, to: d };
+            } else if (data.granularity === 'week') {
+                var dt = new Date(d + 'T00:00:00');
+                dt.setDate(dt.getDate() + 6);
+                var to = dt.getFullYear() + '-' + pad(dt.getMonth() + 1) + '-' + pad(dt.getDate());
+                return { from: d, to: to };
+            } else {
+                var parts = d.split('-');
+                var y = parseInt(parts[0], 10);
+                var m = parseInt(parts[1], 10);
+                return { from: d, to: y + '-' + pad(m) + '-' + daysInMonth(y, m) };
+            }
+        }
+
+        var chart = new Chart(el, {
+            type: 'line',
+            data: { labels: data.labels, datasets: catDatasets.concat([totalDataset]) },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'nearest', intersect: false },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: dollarTooltip, footer: function () { return 'Click to see transactions'; } } }
+                },
+                scales: {
+                    x: { offset: true },
+                    y: { beginAtZero: true, ticks: { callback: dollarTick } }
+                },
+                onClick: function (evt) {
+                    var nearest = chart.getElementsAtEventForMode(evt.native, 'nearest', { intersect: false }, false);
+                    if (!nearest.length) return;
+                    var pointIdx   = nearest[0].index;
+                    var datasetIdx = nearest[0].datasetIndex;
+                    var range = labelToRange(pointIdx);
+                    if (!range) return;
+                    var ds = data.datasets[datasetIdx];
+                    var url = '/transactions?date_from=' + range.from + '&date_to=' + range.to;
+                    if (ds && ds.category_id) {
+                        url += '&category_id=' + ds.category_id;
+                    } else if (ds && ds.label === 'Uncategorized') {
+                        url += '&uncategorized=1';
+                    }
+                    window.location.href = url;
+                },
+                onHover: function (evt) {
+                    var points = chart.getElementsAtEventForMode(evt.native, 'nearest', { intersect: true }, false);
+                    evt.native.target.style.cursor = points.length ? 'pointer' : 'default';
+                },
+            }
+        });
+
+        // Restore persisted hidden categories and pill colours
+        var pills = widget.querySelectorAll('.ct-pill[data-index]');
+        pills.forEach(function (pill) {
+            var i     = Number(pill.dataset.index);
+            var label = data.datasets[i] && data.datasets[i].label;
+            pill.style.setProperty('--pill-color', colors[i]);
+            if (label && hidden[label]) {
+                chart.getDatasetMeta(i).hidden = true;
+            } else {
+                pill.classList.add('ct-pill--active');
+            }
+        });
+
+        var allBtn    = widget.querySelector('#ct-pill-all');
+        var allVisible = Array.from(pills).every(function (p) { return p.classList.contains('ct-pill--active'); });
+        allBtn.classList.toggle('ct-pill--active', allVisible);
+
+        // Restore persisted showTotal state
+        var totalCheckbox = widget.querySelector('#ct-total-checkbox');
+        totalCheckbox.checked = showTotal;
+        chart.getDatasetMeta(totalIdx).hidden = !showTotal;
+        setCategoryOpacity(showTotal);
+        chart.update();
+
+        totalCheckbox.addEventListener('change', function () {
+            showTotal = totalCheckbox.checked;
+            _ctSaveShowTotal(showTotal);
+            chart.getDatasetMeta(totalIdx).hidden = !showTotal;
+            setCategoryOpacity(showTotal);
+            chart.update();
+        });
+
+        function setAll(active) {
+            var newHidden = {};
+            catDatasets.forEach(function (_, j) {
+                chart.getDatasetMeta(j).hidden = !active;
+                if (!active && data.datasets[j]) { newHidden[data.datasets[j].label] = true; }
+            });
+            pills.forEach(function (p) { p.classList.toggle('ct-pill--active', active); });
+            allBtn.classList.toggle('ct-pill--active', active);
+            hidden = newHidden;
+            _ctSaveHidden(hidden);
+            chart.update();
+        }
+        allBtn.addEventListener('click', function () {
+            setAll(!allBtn.classList.contains('ct-pill--active'));
+        });
+
+        pills.forEach(function (pill) {
+            pill.addEventListener('click', function () {
+                var i        = Number(pill.dataset.index);
+                var label    = data.datasets[i] && data.datasets[i].label;
+                var allActive = Array.from(pills).every(function (p) { return p.classList.contains('ct-pill--active'); });
+                var newHidden = Object.assign({}, hidden);
+                if (allActive) {
+                    catDatasets.forEach(function (_, j) {
+                        chart.getDatasetMeta(j).hidden = (j !== i);
+                        if (data.datasets[j]) { newHidden[data.datasets[j].label] = (j !== i); }
+                    });
+                    pills.forEach(function (p) { p.classList.toggle('ct-pill--active', Number(p.dataset.index) === i); });
+                    allBtn.classList.remove('ct-pill--active');
+                } else {
+                    var meta = chart.getDatasetMeta(i);
+                    meta.hidden = !meta.hidden;
+                    pill.classList.toggle('ct-pill--active', !meta.hidden);
+                    if (label) { newHidden[label] = !!meta.hidden; }
+                    var nowAllActive = Array.from(pills).every(function (p) { return p.classList.contains('ct-pill--active'); });
+                    allBtn.classList.toggle('ct-pill--active', nowAllActive);
+                }
+                hidden = newHidden;
+                _ctSaveHidden(hidden);
+                chart.update();
+            });
+        });
+    }
+
+    // Initial page load
+    document.addEventListener('DOMContentLoaded', function () { _initCategoryTrends(); });
+
+    // Re-init after HTMX swaps the widget; rAF defers past layout so Chart.js
+    // measures the correct container size before rendering.
+    document.addEventListener('htmx:afterSettle', function (evt) {
+        if (evt.detail.target && evt.detail.target.id === 'widget-category-trends') {
+            requestAnimationFrame(function () { _initCategoryTrends(); });
+        }
     });
 
     // --- Categorization health (pie) ---
