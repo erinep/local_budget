@@ -277,9 +277,12 @@
         if (!el || !window.Chart) return;
         var data = JSON.parse(el.dataset.chart);
 
-        var COLOR_PRIMARY  = { border: '#0f766e', bg: 'rgba(15,118,110,0.15)' };
-        var COLOR_OVERLAY  = { border: '#d97706', bg: 'rgba(217,119,6,0.15)' };
+        var COLOR_PRIMARY = { border: '#0f766e', bg: 'rgba(15,118,110,0.15)' };
+        var COLOR_BUDGET  = { border: 'rgba(148,163,184,0.5)', bg: 'rgba(148,163,184,0.18)' };
 
+        var selected = 0;
+
+        // One dataset per month (actual spend), all hidden until applyState
         var datasets = data.months.map(function (m) {
             return {
                 label: m.label,
@@ -291,6 +294,19 @@
                 hidden: true,
             };
         });
+
+        // Budget target polygon — always [100, 100, ...] after normalisation
+        if (data.has_budgets) {
+            datasets.push({
+                label: 'Budget',
+                data: data.budget_data,
+                borderColor: COLOR_BUDGET.border,
+                backgroundColor: COLOR_BUDGET.bg,
+                borderWidth: 1,
+                pointRadius: 0,
+                hidden: false,
+            });
+        }
 
         var chart = new Chart(el, {
             type: 'radar',
@@ -310,7 +326,7 @@
                                 var ds = items[0].dataset;
                                 return data.labels.map(function (label, i) {
                                     var val = ds.data[i] || 0;
-                                    return label + ': $' + val.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                    return label + ': ' + val.toFixed(1) + '%';
                                 });
                             },
                             label: function () { return null; }
@@ -320,8 +336,8 @@
                 scales: {
                     r: {
                         beginAtZero: true,
-                        pointLabels: { font: { size: 14 } },
-                        ticks: { callback: function (v) { return '$' + v.toLocaleString('en-CA', { maximumFractionDigits: 0 }); } }
+                        pointLabels: { font: { size: 12 } },
+                        ticks: { callback: function (v) { return v + '%'; } }
                     }
                 }
             }
@@ -329,21 +345,14 @@
 
         var pills   = document.querySelectorAll('#widget-category-radar .cr-pill');
         var details = document.querySelectorAll('#widget-category-radar .cr-month-detail');
-        var toggle  = document.getElementById('cr-overlay-toggle');
-
-        var selected = 0;
-        var overlayOn = false;
+        var budgetDatasetIdx = data.has_budgets ? datasets.length - 1 : -1;
 
         function applyState() {
-            var overlayIdx = overlayOn ? selected + 1 : -1;
-
             datasets.forEach(function (ds, i) {
-                var isPrimary = i === selected;
-                var isOverlay = i === overlayIdx;
-                chart.getDatasetMeta(i).hidden = !isPrimary && !isOverlay;
-                ds.borderColor     = isOverlay ? COLOR_OVERLAY.border : COLOR_PRIMARY.border;
-                ds.backgroundColor = isOverlay ? COLOR_OVERLAY.bg     : COLOR_PRIMARY.bg;
+                if (i === budgetDatasetIdx) return; // budget ring always visible
+                chart.getDatasetMeta(i).hidden = (i !== selected);
             });
+
             chart.update();
 
             pills.forEach(function (p) {
@@ -351,18 +360,11 @@
                 p.classList.toggle('cr-pill--active', active);
                 p.style.background = active ? 'var(--accent)' : 'transparent';
                 p.style.color      = active ? '#fff' : 'var(--text)';
-                p.style.borderColor = '';
             });
 
             details.forEach(function (d) {
                 d.style.display = Number(d.dataset.crDetailIndex) === selected ? 'block' : 'none';
             });
-
-            var hasNext = selected + 1 < datasets.length;
-            toggle.style.display = hasNext ? '' : 'none';
-            toggle.style.background = overlayOn ? COLOR_OVERLAY.border : 'transparent';
-            toggle.style.color      = overlayOn ? '#fff' : 'var(--muted)';
-            toggle.style.borderColor = overlayOn ? COLOR_OVERLAY.border : '';
         }
 
         pills.forEach(function (pill) {
@@ -370,11 +372,6 @@
                 selected = Number(pill.dataset.crIndex);
                 applyState();
             });
-        });
-
-        toggle.addEventListener('click', function () {
-            overlayOn = !overlayOn;
-            applyState();
         });
 
         applyState();

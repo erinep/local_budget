@@ -50,6 +50,8 @@ def _category_radar_vm(user_id, period_months):
             {"label": m.label, "data": m.data, "is_current": m.is_current}
             for m in vm.months
         ],
+        "budget_data": vm.budget_data,   # always [100.0, ...] after normalisation
+        "has_budgets": vm.has_budgets,
     }
     return vm, chart
 

@@ -14,6 +14,7 @@ import datetime
 import math
 from dataclasses import dataclass
 
+from app.budgets.services import get_budgets
 from app.intelligence.widgets import REGISTRY, WidgetDef
 from app.transactions.services import TransactionFilters, get_transactions
 
@@ -44,8 +45,11 @@ class RadarMonthData:
 @dataclass(frozen=True)
 class CategoryRadarVM:
     title: str
-    labels: list   # category names (consistent across all months)
-    months: list   # list[RadarMonthData], current month first
+    labels: list            # budgeted category names only (consistent across all months)
+    months: list            # list[RadarMonthData]; .data values are % of budget (0–N)
+    budget_data: list       # always [100.0, ...] — the normalised target polygon
+    has_budgets: bool       # True when at least one budgeted category exists
+    unbudgeted_cats: list   # top-spending categories excluded because they have no budget
 
 
 def _fetch_range(user_id: str, date_from: datetime.date, date_to: datetime.date) -> list:
@@ -178,10 +182,39 @@ def build_category_radar(user_id: str, period_months: int = 12) -> CategoryRadar
             top_transactions=top_txns,
         ))
 
+    # Fetch standing budget targets; split top categories into budgeted / unbudgeted
+    budgets = get_budgets(user_id)
+    budget_by_cat: dict[str, float] = {b.category_name: float(b.amount) for b in budgets}
+
+    budgeted_cats   = [c for c in top_cats if budget_by_cat.get(c, 0.0) > 0.0]
+    unbudgeted_cats = [c for c in top_cats if budget_by_cat.get(c, 0.0) == 0.0]
+
+    # Rebuild months with data normalised to % of budget for budgeted axes only
+    normalised_months: list[RadarMonthData] = []
+    for md in months:
+        # md.data is indexed by top_cats; re-index to budgeted_cats
+        raw_by_cat = dict(zip(top_cats, md.data))
+        pct_data = [
+            round(raw_by_cat.get(c, 0.0) / budget_by_cat[c] * 100.0, 1)
+            for c in budgeted_cats
+        ]
+        normalised_months.append(RadarMonthData(
+            label=md.label,
+            data=pct_data,
+            is_current=md.is_current,
+            total=md.total,
+            top_transactions=md.top_transactions,
+        ))
+
+    budget_data = [100.0] * len(budgeted_cats)
+
     return CategoryRadarVM(
         title="Category Radar",
-        labels=list(top_cats),
-        months=months,
+        labels=budgeted_cats,
+        months=normalised_months,
+        budget_data=budget_data,
+        has_budgets=len(budgeted_cats) > 0,
+        unbudgeted_cats=unbudgeted_cats,
     )
 
 
