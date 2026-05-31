@@ -48,7 +48,8 @@ class CategoryRadarVM:
     months: list   # list[RadarMonthData], current month first
 
 
-def _fetch_month(user_id: str, date_from: datetime.date, date_to: datetime.date) -> list:
+def _fetch_range(user_id: str, date_from: datetime.date, date_to: datetime.date) -> list:
+    """Fetch all transactions in [date_from, date_to] with a single paginated loop."""
     txns = []
     offset = 0
     page_size = 200
@@ -112,18 +113,22 @@ def build_category_radar(user_id: str, period_months: int = 12) -> CategoryRadar
             y -= 1
         slots.append((y, m, False))
 
-    # Fetch transactions for each slot
-    slot_txns: list[list] = []
-    for sy, sm, is_current in slots:
-        date_from = datetime.date(sy, sm, 1)
-        if is_current:
-            date_to = today
-        else:
-            if sm == 12:
-                date_to = datetime.date(sy + 1, 1, 1) - datetime.timedelta(days=1)
-            else:
-                date_to = datetime.date(sy, sm + 1, 1) - datetime.timedelta(days=1)
-        slot_txns.append(_fetch_month(user_id, date_from, date_to))
+    # Fetch all transactions across the full range in one call, then group by month
+    oldest_y, oldest_m, _ = slots[-1]
+    range_date_from = datetime.date(oldest_y, oldest_m, 1)
+    range_date_to = today
+    all_txns = _fetch_range(user_id, range_date_from, range_date_to)
+
+    # Group transactions by (year, month)
+    txns_by_month: dict[tuple[int, int], list] = {}
+    for t in all_txns:
+        key = (t.date.year, t.date.month)
+        txns_by_month.setdefault(key, []).append(t)
+
+    slot_txns: list[list] = [
+        txns_by_month.get((sy, sm), [])
+        for sy, sm, _ in slots
+    ]
 
     # Determine top categories by combined spend across all slots
     combined: dict[str, float] = {}

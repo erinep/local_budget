@@ -1125,6 +1125,20 @@ class CategorySpend:
 
 
 @dataclass(frozen=True)
+class CategorySpendMonthly:
+    """Aggregated spend total for one category within one calendar month.
+
+    Returned by get_spend_by_category_monthly. spend is non-negative.
+    """
+    year: int
+    month: int
+    category_id: UUID | None
+    category_name: str | None
+    spend: Decimal
+    transaction_count: int
+
+
+@dataclass(frozen=True)
 class PeriodSpend:
     """Aggregated spend across all categories for one DateRange."""
     period: DateRange
@@ -1186,6 +1200,73 @@ def get_spend_by_category(
             category_name=row[1],
             spend=Decimal(str(row[2])),
             transaction_count=int(row[3]),
+        )
+        for row in rows
+    ]
+
+
+def get_spend_by_category_monthly(
+    user_id: str,
+    period: DateRange,
+    account_id: UUID | None = None,
+) -> list[CategorySpendMonthly]:
+    """Return per-category spend grouped by calendar month in a single query.
+
+    Replaces the N-query-per-month pattern in widgets that need a full time
+    series. Returns one row per (month, category) pair ordered by month then
+    spend descending. Only outflow transactions (amount < 0) are included.
+    Active accounts only.
+
+    Args:
+        user_id:    Authenticated user's UUID string.
+        period:     Inclusive date range. Typically spans multiple months.
+        account_id: If provided, restrict to one account.
+
+    Returns:
+        list[CategorySpendMonthly] ordered by (year, month, spend DESC).
+    """
+    params: dict = {
+        "user_id": user_id,
+        "date_from": period.date_from,
+        "date_to": period.date_to,
+    }
+
+    account_clause = ""
+    if account_id is not None:
+        account_clause = " AND t.account_id = :account_id"
+        params["account_id"] = str(account_id)
+
+    sql = text(
+        "SELECT"
+        " EXTRACT(YEAR FROM t.date)::int AS year,"
+        " EXTRACT(MONTH FROM t.date)::int AS month,"
+        " t.category_id,"
+        " c.name AS category_name,"
+        " SUM(ABS(t.amount)) AS spend,"
+        " COUNT(*) AS transaction_count"
+        " FROM public.transactions t"
+        " LEFT JOIN public.categories c ON c.id = t.category_id"
+        " JOIN public.accounts a ON a.id = t.account_id AND a.is_active = TRUE"
+        " WHERE t.user_id = :user_id"
+        " AND t.date >= :date_from AND t.date <= :date_to"
+        " AND t.amount < 0"
+        f"{account_clause}"
+        " GROUP BY year, month, t.category_id, c.name"
+        " ORDER BY year, month, spend DESC, category_name NULLS LAST"
+    )
+
+    engine = get_engine()
+    with engine.connect() as conn:
+        rows = conn.execute(sql, params).fetchall()
+
+    return [
+        CategorySpendMonthly(
+            year=int(row[0]),
+            month=int(row[1]),
+            category_id=UUID(str(row[2])) if row[2] is not None else None,
+            category_name=row[3],
+            spend=Decimal(str(row[4])),
+            transaction_count=int(row[5]),
         )
         for row in rows
     ]
