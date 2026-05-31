@@ -328,32 +328,38 @@ h3 {
 }
 
 .date-range-picker {
-    display: flex;
-    gap: var(--space-2);
-    flex-wrap: wrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    background: var(--bg-accent);
+    border: 1px solid var(--border);
+    border-radius: 999px;
 }
 
 .drp-pill {
-    padding: var(--space-1) var(--space-3);
+    padding: 5px var(--space-3);
     font-size: var(--text-sm);
     border-radius: 999px;
-    border: 1.5px solid var(--border);
+    border: none;
     background: transparent;
     color: var(--muted);
     text-decoration: none;
     cursor: pointer;
-    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+    transition: color 0.12s;
+    line-height: 1.4;
 }
 
 .drp-pill:hover {
-    border-color: var(--accent);
     color: var(--accent);
 }
 
 .drp-pill--active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
+    background: var(--surface-strong);
+    color: var(--accent);
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(61, 42, 19, 0.1);
 }
 
 .ct-total-toggle {

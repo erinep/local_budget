@@ -72,7 +72,7 @@ def _category_profile_vm(user_id, period_months):
 @login_required
 def dashboard():
     """Widget dashboard (Phase 5d, ADR-0039)."""
-    period_months = min(max(request.args.get("months", 12, type=int), 1), 36)
+    period_months = min(max(request.args.get("months", 12, type=int), 0), 36)
 
     ct_vm,   ct_chart   = _category_trends_vm(g.user.id, period_months)
     cp_vm,   cp_charts  = _category_profile_vm(g.user.id, period_months)
@@ -95,7 +95,7 @@ def widget(key: str):
     if key not in REGISTRY:
         abort(404)
 
-    period_months = min(max(request.args.get("months", 12, type=int), 1), 36)
+    period_months = min(max(request.args.get("months", 12, type=int), 0), 36)
 
     if key in ("category_trends", "category_trends_stacked"):
         vm, chart = _category_trends_vm(g.user.id, period_months)
