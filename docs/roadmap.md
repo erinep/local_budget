@@ -175,8 +175,8 @@ Delivered as part of Phase 3c. Stable GET route at `/intelligence/report`, view-
 3. Widget catalog — at minimum: category breakdown (donut), trend (line/area), MoM and YoY comparison, top-N merchants per category, budget progress, savings rate. Decide v1 vs. later.
 4. Report controls — custom date range, category include/exclude filter, period granularity.
 5. Drilldown — clicking any chart slice routes to `/transactions` with prefilled filters. Reuses Phase 3b APIs.
-6. Export — CSV of the current report view. PDF deferred.
-7. Stretch: custom dashboard builder. Persisted as `dashboard_layouts (user_id, layout JSON)`. Feature-flagged until the widget catalog is stable.
+6. ~~Export — CSV of the current report view. PDF deferred.~~ (descoped)
+7. ~~Stretch: custom dashboard builder. Persisted as `dashboard_layouts (user_id, layout JSON)`. Feature-flagged until the widget catalog is stable.~~ (descoped)
 
 **ADRs needed.** Widget contract ADR (extends [ADR-0024](adr/0024-intelligence-layer-report-ownership.md)); chart library decision ADR (ADR-0024 deferred this; 5d forces it); dashboard-layout schema ADR (if stretch ships).
 
