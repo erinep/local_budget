@@ -171,19 +171,16 @@ Delivered as part of Phase 3c. Stable GET route at `/intelligence/report`, view-
 
 **Work items.**
 
-1. Information-architecture pass first. Define what questions the report should answer ("Where did my money go last month?", "How does this month compare to last?", "Which categories are trending up?"). Output is a design note in `docs/`, not an ADR.
-2. Widget contract — typed view-model shape per widget type, extending [ADR-0024](adr/0024-intelligence-layer-report-ownership.md)'s hybrid rendering decision so new chart types extend rather than rewrite.
-3. Widget catalog — at minimum: category breakdown (donut), trend (line/area), MoM and YoY comparison, top-N merchants per category, budget progress, savings rate. Decide v1 vs. later.
-4. Report controls — custom date range, category include/exclude filter, period granularity.
-5. Drilldown — clicking any chart slice routes to `/transactions` with prefilled filters. Reuses Phase 3b APIs.
+1. Widget contract — typed view-model shape per widget type, extending [ADR-0024](adr/0024-intelligence-layer-report-ownership.md)'s hybrid rendering decision so new chart types extend rather than rewrite.
+2. Widget catalog — Category Trends, Category Radar, Category Movers, Category Profile (ADR-0041).
+3. Report controls — date range picker, period granularity picker, category pill toggles.
+4. Drilldown — clicking any chart point routes to `/transactions` with prefilled filters.
 6. ~~Export — CSV of the current report view. PDF deferred.~~ (descoped)
 7. ~~Stretch: custom dashboard builder. Persisted as `dashboard_layouts (user_id, layout JSON)`. Feature-flagged until the widget catalog is stable.~~ (descoped)
 
-**ADRs needed.** Widget contract ADR (extends [ADR-0024](adr/0024-intelligence-layer-report-ownership.md)); chart library decision ADR (ADR-0024 deferred this; 5d forces it); dashboard-layout schema ADR (if stretch ships).
+**ADRs written.** [ADR-0041](adr/0041-intelligence-dashboard-ia.md) (IA + widget catalog); [ADR-0042](adr/0042-batched-monthly-spend-query.md) (batched query + granularity picker).
 
-**Exit criteria.** Report answers a defined set of questions, charts are drilldown-enabled, the user can scope to any period. The current report page is replaced, not extended.
-
-**Open decisions.** Chart library — keep extending `static/report_charts.js`, or adopt Chart.js / Observable Plot / similar. Drop or migrate the existing `report.html`. Dashboard-builder scope (stretch vs. promote to in-scope).
+**Exit criteria.** Dashboard answers four defined questions, charts are drilldown-enabled, user can scope to any date range and granularity. The old report page is replaced with a 301 redirect.
 
 ### Phase 5e — Budget Improvements (2–3 weeks)
 
