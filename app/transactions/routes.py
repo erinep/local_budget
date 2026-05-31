@@ -92,7 +92,7 @@ def upload():
         categorize = make_categorizer_v2(g.user.id, keywords, aliases)
 
         try:
-            df = pd.read_csv(io.BytesIO(file_bytes), encoding="latin1")
+            df = pd.read_csv(io.BytesIO(file_bytes), encoding="utf-8-sig")
         except Exception:
             return render_template(
                 "upload.html",
