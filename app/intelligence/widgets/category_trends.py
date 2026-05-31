@@ -23,7 +23,8 @@ class CategoryTrendsVM:
 
 
 def build_category_trends(user_id: str, period_months: int = 12) -> CategoryTrendsVM:
-    """Return per-category spend for each of the last period_months complete months.
+    """Return per-category spend for each of the last period_months complete months
+    plus the current month (MTD).
 
     Categories are sorted by total spend descending so the legend lists the
     biggest spenders first. Months with no spend for a category are recorded
@@ -32,27 +33,34 @@ def build_category_trends(user_id: str, period_months: int = 12) -> CategoryTren
     now = datetime.datetime.now(datetime.timezone.utc)
     year, month = now.year, now.month
 
+    # Build the list of complete prior months
     months: list[tuple[int, int]] = []
+    y, m = year, month
     for _ in range(period_months):
-        month -= 1
-        if month == 0:
-            month = 12
-            year -= 1
-        months.append((year, month))
+        m -= 1
+        if m == 0:
+            m = 12
+            y -= 1
+        months.append((y, m))
     months = list(reversed(months))
+
+    # Append current month as MTD
+    months.append((year, month))
 
     labels: list[str] = []
     month_keys: list[str] = []
     spend_by_month: dict[str, dict[str, float]] = {}
     cat_ids: dict[str, str | None] = {}  # category_name → UUID string
 
-    for y, m in months:
-        label = datetime.date(y, m, 1).strftime("%b %Y")
+    for i, (y, m) in enumerate(months):
+        is_current = (i == len(months) - 1)
+        base_label = datetime.date(y, m, 1).strftime("%b %Y")
+        label = f"{base_label} (MTD)" if is_current else base_label
         mk = f"{y}-{m:02d}"
         labels.append(label)
         month_keys.append(mk)
 
-        rows = get_spend_by_category(user_id, DateRange.for_month(y, m))
+        rows = get_spend_by_category(user_id, DateRange.for_month(y, m))  # for current month, date_to is end-of-month; future dates have no transactions
         spend_by_month[mk] = {
             (row.category_name or "Uncategorized"): float(row.spend)
             for row in rows

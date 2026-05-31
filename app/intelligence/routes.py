@@ -84,6 +84,7 @@ def dashboard():
         category_profile=cp_vm,        category_profile_charts=cp_charts,
         category_radar=cr_vm,          category_radar_chart=cr_chart,
         category_movers=cm_vm,
+        period_months=period_months,
     )
 
 

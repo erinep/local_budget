@@ -8,6 +8,18 @@
         <p class="section-text" style="margin-top: var(--space-2);">Your spending at a glance.</p>
     </div>
 
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-3);">
+        <p class="section-text" style="margin: 0; font-size: var(--text-sm); color: var(--muted);">Date range</p>
+        <nav class="date-range-picker" aria-label="Date range">
+            {% for label, months in [("3M", 3), ("6M", 6), ("12M", 12), ("24M", 24)] %}
+            <a href="{{ url_for('intelligence.dashboard', months=months) }}"
+               class="drp-pill{% if period_months == months %} drp-pill--active{% endif %}">
+                {{ label }}
+            </a>
+            {% endfor %}
+        </nav>
+    </div>
+
     <div id="widgets" class="section-stack">
         {% include "intelligence/widgets/category_trends.html" %}
         {% include "intelligence/widgets/category_radar.html" %}
