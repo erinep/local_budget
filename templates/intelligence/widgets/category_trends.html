@@ -6,7 +6,7 @@
         <h2 style="font-size: var(--text-lg); margin: 0;">{{ category_trends.title }}</h2>
         <div style="display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;">
             <nav class="date-range-picker" aria-label="Date range">
-                {% for label, months in [("This month", 0), ("3M", 3), ("6M", 6), ("12M", 12), ("24M", 24)] %}
+                {% for label, months in [("This month", 0), ("3M", 2), ("6M", 5), ("12M", 11), ("24M", 23)] %}
                 <a hx-get="{{ url_for('intelligence.widget', key='category_trends', months=months, granularity=category_trends.granularity) }}"
                    class="drp-pill{% if category_trends.period_months == months %} drp-pill--active{% endif %}">
                     {{ label }}
@@ -38,7 +38,7 @@
         {% if category_trends.period_months == 0 %}
             Current month
         {% else %}
-            Last {{ category_trends.period_months }} months
+            Last {{ category_trends.period_months + 1 }} months
         {% endif %}
         &middot;
         {% if category_trends.granularity == "day" %}daily{% elif category_trends.granularity == "week" %}weekly{% else %}monthly{% endif %}
