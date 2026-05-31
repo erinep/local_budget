@@ -16,9 +16,10 @@ Phases, work items, and exit criteria. Updated as phases ship.
 | 5a | Intelligence Layer — Report Page | Shipped | (delivered with 3c) | 2026-05-18 |
 | 5b | Categorizer v2 | Shipped | 2–3 weeks | 2026-05-19 |
 | 5c | Account Management & User Settings | Shipped | 1–2 weeks | 2026-05-23 |
-| 5d | Reporting Overhaul | Not started | 3–4 weeks | — |
-| 5e | Categorizer v3 | Not started | 2–3 weeks | — |
+| 5d | Reporting Overhaul | Shipped | 3–4 weeks | 2026-05-31 |
+| 5e | Budget Improvements | Not started | 2–3 weeks | — |
 | 6 | Public-Release Hardening | Not started | 3–4 weeks | — |
+| 7 | Categorizer v3 | Not started | 2–3 weeks | — |
 
 Update the Status, Target, and Shipped columns when a phase moves. Update the **Current phase** field in [`../CLAUDE.md`](../CLAUDE.md) when a phase ships.
 
@@ -170,39 +171,34 @@ Delivered as part of Phase 3c. Stable GET route at `/intelligence/report`, view-
 
 **Work items.**
 
-1. Information-architecture pass first. Define what questions the report should answer ("Where did my money go last month?", "How does this month compare to last?", "Which categories are trending up?"). Output is a design note in `docs/`, not an ADR.
-2. Widget contract — typed view-model shape per widget type, extending [ADR-0024](adr/0024-intelligence-layer-report-ownership.md)'s hybrid rendering decision so new chart types extend rather than rewrite.
-3. Widget catalog — at minimum: category breakdown (donut), trend (line/area), MoM and YoY comparison, top-N merchants per category, budget progress, savings rate. Decide v1 vs. later.
-4. Report controls — custom date range, category include/exclude filter, period granularity.
-5. Drilldown — clicking any chart slice routes to `/transactions` with prefilled filters. Reuses Phase 3b APIs.
+1. Widget contract — typed view-model shape per widget type, extending [ADR-0024](adr/0024-intelligence-layer-report-ownership.md)'s hybrid rendering decision so new chart types extend rather than rewrite.
+2. Widget catalog — Category Trends, Category Radar, Category Movers, Category Profile (ADR-0041).
+3. Report controls — date range picker, period granularity picker, category pill toggles.
+4. Drilldown — clicking any chart point routes to `/transactions` with prefilled filters.
 6. ~~Export — CSV of the current report view. PDF deferred.~~ (descoped)
 7. ~~Stretch: custom dashboard builder. Persisted as `dashboard_layouts (user_id, layout JSON)`. Feature-flagged until the widget catalog is stable.~~ (descoped)
 
-**ADRs needed.** Widget contract ADR (extends [ADR-0024](adr/0024-intelligence-layer-report-ownership.md)); chart library decision ADR (ADR-0024 deferred this; 5d forces it); dashboard-layout schema ADR (if stretch ships).
+**ADRs written.** [ADR-0041](adr/0041-intelligence-dashboard-ia.md) (IA + widget catalog); [ADR-0042](adr/0042-batched-monthly-spend-query.md) (batched query + granularity picker).
 
-**Exit criteria.** Report answers a defined set of questions, charts are drilldown-enabled, the user can scope to any period. The current report page is replaced, not extended.
+**Exit criteria.** Dashboard answers four defined questions, charts are drilldown-enabled, user can scope to any date range and granularity. The old report page is replaced with a 301 redirect.
 
-**Open decisions.** Chart library — keep extending `static/report_charts.js`, or adopt Chart.js / Observable Plot / similar. Drop or migrate the existing `report.html`. Dashboard-builder scope (stretch vs. promote to in-scope).
+### Phase 5e — Budget Improvements (2–3 weeks)
 
-### Phase 5e — Categorizer v3 (2–3 weeks)
-
-**Goal.** Push cold-start categorization accuracy to 75% high-confidence matches by adding fuzzy matching and an embeddings tier to the pipeline, building on the alias + keyword foundation from Phase 5b (ADR-0028).
-
-**Prerequisite.** Categorization coverage metric must be visible in reporting before this phase begins — needed to measure progress and confirm the exit criterion. Add a "% categorized" stat (categorized transactions / total transactions for the selected period) to the report page as the first work item.
+**Goal.** Rebuild the budget experience from the ground up — income-first, recommendation-driven, and surfaced through a single coherent UI rather than buried configuration menus.
 
 **Work items.**
 
-1. **Categorization coverage metric in reporting** — add a coverage stat to the Intelligence report: transactions with a non-NULL `category_id` as a percentage of total, scoped to the current period. This is the measurement instrument for the exit criterion; ship it first.
-2. **Fuzzy matching tier** — insert a new tier between merchant alias (exact match) and keyword scan. Use normalized edit-distance (Levenshtein or similar) against the `merchant_aliases` corpus with a configurable similarity threshold. Handles minor description variants (trailing digits, encoding noise) that exact-match misses. Tier must be fast enough to run synchronously on upload. ADR required.
-3. **Embeddings tier** — local embedding model (no outbound LLM calls on the critical upload path) for descriptions that pass through fuzzy matching unmatched. Embeddings are precomputed on the merchant alias corpus at load time; inference is a cosine similarity lookup. Gate behind the accuracy harness: only activate if fuzzy + existing tiers leave >20% uncategorized after cold-start. ADR required.
-4. **Accuracy harness extension** — extend `tests/test_categorizer.py` to measure v3 accuracy against the labeled fixture set and report per-tier contribution. The 75% cold-start exit criterion is measured here.
-5. **Seed corpus expansion** — grow the cold-start `merchant_aliases` seed (currently 35 entries) to cover enough merchants to meaningfully bootstrap the fuzzy and embeddings tiers.
+1. **Income-driven allocation model** — introduce a monthly income field (stored per user in settings). All budget targets are expressed as a percentage of income as well as a dollar amount. The total allocation is always visible ("$2,400 of $4,000 allocated") so the user knows how much headroom remains as they build their budget.
+2. **Personal finance rule recommendations** — replace transaction-history proposals as the primary onboarding path. Offer standard allocation frameworks (50/30/20, 70/20/10, etc.) as one-click starting points. The user picks a rule; the system pre-fills category targets proportionally from their income. Transaction history is surfaced as a secondary refinement hint ("you typically spend $340 on groceries") rather than the default proposal engine.
+3. **Budget configuration UI overhaul** — consolidate the current split between `/budgets/configure` and `/budgets/` into a single page. Allocation sliders per category (drag to adjust, live total updates). No buried sub-menus; everything visible and editable inline.
+4. **Visual allocation summary** — a stacked bar or donut at the top of the budget page showing allocated vs. unallocated income, coloured by status. Updates live as sliders move.
+5. **Keep transaction history as a helper** — the existing `propose_budgets` engine is retained but demoted to a "refine with history" secondary action, not the entry point.
 
-**ADRs needed.** Fuzzy matching tier strategy (threshold, algorithm, performance contract); embeddings model selection and inference contract (extends ADR-0028).
+**ADRs needed.** Income field schema and ownership (Account Settings vs. Budgeting Module); allocation model ADR (percentage-of-income vs. fixed-dollar dual representation); recommendation-engine strategy (rule library vs. transaction-history hybrid).
 
-**Exit criteria.** The accuracy harness confirms ≥ 75% of cold-start transactions are categorized with high confidence (non-NULL `category_id`, not a low-similarity fallback). Categorization coverage is visible on the report page.
+**Exit criteria.** A new user can set their income, pick a personal-finance rule, and have a complete budget pre-filled in under 60 seconds without uploading any transactions. An existing user can adjust allocations via sliders on a single page without navigating sub-menus.
 
-**Open decisions.** Fuzzy threshold (edit-distance cutoff vs. similarity ratio — empirical tuning required). Embeddings model: local (sentence-transformers, runs on Render) vs. API-based with caching (Anthropic/OpenAI embeddings with merchant-level cache per CLAUDE.md cost-control constraints). Local is strongly preferred to keep the upload path free of external dependencies.
+**Open decisions.** Which standard rules to include at launch; whether sliders are percentage-based or dollar-based (or both); income frequency (monthly vs. annual entry with automatic conversion).
 
 ### Phase 6 — Public-Release Hardening (3–4 weeks)
 
@@ -221,6 +217,26 @@ Delivered as part of Phase 3c. Stable GET route at `/intelligence/report`, view-
 **Exit criteria.** No known critical security or compliance gap. The app *could* be opened to external signups.
 
 **Open decisions.** All audit findings become decisions of their own. Stripe scaffolding in Phase 6 vs. deferred — revisit at packet start.
+
+### Phase 7 — Categorizer v3 (2–3 weeks)
+
+**Goal.** Push cold-start categorization accuracy to 75% high-confidence matches by adding fuzzy matching and an embeddings tier to the pipeline, building on the alias + keyword foundation from Phase 5b (ADR-0028).
+
+**Prerequisite.** Categorization coverage metric must be visible in reporting before this phase begins — needed to measure progress and confirm the exit criterion. Add a "% categorized" stat (categorized transactions / total transactions for the selected period) to the report page as the first work item.
+
+**Work items.**
+
+1. **Categorization coverage metric in reporting** — add a coverage stat to the Intelligence report: transactions with a non-NULL `category_id` as a percentage of total, scoped to the current period. This is the measurement instrument for the exit criterion; ship it first.
+2. **Fuzzy matching tier** — insert a new tier between merchant alias (exact match) and keyword scan. Use normalized edit-distance (Levenshtein or similar) against the `merchant_aliases` corpus with a configurable similarity threshold. Handles minor description variants (trailing digits, encoding noise) that exact-match misses. Tier must be fast enough to run synchronously on upload. ADR required.
+3. **Embeddings tier** — local embedding model (no outbound LLM calls on the critical upload path) for descriptions that pass through fuzzy matching unmatched. Embeddings are precomputed on the merchant alias corpus at load time; inference is a cosine similarity lookup. Gate behind the accuracy harness: only activate if fuzzy + existing tiers leave >20% uncategorized after cold-start. ADR required.
+4. **Accuracy harness extension** — extend `tests/test_categorizer.py` to measure v3 accuracy against the labeled fixture set and report per-tier contribution. The 75% cold-start exit criterion is measured here.
+5. **Seed corpus expansion** — grow the cold-start `merchant_aliases` seed (currently 35 entries) to cover enough merchants to meaningfully bootstrap the fuzzy and embeddings tiers.
+
+**ADRs needed.** Fuzzy matching tier strategy (threshold, algorithm, performance contract); embeddings model selection and inference contract (extends ADR-0028).
+
+**Exit criteria.** The accuracy harness confirms ≥ 75% of cold-start transactions are categorized with high confidence (non-NULL `category_id`, not a low-similarity fallback). Categorization coverage is visible on the report page.
+
+**Open decisions.** Fuzzy threshold (edit-distance cutoff vs. similarity ratio — empirical tuning required). Embeddings model: local (sentence-transformers, runs on Render) vs. API-based with caching (Anthropic/OpenAI embeddings with merchant-level cache per CLAUDE.md cost-control constraints). Local is strongly preferred to keep the upload path free of external dependencies.
 
 ## Open decisions
 

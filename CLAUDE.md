@@ -6,8 +6,8 @@ This file is the orientation entry point. It is intentionally short. Detail live
 
 ## Status
 
-- **Current phase:** Phase 5 — 5c (Account Management) shipped; 5d (Reporting Overhaul) is next
-- **Last updated:** 2026-05-23
+- **Current phase:** Phase 5 — 5d (Reporting Overhaul) shipped; 5e (Budget Improvements) is next
+- **Last updated:** 2026-05-31
 
 Update both fields when a phase ships.
 

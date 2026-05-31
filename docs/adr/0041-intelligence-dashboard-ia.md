@@ -1,13 +1,13 @@
 # ADR 0041 - Intelligence Dashboard Information Architecture
 
 - **Status:** Accepted
-- **Date:** 2026-05-24
+- **Date:** 2026-05-24 (rewritten 2026-05-31)
 - **Phase:** 5d
 - **Deciders:** erin p
 
 ## Context
 
-Phase 5d required defining what questions the dashboard should answer before building widgets. The 5a report was a structural placement exercise; 5d is a designed product. This ADR records the IA decisions, the widget catalog that resulted, and what was deferred — per the roadmap's requirement for a design note before code.
+Phase 5d required defining what questions the dashboard should answer before building widgets. The 5a report was a structural placement exercise; 5d is a designed product. This ADR records the IA decisions, the widget catalog that shipped, and what was deferred.
 
 ## Options considered
 
@@ -17,7 +17,7 @@ Separate views for "monthly summary", "trends", "comparison", etc. Each answers 
 
 Flexible, but fragments the experience and requires the user to know which template to consult. High surface area to maintain.
 
-### Option B — Single persistent dashboard, widget-per-question
+### Option B — Single persistent dashboard, widget-per-question (selected)
 
 One dashboard at `/intelligence/dashboard`. Each widget is scoped to answer one question clearly. Widgets are independently assembled and can be composed or reordered without coupling.
 
@@ -25,52 +25,66 @@ Lower nav overhead, easier to scan, fits the read-only intelligence charter for 
 
 ## Decision
 
-We chose **Option B**. The dashboard answers three questions, with widgets assigned by primary responsibility:
+**Option B.** The dashboard answers four questions, with widgets assigned by primary responsibility:
 
-1. **Where did my money go last month?** → Category Radar (12-month pill navigation, top-10 transactions, outlier flags).
-2. **How does this month compare to last?** → Category Radar prev-month overlay (visual) + Category Movers (quantitative delta table, full months only to avoid MTD distortion).
-3. **Which categories are trending up?** → Category Trends (line chart, 12-month trajectory per category + total overlay) for the long view; Category Movers (ranked absolute MoM delta) for the recent signal. The two are complementary: Trends shows direction over time, Movers surfaces the latest change.
-
-A fifth widget — Category Profile — answers the operational question "Is my data clean?" and sits at the bottom of the dashboard as a secondary concern.
+1. **How has my spending per category trended over time?** → Category Trends (configurable date range + granularity, category line toggling, total overlay).
+2. **Am I on track with my budget this month?** → Category Radar (actual spend as % of budget per category, visual budget target polygon, month navigation).
+3. **Which categories changed most vs. last month?** → Category Movers (ranked MoM delta table).
+4. **How consistent and well-categorized is my spending?** → Category Profile (per-category CV, consistency labels, categorization health summary).
 
 ## Widget catalog
 
 ### Category Trends
 
-Line chart showing monthly spend per category over 12 months, with a bold total-spend overlay. Each category is a separate line; a palette of 8 colours cycles across them. Interactive pill buttons beneath the chart toggle individual category lines; an "All" pill toggles the whole set; a checkbox shows or hides the total line. Answers the long-arc version of question 3.
+Line chart showing spend per category over a user-selected date range. Controls:
+- **Date range picker**: This month / 3M / 6M / 12M / 24M. All ranges include the current month MTD as the final data point.
+- **Granularity picker**: Daily / Weekly / Monthly. Drives the x-axis bucket size.
+- **Category pills**: toggle individual category lines on/off. First click on any pill when all are active isolates that category; subsequent clicks toggle. An "All" pill resets to all visible.
+- **Show total checkbox**: overlays a bold total-spend line across all categories; dims individual lines when active.
+
+Category pill visibility and show-total state persist across picker changes via `localStorage` (no full-page reload — HTMX swaps the widget fragment only). Chart initialises via `htmx:afterSettle` + `requestAnimationFrame` to ensure correct container sizing.
+
+Clicking any chart point routes to `/transactions` filtered to that period and category (drilldown).
+
+Backed by `get_spend_by_category_grouped` — a single batched SQL query regardless of date range or granularity (ADR-0042). The prior N+1 per-month loop is eliminated.
 
 ### Category Radar
 
-Spider chart with 7 axes — one per top-spending category (ranked by combined 12-month spend). A horizontal pill strip across the top lets the user select any of the 12 available months (current MTD + 11 prior complete months). Only the selected month's dataset is drawn. A "Compare prev. month" toggle in the top-right corner overlays the immediately preceding month in orange on the same axes, so shape differences are visible at a glance.
+Spider chart with axes for the user's top spending categories that have a budget target set. Normalised to **% of budget**: each axis runs 0–N%, and the budget target is a regular grey polygon at 100% on every axis. The teal actual polygon shows how far the selected month's spend reaches on each axis.
 
-Alongside the chart, a fixed-width detail panel shows:
+A horizontal pill strip lets the user navigate between the current MTD month and the 11 prior complete months. The budget polygon is constant (standing targets, not month-specific); only the actual polygon changes.
+
+**Why % of budget, not raw dollars:** raw dollar axes collapse all but the highest-spending category toward the centre when magnitude varies significantly across categories (e.g. $2,800 "fun" vs. $180 "food"). Normalising to budget makes all axes comparable and makes the chart immediately readable — inside the grey polygon means on track, outside means over.
+
+**Unbudgeted categories:** axes are limited to categories with a budget target. Top-spending categories without a budget are excluded from the axes and listed in an amber warning strip at the bottom of the widget with a link to set budgets. Individual transactions in the detail panel are flagged with a red "no budget" pill if their category has no target.
+
+The detail panel alongside the chart shows:
 - Total outflow for the selected month
 - Top 10 transactions by amount, with description, category chip, and dollar value
-- An amber "unusual" badge on any transaction whose amount is ≥ 2 standard deviations above that category's 12-month per-transaction mean (sample std dev, n–1)
-
-The overlay toggle tracks the active pill: switching months while the overlay is on always shows that month vs. the one before it.
+- An amber "unusual" badge on any transaction ≥ 2 standard deviations above that category's 12-month per-transaction mean
 
 ### Category Movers
 
-Ranked table comparing the last two complete calendar months (full months only — MTD is excluded to avoid distorted comparisons). Columns: category name, prior month spend, current month spend, delta (dollar amount + percentage). Sorted by absolute delta descending, top 10 shown. Red ▲ for increases, green ▼ for decreases. Categories that appear in only one month are included with a zero baseline for the absent month. Answers the recent-signal version of question 3.
+Ranked table comparing the last two complete calendar months (MTD excluded to avoid distorted comparisons). Columns: category name, prior month, current month, delta (dollar + percentage). Sorted by absolute delta descending, top 10 shown.
 
 ### Category Profile
 
-Per-category statistics table covering the selected period (default 12 months). For each category: transaction count, total spend, mean transaction value, standard deviation, coefficient of variation (std dev ÷ mean), and a consistency label — Consistent (CV < 0.5), Mixed (CV 0.5–1.0), Irregular (CV > 1.0). Uncategorized transactions are included as a separate row and flagged visually.
+Per-category statistics table covering the selected period (default 12 months). Columns: transaction count, total spend, mean, standard deviation, coefficient of variation, consistency label (Consistent CV < 0.5 / Mixed 0.5–1.0 / Irregular > 1.0). Uncategorized spend is included as a separate flagged row.
 
-Summary header shows: total transactions, % categorized, % spend categorized, with two small pie charts (categorization health, spend coverage). Sits at the bottom of the dashboard as an operational health check rather than a primary spending insight.
+Summary header: total transactions, % categorized, % spend categorized, two small pie charts (categorization health, spend coverage). Sits at the bottom of the dashboard as an operational health check.
 
 ## Consequences
 
-- Positive: each widget has a clear job; easy to assess whether a new widget earns its place by checking which question it answers.
-- Positive: Category Trends and Category Movers answer question 3 from different angles — trajectory vs. latest delta — without duplicating each other.
-- Positive: the standalone Outlier Transactions, Subscription Detector, and Top Transactions widgets were removed as redundant once the Radar detail panel covered the same ground more contextually.
-- Negative: custom date-range controls and period-granularity toggles are absent; the dashboard is locked to a rolling 12-month window. Sufficient for v1; can be revisited.
-- Negative: drilldowns are not yet fully implemented. Category Profile row → `/transactions?category=X` is the one outstanding gap against the 5d exit criterion; tracked as in-progress.
-- Follow-ups required: implement Category Profile drilldown (closes the 5d exit criterion); defer CSV export and custom dashboard builder indefinitely.
+- **Positive:** each widget has a clear job; straightforward to assess whether a new widget earns its place.
+- **Positive:** Category Trends and Category Movers answer question 3 from complementary angles — trajectory over time vs. latest month delta.
+- **Positive:** normalising the radar to % of budget makes it immediately readable regardless of magnitude spread across categories. The budget target is the natural reference shape — more meaningful than a prior-month overlay.
+- **Positive:** HTMX fragment swaps + `localStorage` for picker state means picker changes feel instant and category visibility survives navigation.
+- **Negative:** Category Movers is functional but visually thin — no bar chart, no click-through to transactions, no budget context. Flagged as a known weakness; improvement deferred.
+- **Negative:** users with no budget targets get a degraded radar — axes collapse and the widget prompts them to set budgets. Acceptable given that budget setup is a prerequisite for meaningful radar use.
+- **Follow-ups required:** Category Movers visual overhaul (deferred to backlog); CSV export and custom dashboard builder descoped from 5d.
 
 ## Notes
 
-Report controls (item 4 of the 5d work items) are implemented more rigidly than originally specced — the 12-month window is fixed rather than user-configurable. This was a deliberate scope reduction: the primary use cases are covered and a date-range picker adds UI complexity without answering a new question.
+The "Compare prev. month" overlay originally specified in this ADR was replaced by the budget comparison ring. A prior-month overlay has no normative anchor — it shows change but not whether that change is good or bad. The budget polygon answers the question the overlay was trying to answer: "is this month's shape acceptable?" This decision was initially documented in ADR-0043; that ADR is retired and its substance is consolidated here.
 
-Items 6 (CSV export) and 7 (custom dashboard builder) are deferred indefinitely.
+`get_spend_by_category_grouped` (ADR-0042) is the query contract that makes the date-range and granularity pickers viable — flat query cost regardless of the selected window.
