@@ -16,7 +16,7 @@ Phases, work items, and exit criteria. Updated as phases ship.
 | 5a | Intelligence Layer — Report Page | Shipped | (delivered with 3c) | 2026-05-18 |
 | 5b | Categorizer v2 | Shipped | 2–3 weeks | 2026-05-19 |
 | 5c | Account Management & User Settings | Shipped | 1–2 weeks | 2026-05-23 |
-| 5d | Reporting Overhaul | Not started | 3–4 weeks | — |
+| 5d | Reporting Overhaul | Shipped | 3–4 weeks | 2026-05-31 |
 | 5e | Budget Improvements | Not started | 2–3 weeks | — |
 | 6 | Public-Release Hardening | Not started | 3–4 weeks | — |
 | 7 | Categorizer v3 | Not started | 2–3 weeks | — |
