@@ -1125,13 +1125,13 @@ class CategorySpend:
 
 
 @dataclass(frozen=True)
-class CategorySpendMonthly:
-    """Aggregated spend total for one category within one calendar month.
+class CategorySpendGrouped:
+    """Aggregated spend for one category within one time bucket.
 
-    Returned by get_spend_by_category_monthly. spend is non-negative.
+    Returned by get_spend_by_category_grouped. spend is non-negative.
+    period_start is the first date of the bucket (month, ISO week Monday, or day).
     """
-    year: int
-    month: int
+    period_start: date
     category_id: UUID | None
     category_name: str | None
     spend: Decimal
@@ -1205,26 +1205,33 @@ def get_spend_by_category(
     ]
 
 
-def get_spend_by_category_monthly(
+_VALID_GRANULARITIES = {"day", "week", "month"}
+
+
+def get_spend_by_category_grouped(
     user_id: str,
     period: DateRange,
+    granularity: str = "month",
     account_id: UUID | None = None,
-) -> list[CategorySpendMonthly]:
-    """Return per-category spend grouped by calendar month in a single query.
+) -> list[CategorySpendGrouped]:
+    """Return per-category spend grouped by time bucket in a single query.
 
-    Replaces the N-query-per-month pattern in widgets that need a full time
-    series. Returns one row per (month, category) pair ordered by month then
-    spend descending. Only outflow transactions (amount < 0) are included.
-    Active accounts only.
+    Replaces the N-query-per-period pattern in widgets that need a full time
+    series. Returns one row per (period_start, category) pair. Only outflow
+    transactions (amount < 0) from active accounts are included.
 
     Args:
-        user_id:    Authenticated user's UUID string.
-        period:     Inclusive date range. Typically spans multiple months.
-        account_id: If provided, restrict to one account.
+        user_id:     Authenticated user's UUID string.
+        period:      Inclusive date range spanning the full window.
+        granularity: Bucket size — "day", "week" (ISO Monday), or "month".
+        account_id:  If provided, restrict to one account.
 
     Returns:
-        list[CategorySpendMonthly] ordered by (year, month, spend DESC).
+        list[CategorySpendGrouped] ordered by (period_start, spend DESC).
     """
+    if granularity not in _VALID_GRANULARITIES:
+        raise ValueError(f"granularity must be one of {_VALID_GRANULARITIES}")
+
     params: dict = {
         "user_id": user_id,
         "date_from": period.date_from,
@@ -1236,10 +1243,15 @@ def get_spend_by_category_monthly(
         account_clause = " AND t.account_id = :account_id"
         params["account_id"] = str(account_id)
 
+    if granularity == "month":
+        period_expr = "DATE_TRUNC('month', t.date)::date"
+    elif granularity == "week":
+        period_expr = "DATE_TRUNC('week', t.date)::date"
+    else:  # day
+        period_expr = "t.date"
+
     sql = text(
-        "SELECT"
-        " EXTRACT(YEAR FROM t.date)::int AS year,"
-        " EXTRACT(MONTH FROM t.date)::int AS month,"
+        f"SELECT {period_expr} AS period_start,"
         " t.category_id,"
         " c.name AS category_name,"
         " SUM(ABS(t.amount)) AS spend,"
@@ -1251,8 +1263,8 @@ def get_spend_by_category_monthly(
         " AND t.date >= :date_from AND t.date <= :date_to"
         " AND t.amount < 0"
         f"{account_clause}"
-        " GROUP BY year, month, t.category_id, c.name"
-        " ORDER BY year, month, spend DESC, category_name NULLS LAST"
+        " GROUP BY period_start, t.category_id, c.name"
+        " ORDER BY period_start, spend DESC, category_name NULLS LAST"
     )
 
     engine = get_engine()
@@ -1260,13 +1272,12 @@ def get_spend_by_category_monthly(
         rows = conn.execute(sql, params).fetchall()
 
     return [
-        CategorySpendMonthly(
-            year=int(row[0]),
-            month=int(row[1]),
-            category_id=UUID(str(row[2])) if row[2] is not None else None,
-            category_name=row[3],
-            spend=Decimal(str(row[4])),
-            transaction_count=int(row[5]),
+        CategorySpendGrouped(
+            period_start=row[0],
+            category_id=UUID(str(row[1])) if row[1] is not None else None,
+            category_name=row[2],
+            spend=Decimal(str(row[3])),
+            transaction_count=int(row[4]),
         )
         for row in rows
     ]

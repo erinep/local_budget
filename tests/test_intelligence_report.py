@@ -27,12 +27,14 @@ _USER_ID = "00000000-0000-0000-0000-000000000001"
 
 _FAKE_CT_VM = CategoryTrendsVM(
     title="Spending by Category",
-    labels=["Apr 2026", "May 2026"],
+    labels=["Apr 2026", "May 2026 (MTD)"],
+    dates=["2026-04-01", "2026-05-01"],
     datasets=[
         {"label": "Groceries", "data": [400.0, 350.0]},
         {"label": "Dining", "data": [120.0, 95.0]},
     ],
     period_months=12,
+    granularity="month",
 )
 
 _PATCH_BUILD_CT   = "app.intelligence.widgets.category_trends.build_category_trends"

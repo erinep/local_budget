@@ -3,82 +3,133 @@
 Answers: "How has spending in each category changed over time?"
 
 Public API:
-    build_category_trends(user_id, period_months) -> CategoryTrendsVM
+    build_category_trends(user_id, period_months, granularity) -> CategoryTrendsVM
 """
 
-import calendar
 import datetime
 from dataclasses import dataclass
 
 from app.intelligence.widgets import REGISTRY, WidgetDef
-from app.transactions.services import DateRange, get_spend_by_category_monthly
+from app.transactions.services import DateRange, get_spend_by_category_grouped
+
+_MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 
 @dataclass(frozen=True)
 class CategoryTrendsVM:
     title: str
-    labels: list[str]       # ["Jan 2026", "Feb 2026", ..., "May 2026 (MTD)"]
-    datasets: list[dict]    # [{"label": cat, "data": [float, ...]}, ...]
+    labels: list[str]       # display labels for the x-axis
+    dates: list[str]        # "YYYY-MM-DD" period starts — used by JS for click-through URLs
+    datasets: list[dict]    # [{"label": cat, "data": [float, ...], "category_id": id|None}]
     period_months: int
+    granularity: str        # "day", "week", or "month"
 
 
-def build_category_trends(user_id: str, period_months: int = 12) -> CategoryTrendsVM:
-    """Return per-category spend for each of the last period_months complete months
-    plus the current month (MTD), using a single batched query.
+def _enumerate_slots(
+    granularity: str,
+    date_from: datetime.date,
+    date_to: datetime.date,
+) -> list[datetime.date]:
+    """Return ordered period_start dates covering [date_from, date_to]."""
+    slots: list[datetime.date] = []
+    if granularity == "day":
+        d = date_from
+        while d <= date_to:
+            slots.append(d)
+            d += datetime.timedelta(days=1)
+    elif granularity == "week":
+        # Snap to Monday on or before date_from (ISO week start)
+        week_start = date_from - datetime.timedelta(days=date_from.weekday())
+        while week_start <= date_to:
+            slots.append(week_start)
+            week_start += datetime.timedelta(weeks=1)
+    else:  # month
+        y, m = date_from.year, date_from.month
+        while (y, m) <= (date_to.year, date_to.month):
+            slots.append(datetime.date(y, m, 1))
+            m += 1
+            if m > 12:
+                m = 1
+                y += 1
+    return slots
 
-    Categories are sorted by total spend descending so the legend lists the
-    biggest spenders first. Months with no spend for a category are recorded
-    as 0.0.
+
+def _slot_label(granularity: str, slot: datetime.date, is_mtd: bool) -> str:
+    if granularity == "month":
+        label = f"{_MONTH_NAMES[slot.month - 1]} {slot.year}"
+        return f"{label} (MTD)" if is_mtd else label
+    else:
+        # "Jan 5" — no leading zero, no year needed within a single chart
+        return f"{_MONTH_NAMES[slot.month - 1]} {slot.day}"
+
+
+def build_category_trends(
+    user_id: str,
+    period_months: int = 12,
+    granularity: str = "month",
+) -> CategoryTrendsVM:
+    """Return per-category spend bucketed by granularity over the requested window.
+
+    period_months=0 means the current calendar month only.
+    period_months=N means N prior complete months plus the current month (MTD).
+    granularity controls the bucket size: "day", "week", or "month".
+    A single DB query covers the whole range; Python pivots into per-slot series.
     """
-    now = datetime.datetime.now(datetime.timezone.utc)
-    cur_year, cur_month = now.year, now.month
+    if granularity not in ("day", "week", "month"):
+        granularity = "month"
 
-    # Build ordered list of (year, month) slots: complete prior months + current MTD
-    slots: list[tuple[int, int]] = []
-    y, m = cur_year, cur_month
-    for _ in range(period_months):
-        m -= 1
-        if m == 0:
-            m = 12
-            y -= 1
-        slots.append((y, m))
-    slots = list(reversed(slots))
-    slots.append((cur_year, cur_month))  # current month as MTD
+    today = datetime.date.today()
+    cur_year, cur_month = today.year, today.month
 
-    # Single query spanning the full range
-    oldest_y, oldest_m = slots[0]
-    last_day = calendar.monthrange(cur_year, cur_month)[1]
-    date_from = datetime.date(oldest_y, oldest_m, 1)
-    date_to = datetime.date(cur_year, cur_month, last_day)
+    # Compute the query date range
+    if period_months == 0:
+        date_from = datetime.date(cur_year, cur_month, 1)
+    else:
+        y, m = cur_year, cur_month
+        for _ in range(period_months):
+            m -= 1
+            if m == 0:
+                m = 12
+                y -= 1
+        date_from = datetime.date(y, m, 1)
+    date_to = today
 
-    all_rows = get_spend_by_category_monthly(user_id, DateRange(date_from, date_to))
+    # Single query for the full range
+    all_rows = get_spend_by_category_grouped(
+        user_id, DateRange(date_from, date_to), granularity
+    )
 
-    # Index results by "YYYY-MM" key
-    spend_by_month: dict[str, dict[str, float]] = {}
+    # Index rows by period_start date
+    spend_by_slot: dict[datetime.date, dict[str, float]] = {}
     cat_ids: dict[str, str | None] = {}
 
     for row in all_rows:
-        mk = f"{row.year}-{row.month:02d}"
         cat = row.category_name or "Uncategorized"
-        spend_by_month.setdefault(mk, {})[cat] = float(row.spend)
+        spend_by_slot.setdefault(row.period_start, {})[cat] = float(row.spend)
         if cat not in cat_ids:
             cat_ids[cat] = str(row.category_id) if row.category_id else None
 
-    # Build labels and month_keys in slot order
-    labels: list[str] = []
-    month_keys: list[str] = []
-    for i, (y, m) in enumerate(slots):
-        is_current = (i == len(slots) - 1)
-        base_label = datetime.date(y, m, 1).strftime("%b %Y")
-        label = f"{base_label} (MTD)" if is_current else base_label
-        mk = f"{y}-{m:02d}"
-        labels.append(label)
-        month_keys.append(mk)
-        spend_by_month.setdefault(mk, {})  # ensure key exists for months with no data
+    # Enumerate all slots in range order (includes zero-spend slots)
+    slots = _enumerate_slots(granularity, date_from, date_to)
+    for slot in slots:
+        spend_by_slot.setdefault(slot, {})
 
-    # Rank categories by total spend across all months
+    # Build labels and ISO date strings
+    labels: list[str] = []
+    dates: list[str] = []
+    for slot in slots:
+        is_mtd = (
+            granularity == "month"
+            and slot.year == cur_year
+            and slot.month == cur_month
+        )
+        labels.append(_slot_label(granularity, slot, is_mtd))
+        dates.append(slot.isoformat())
+
+    # Rank categories by total spend
     totals: dict[str, float] = {}
-    for cat_map in spend_by_month.values():
+    for cat_map in spend_by_slot.values():
         for cat, amt in cat_map.items():
             totals[cat] = totals.get(cat, 0.0) + amt
 
@@ -90,7 +141,7 @@ def build_category_trends(user_id: str, period_months: int = 12) -> CategoryTren
         {
             "label": cat,
             "category_id": cat_ids.get(cat),
-            "data": [spend_by_month[mk].get(cat, 0.0) for mk in month_keys],
+            "data": [spend_by_slot[slot].get(cat, 0.0) for slot in slots],
         }
         for cat in top_cats
     ]
@@ -100,16 +151,18 @@ def build_category_trends(user_id: str, period_months: int = 12) -> CategoryTren
             "label": "Other",
             "category_id": None,
             "data": [
-                sum(spend_by_month[mk].get(cat, 0.0) for cat in other_cats)
-                for mk in month_keys
+                sum(spend_by_slot[slot].get(cat, 0.0) for cat in other_cats)
+                for slot in slots
             ],
         })
 
     return CategoryTrendsVM(
         title="Spending by Category",
         labels=labels,
+        dates=dates,
         datasets=datasets,
         period_months=period_months,
+        granularity=granularity,
     )
 
 
