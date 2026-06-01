@@ -20,7 +20,7 @@ from app.transactions.services import TransactionFilters, get_transactions
 
 _TOP_N = 7
 _TOP_TXN = 10
-_DISPLAY_MONTHS = 12  # current MTD + 11 prior complete months
+_PRIOR_MONTHS = 11  # complete months shown before current MTD (-1 through -11)
 _OUTLIER_Z = 2.0
 
 
@@ -106,11 +106,12 @@ def build_category_radar(user_id: str, period_months: int = 12) -> CategoryRadar
     today = datetime.date.today()
     now = datetime.datetime.now(datetime.timezone.utc)
 
-    # Build the list of month slots: current MTD + prior complete months
-    slots: list[tuple[int, int, bool]] = []
-    slots.append((today.year, today.month, True))
-    y, m = now.year, now.month
-    for _ in range(_DISPLAY_MONTHS - 1):
+    # Build the list of month slots: current MTD + 11 prior complete months.
+    # Using range(_PRIOR_MONTHS) explicitly so months -1 through -11 never
+    # wrap around to duplicate the current month's name.
+    slots: list[tuple[int, int, bool]] = [(today.year, today.month, True)]
+    y, m = today.year, today.month
+    for _ in range(_PRIOR_MONTHS):
         m -= 1
         if m == 0:
             m = 12
@@ -172,7 +173,7 @@ def build_category_radar(user_id: str, period_months: int = 12) -> CategoryRadar
 
         total = round(sum(abs(float(t.amount)) for t in outflows), 2)
         name = month_names[sm - 1]
-        label = f"{name} (MTD)" if is_current else name
+        label = name
 
         months.append(RadarMonthData(
             label=label,
