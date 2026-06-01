@@ -37,8 +37,18 @@ One file per non-trivial decision. Append-only.
 | [0030](0030-backfill-and-recategorization.md) | Backfill and Re-categorization on Categorizer Upgrade | Accepted | 2026-05-18 |
 | [0031](0031-merchant-aliases-management-ui.md) | Merchant Aliases Management UI — List and Delete in Account Settings | Accepted | 2026-05-18 |
 | [0032](0032-bulk-categorize.md) | Bulk Categorization — Selection UI, Action Bar, Route Contract | Draft | 2026-05-20 |
+| [0033](0033-upload-bulk-insert.md) | Bulk INSERT for Upload Transaction Persistence | Accepted | 2026-05-19 |
 | [0034](0034-account-lifecycle.md) | Account Lifecycle — Archive Semantics, Visibility, and Rename Contract | Accepted | 2026-05-23 |
 | [0035](0035-settings-page-structure.md) | Settings Page Structure — Blueprint, URL Namespace, Navigation, and Email-Change Flow | Accepted | 2026-05-23 |
+| [0036](0036-data-ownership-and-cascade-lifecycle.md) | Data Ownership Hierarchy and Delete Cascade Lifecycle | Accepted | 2026-05-23 |
+| [0037](0037-account-visibility-strategy.md) | Account Visibility Strategy | Accepted | 2026-05-23 |
+| [0038](0038-frontend-stack-for-reporting-overhaul.md) | Frontend Stack for Reporting Overhaul — Jinja + HTMX + Alpine.js + Chart.js | Accepted | 2026-05-24 |
+| [0039](0039-widget-contract.md) | Widget Contract — Typed View-Model Shape per Widget Type | Accepted | 2026-05-24 |
+| [0040](0040-css-strategy.md) | CSS Strategy — Design Tokens, Utility Classes, Scoped Component Styles | Accepted | 2026-05-24 |
+| [0041](0041-intelligence-dashboard-ia.md) | Intelligence Dashboard IA and Widget Catalog | Accepted | 2026-05-31 |
+| [0042](0042-batched-monthly-spend-query.md) | Batched Monthly Spend Query and Granularity Picker | Accepted | 2026-05-31 |
+| [0043](0043-income-field-schema.md) | Income Field Schema and Ownership — user_settings under Account Settings | Accepted | 2026-05-31 |
+| [0044](0044-budget-allocation-model.md) | Budget Allocation Model — Dollar-Only Storage, Percentage Derived at Display Time | Accepted | 2026-05-31 |
 
 When the first ADR lands, replace the placeholder row with a real entry. Keep entries sorted by number, ascending.
 

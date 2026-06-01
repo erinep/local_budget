@@ -111,6 +111,12 @@ _UPSERT_BUDGET = "app.budgets.routes.upsert_budget"
 _DELETE_BUDGET = "app.budgets.routes.delete_budget"
 _APPLY_PROPOSED = "app.budgets.routes.apply_proposed_budgets"
 _LIST_CATEGORIES = "app.budgets.routes.list_categories"
+_GET_USER_SETTINGS = "app.budgets.routes.get_user_settings"
+
+
+def _stub_user_settings(user_id: str = ""):
+    from app.account_settings.services import UserSettings
+    return UserSettings(user_id=user_id or _USER_ID, monthly_income=None)
 
 
 # ===========================================================================
@@ -444,24 +450,40 @@ class TestBudgetProgressRoute:
 
     def test_authenticated_returns_200(self, authenticated_client):
         # Behavior: authenticated request → 200
-        with patch(_GET_BUDGET_PROGRESS, return_value=[]):
+        with (
+            patch(_GET_BUDGET_PROGRESS, return_value=[]),
+            patch(_GET_BUDGETS, return_value=[]),
+            patch(_GET_USER_SETTINGS, side_effect=_stub_user_settings),
+            patch(_LIST_CATEGORIES, return_value=[]),
+        ):
             response = authenticated_client.get("/budgets/")
         assert response.status_code == 200
 
     def test_renders_budget_progress_data(self, authenticated_client):
-        # Behavior: category name from mocked progress appears in rendered HTML
-        with patch(_GET_BUDGET_PROGRESS, return_value=[_PROGRESS_A]):
+        # Behavior: category name from mocked progress appears in rendered HTML.
+        # list_categories must include the matching category so _build_rows picks it up.
+        matching_cat = {"id": str(_CAT_ID_A), "name": "Groceries", "keywords": []}
+        with (
+            patch(_GET_BUDGET_PROGRESS, return_value=[_PROGRESS_A]),
+            patch(_GET_BUDGETS, return_value=[]),
+            patch(_GET_USER_SETTINGS, side_effect=_stub_user_settings),
+            patch(_LIST_CATEGORIES, return_value=[matching_cat]),
+        ):
             response = authenticated_client.get("/budgets/")
         assert b"Groceries" in response.data
 
     def test_defaults_to_current_month_no_query_params(self, authenticated_client):
         # Behavior: no ?year=&month= → service called without aborting
         mock_progress = MagicMock(return_value=[])
-        with patch(_GET_BUDGET_PROGRESS, mock_progress):
+        with (
+            patch(_GET_BUDGET_PROGRESS, mock_progress),
+            patch(_GET_BUDGETS, return_value=[]),
+            patch(_GET_USER_SETTINGS, side_effect=_stub_user_settings),
+            patch(_LIST_CATEGORIES, return_value=[]),
+        ):
             response = authenticated_client.get("/budgets/")
         assert response.status_code == 200
         mock_progress.assert_called_once()
-        # The year and month arguments are positional [1] and [2]
         call_args = mock_progress.call_args[0]
         assert isinstance(call_args[1], int)  # year
         assert isinstance(call_args[2], int)  # month
@@ -469,7 +491,12 @@ class TestBudgetProgressRoute:
     def test_accepts_year_and_month_query_params(self, authenticated_client):
         # Behavior: ?year=2026&month=3 passed through to service correctly
         mock_progress = MagicMock(return_value=[])
-        with patch(_GET_BUDGET_PROGRESS, mock_progress):
+        with (
+            patch(_GET_BUDGET_PROGRESS, mock_progress),
+            patch(_GET_BUDGETS, return_value=[]),
+            patch(_GET_USER_SETTINGS, side_effect=_stub_user_settings),
+            patch(_LIST_CATEGORIES, return_value=[]),
+        ):
             response = authenticated_client.get("/budgets/?year=2026&month=3")
         assert response.status_code == 200
         call_args = mock_progress.call_args[0]
@@ -477,98 +504,30 @@ class TestBudgetProgressRoute:
         assert call_args[2] == 3
 
 
-class TestConfigureBudgetsRoute:
-    """GET /budgets/configure — auth gate, 200 for authenticated."""
+class TestSaveAllBudgetsRoute:
+    """POST /budgets/save — batch-save all targets, auth gate, success redirect."""
+
+    _VALID_FORM = {f"amount_{_CAT_ID_A}": "500"}
 
     def test_unauthenticated_redirects(self, client):
         # Behavior: unauthenticated → 302
-        response = client.get("/budgets/configure", follow_redirects=False)
+        response = client.post("/budgets/save", data=self._VALID_FORM, follow_redirects=False)
         assert response.status_code == 302
         assert "/auth/login" in response.headers.get("Location", "")
 
-    def test_authenticated_returns_200(self, authenticated_client):
-        # Behavior: authenticated → 200
+    def test_valid_form_redirects_to_budget_progress(self, authenticated_client):
+        # Behavior: valid batch submit → 302 to /budgets/
         with (
             patch(_GET_BUDGETS, return_value=[]),
-            patch(_LIST_CATEGORIES, return_value=[]),
+            patch(_UPSERT_BUDGET, return_value=_BUDGET_A),
         ):
-            response = authenticated_client.get("/budgets/configure")
-        assert response.status_code == 200
-
-
-class TestSaveBudgetRoute:
-    """POST /budgets/configure — auth gate, success redirect, ValueError → 302 with flash."""
-
-    _VALID_FORM = {
-        "category_id": str(_CAT_ID_A),
-        "amount": "500.00",
-    }
-
-    def test_unauthenticated_redirects(self, client):
-        # Behavior: unauthenticated → 302
-        response = client.post("/budgets/configure", data=self._VALID_FORM, follow_redirects=False)
-        assert response.status_code == 302
-        assert "/auth/login" in response.headers.get("Location", "")
-
-    def test_valid_form_redirects_to_configure(self, authenticated_client):
-        # Behavior: valid submit → 302 back to configure
-        with patch(_UPSERT_BUDGET, return_value=_BUDGET_A):
             response = authenticated_client.post(
-                "/budgets/configure",
+                "/budgets/save",
                 data=self._VALID_FORM,
                 follow_redirects=False,
             )
         assert response.status_code == 302
-        assert "/budgets/configure" in response.headers.get("Location", "")
-
-    def test_value_error_from_upsert_redirects_with_flash(self, authenticated_client):
-        # Behavior: ValueError from upsert_budget → 302 redirect (PRG pattern); flash set
-        # The route catches ValueError, flashes the message, and redirects rather than 400.
-        with patch(_UPSERT_BUDGET, side_effect=ValueError("amount must be >= 0")):
-            response = authenticated_client.post(
-                "/budgets/configure",
-                data=self._VALID_FORM,
-                follow_redirects=False,
-            )
-        # PRG: route flashes and redirects, never returns 4xx for a validation error
-        assert response.status_code == 302
-        assert "/budgets/configure" in response.headers.get("Location", "")
-
-
-class TestDeleteBudgetRoute:
-    """POST /budgets/<budget_id>/delete — auth gate, success redirect, ValueError → 404."""
-
-    _VALID_ID = str(_BUDGET_ID)
-
-    def test_unauthenticated_redirects(self, client):
-        # Behavior: unauthenticated → 302
-        response = client.post(
-            f"/budgets/{self._VALID_ID}/delete",
-            data={},
-            follow_redirects=False,
-        )
-        assert response.status_code == 302
-        assert "/auth/login" in response.headers.get("Location", "")
-
-    def test_valid_delete_redirects_to_configure(self, authenticated_client):
-        # Behavior: successful delete → 302
-        with patch(_DELETE_BUDGET, return_value=None):
-            response = authenticated_client.post(
-                f"/budgets/{self._VALID_ID}/delete",
-                data={},
-                follow_redirects=False,
-            )
-        assert response.status_code == 302
-        assert "/budgets/configure" in response.headers.get("Location", "")
-
-    def test_value_error_returns_404(self, authenticated_client):
-        # Behavior: ValueError (wrong user / not found) → 404
-        with patch(_DELETE_BUDGET, side_effect=ValueError("Budget not found or does not belong to this user.")):
-            response = authenticated_client.post(
-                f"/budgets/{self._VALID_ID}/delete",
-                data={},
-            )
-        assert response.status_code == 404
+        assert "/budgets/" in response.headers.get("Location", "")
 
 
 class TestProposeBudgetPreviewRoute:
@@ -622,6 +581,9 @@ class TestApplyProposedBudgetsRoute:
             patch(_PROPOSE_BUDGETS, return_value=[_PROPOSED_A]),
             patch(_APPLY_PROPOSED, return_value=1),
             patch(_GET_BUDGET_PROGRESS, return_value=[]),
+            patch(_GET_BUDGETS, return_value=[]),
+            patch(_GET_USER_SETTINGS, side_effect=_stub_user_settings),
+            patch(_LIST_CATEGORIES, return_value=[]),
         ):
             response = authenticated_client.post(
                 "/budgets/propose",

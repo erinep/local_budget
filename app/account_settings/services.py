@@ -28,6 +28,8 @@ logging with scrubbed keys only.
 """
 
 import logging
+from dataclasses import dataclass
+from decimal import Decimal
 
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
@@ -630,3 +632,67 @@ def seed_defaults(user_id: str) -> None:
                     add_merchant_alias(user_id, cat_id, entry["normalized_name"])
                 except ValueError:
                     pass
+
+
+# ---------------------------------------------------------------------------
+# User settings — income and future per-user preferences (ADR-0043)
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class UserSettings:
+    """Per-user preference record (public.user_settings)."""
+    user_id: str
+    monthly_income: Decimal | None  # None when not set
+
+
+def get_user_settings(user_id: str) -> UserSettings:
+    """Return the user's settings row.
+
+    Returns a UserSettings with monthly_income=None if no row exists yet.
+    Never raises on missing data.
+    """
+    engine = get_engine()
+    with engine.connect() as conn:
+        row = conn.execute(
+            text(
+                "SELECT monthly_income FROM public.user_settings"
+                " WHERE user_id = :uid"
+            ),
+            {"uid": user_id},
+        ).fetchone()
+
+    if row is None:
+        return UserSettings(user_id=user_id, monthly_income=None)
+    return UserSettings(
+        user_id=user_id,
+        monthly_income=Decimal(str(row[0])) if row[0] is not None else None,
+    )
+
+
+def upsert_user_settings(user_id: str, monthly_income: Decimal | None) -> UserSettings:
+    """Create or update the user's settings row.
+
+    Raises ValueError if monthly_income is not None and < 0.
+    Uses INSERT … ON CONFLICT (user_id) DO UPDATE.
+    Returns the persisted UserSettings.
+    """
+    if monthly_income is not None and monthly_income < Decimal("0"):
+        raise ValueError("monthly_income must be >= 0")
+
+    engine = get_engine()
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO public.user_settings (user_id, monthly_income)"
+                " VALUES (:uid, :income)"
+                " ON CONFLICT (user_id)"
+                " DO UPDATE SET monthly_income = EXCLUDED.monthly_income,"
+                "               updated_at = now()"
+            ),
+            {
+                "uid": user_id,
+                "income": str(monthly_income) if monthly_income is not None else None,
+            },
+        )
+
+    return UserSettings(user_id=user_id, monthly_income=monthly_income)
