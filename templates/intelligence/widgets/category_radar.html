@@ -36,7 +36,7 @@
                        border: 1px solid var(--border); cursor: pointer;
                        background: {% if loop.first %}var(--accent){% else %}transparent{% endif %};
                        color: {% if loop.first %}#fff{% else %}var(--text){% endif %};">
-            {{ month.label }}
+            {{ month.label }}{% if month.is_current %}&thinsp;<span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:currentColor;opacity:0.7;vertical-align:2px;"></span>{% endif %}
         </button>
         {% endfor %}
     </div>
