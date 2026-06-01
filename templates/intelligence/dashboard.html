@@ -241,11 +241,29 @@
     // Initial page load
     document.addEventListener('DOMContentLoaded', function () { _initCategoryTrends(); });
 
-    // Re-init after HTMX swaps the widget; rAF defers past layout so Chart.js
-    // measures the correct container size before rendering.
+    // Capture the chart-host width BEFORE HTMX replaces the DOM so we can
+    // restore it after the swap, before Chart.js reads the container.
+    var _ctSavedWidth = null;
+    document.addEventListener('htmx:beforeSwap', function (evt) {
+        if (evt.detail.target && evt.detail.target.id === 'widget-category-trends') {
+            var host = evt.detail.target.querySelector('.chart-host');
+            _ctSavedWidth = host ? host.offsetWidth : null;
+        }
+    });
+
+    // Re-init after HTMX settles, applying the saved width so Chart.js sees a
+    // stable container regardless of any layout shift during the swap.
     document.addEventListener('htmx:afterSettle', function (evt) {
         if (evt.detail.target && evt.detail.target.id === 'widget-category-trends') {
-            requestAnimationFrame(function () { _initCategoryTrends(); });
+            requestAnimationFrame(function () {
+                var host = document.querySelector('#widget-category-trends .chart-host');
+                if (host && _ctSavedWidth) host.style.width = _ctSavedWidth + 'px';
+                _initCategoryTrends();
+                requestAnimationFrame(function () {
+                    if (host) host.style.width = '';
+                    _ctSavedWidth = null;
+                });
+            });
         }
     });
 
