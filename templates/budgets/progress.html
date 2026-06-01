@@ -1,12 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Budget — {{ year }}-{{ "%02d"|format(month) }} — Budget Parser{% endblock %}
 
+{% set slider_max = monthly_income|int if monthly_income else 5000 %}
+{% set palette = ['#0f766e','#2563eb','#d97706','#7c3aed','#db2777','#059669','#ea580c','#0891b2'] %}
+{# matches the dashboard chart palette — same row always gets same colour via loop.index0 % 8 #}
+
 {% block content %}
-<div class="section-stack">
+<div class="section-stack" id="budget-page" data-income="{{ monthly_income or '' }}">
+
     <div class="page-intro">
         <div class="section-heading">
             <p class="eyebrow">Budgeting</p>
-            <h1 class="page-title">Budget Progress</h1>
+            <h1 class="page-title">Budget</h1>
         </div>
     </div>
 
@@ -19,98 +24,479 @@
     {% endif %}
     {% endwith %}
 
-    {# Month navigation #}
-    <div class="card" style="display: flex; align-items: center; gap: 16px;">
-        <a class="btn btn-secondary"
-           href="{{ url_for('budgets.budget_progress', year=prev_year, month=prev_month) }}">&larr; Prev</a>
-        <strong style="flex: 1; text-align: center; font-size: 1.1rem;">
+    {# ── Income + allocation ─────────────────────────────────────────────── #}
+    <div class="card">
+        <form method="post" action="{{ url_for('budgets.save_income') }}" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-row" style="align-items: center;">
+                <label for="income-input"
+                       style="font-size: var(--text-sm); font-weight: 700; color: var(--muted);
+                              letter-spacing: 0.04em; text-transform: uppercase; flex-shrink: 0;">
+                    Monthly Income
+                </label>
+                {# Pill-style input — compact so it reads as a setting, not a feature #}
+                <div style="display: flex; align-items: center; gap: var(--space-2);
+                            background: var(--bg-accent); border: 1px solid var(--border);
+                            border-radius: 999px; padding: 4px 4px 4px 14px;">
+                    <span style="color: var(--muted); font-size: var(--text-sm);">$</span>
+                    <input id="income-input" type="number" name="monthly_income"
+                           value="{{ monthly_income|int if monthly_income else '' }}"
+                           min="0" step="1" placeholder="0"
+                           style="width: 80px; border: none; background: transparent;
+                                  font: inherit; font-size: var(--text-sm); font-weight: 700;
+                                  color: var(--text); outline: none;">
+                    <button type="submit" class="button-primary"
+                            style="min-height: 32px; font-size: 0.8rem; padding: 0 14px;">
+                        {% if monthly_income %}Update{% else %}Set{% endif %}
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        {% if monthly_income %}
+        <div style="margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border);">
+
+            {# Summary text #}
+            <div style="display: flex; justify-content: space-between; align-items: baseline;
+                        margin-bottom: var(--space-3); flex-wrap: wrap; gap: var(--space-2);">
+                <span class="section-text" style="line-height: 1.4;">
+                    <strong id="total-allocated" style="color: var(--text); font-size: 1.05rem;">
+                        ${{ "%.0f"|format(allocation.total_allocated if allocation else 0) }}
+                    </strong>
+                    of ${{ "%.0f"|format(monthly_income) }} allocated &mdash;
+                    <span id="pct-allocated">{{ "%.0f"|format(allocation.pct_allocated if allocation else 0) }}</span>%
+                </span>
+                <span id="unallocated-wrap"
+                      style="font-size: var(--text-sm); font-weight: 600;
+                             color: {{ 'var(--color-status-error)' if allocation and allocation.total_unallocated < 0 else 'var(--accent)' }};">
+                    <span id="total-unallocated">
+                        {% if allocation %}${{ "%.0f"|format(allocation.total_unallocated|abs) }}
+                        {% else %}${{ "%.0f"|format(monthly_income) }}{% endif %}
+                    </span>
+                    <span id="unallocated-label">
+                        {{ 'over budget' if allocation and allocation.total_unallocated < 0 else 'unallocated' }}
+                    </span>
+                </span>
+            </div>
+
+            {# Stacked bar — scaled to max(income, total) so overflow is visible via the income line #}
+            {% set total_alloc_f = allocation.total_allocated|float if allocation else 0 %}
+            {% set bar_max_f = [total_alloc_f, monthly_income|float]|max %}
+            {% set is_over = total_alloc_f > monthly_income|float %}
+            {% set income_line_pct = (monthly_income|float / bar_max_f * 100)|round(2) if bar_max_f > 0 else 100 %}
+            {% set unalloc_pct = [(monthly_income|float - total_alloc_f) / bar_max_f * 100, 0]|max if bar_max_f > 0 else 100 %}
+
+            <div style="position: relative; margin-bottom: var(--space-3);">
+                <div id="alloc-stack"
+                     style="display: flex; height: 36px; border-radius: 10px; overflow: hidden;">
+                    {% for row in rows %}{% if row.id %}
+                    {% set seg_pct = (row.target|float / bar_max_f * 100)|round(2) if row.target and bar_max_f else 0 %}
+                    <div class="alloc-segment"
+                         data-cat-id="{{ row.id }}"
+                         data-name="{{ row.name or '' }}"
+                         style="width: {{ seg_pct }}%; min-width: 0; flex-shrink: 0;
+                                background: {{ palette[loop.index0 % 8] }};
+                                transition: width 0.15s ease;"
+                         title="{{ row.name }}: ${{ row.target|int if row.target else 0 }}"></div>
+                    {% endif %}{% endfor %}
+                    <div id="alloc-unallocated"
+                         style="width: {{ unalloc_pct }}%; background: rgba(88,65,38,0.08);
+                                transition: width 0.15s ease; flex-shrink: 0;"
+                         title="Unallocated"></div>
+                </div>
+
+                {# Red income line — appears when total budget exceeds income #}
+                <div id="income-marker"
+                     style="position: absolute; top: -5px; bottom: -5px; z-index: 3;
+                            left: {{ income_line_pct }}%; transform: translateX(-50%);
+                            width: 3px; border-radius: 3px;
+                            background: #ef4444;
+                            box-shadow: 0 0 6px rgba(239,68,68,0.55);
+                            display: {{ 'block' if is_over else 'none' }};"
+                     title="Income limit: ${{ monthly_income|int }}"></div>
+            </div>
+
+            {# Legend #}
+            <div style="display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: var(--space-3);">
+                {% for row in rows %}{% if row.id and row.target > 0 %}
+                <span style="display: inline-flex; align-items: center; gap: 5px;
+                             font-size: 0.8rem; color: var(--muted);">
+                    <span style="width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0;
+                                 background: {{ palette[loop.index0 % 8] }};"></span>
+                    {{ row.name }}
+                </span>
+                {% endif %}{% endfor %}
+                <span style="display: inline-flex; align-items: center; gap: 5px;
+                             font-size: 0.8rem; color: var(--muted);">
+                    <span style="width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0;
+                                 background: rgba(88,65,38,0.2);"></span>
+                    Unallocated
+                </span>
+            </div>
+        </div>
+        {% else %}
+        <p class="section-text" style="margin: var(--space-3) 0 0; font-size: var(--text-sm);">
+            Set your income to see allocation percentages and track how much of it you've budgeted.
+        </p>
+        {% endif %}
+    </div>
+
+    {# ── Month navigation ────────────────────────────────────────────────── #}
+    <div style="display: flex; align-items: center; gap: var(--space-3);">
+        <a class="nav-link" style="padding: 6px 14px;"
+           href="{{ url_for('budgets.budget_progress', year=prev_year, month=prev_month) }}">&larr;</a>
+        <strong style="flex: 1; text-align: center; font-size: var(--text-lg);">
             {{ ["January","February","March","April","May","June",
                 "July","August","September","October","November","December"][month - 1] }}
             {{ year }}
         </strong>
-        <a class="btn btn-secondary"
-           href="{{ url_for('budgets.budget_progress', year=next_year, month=next_month) }}">Next &rarr;</a>
+        <a class="nav-link" style="padding: 6px 14px;"
+           href="{{ url_for('budgets.budget_progress', year=next_year, month=next_month) }}">&rarr;</a>
     </div>
 
-    {# Action links #}
-    <div class="action-row">
-        <a class="btn btn-primary" href="{{ url_for('budgets.configure_budgets') }}">Configure Budgets</a>
-        <a class="btn btn-secondary" href="{{ url_for('budgets.propose_budget_preview', year=year, month=month) }}">Propose Budgets</a>
-    </div>
+    {# ── Budget table ────────────────────────────────────────────────────── #}
+    <form method="post" action="{{ url_for('budgets.save_all_budgets') }}" id="budget-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-    {% if progress %}
-    <div class="card" style="overflow-x: auto;">
-        <table style="width: 100%; border-collapse: collapse;">
-            <thead>
-                <tr style="border-bottom: 2px solid var(--border, #e5e7eb);">
-                    <th style="text-align: left; padding: 8px 12px;">Category</th>
-                    <th style="text-align: right; padding: 8px 12px;">Target</th>
-                    <th style="text-align: right; padding: 8px 12px;">Actual</th>
-                    <th style="text-align: right; padding: 8px 12px;">Variance</th>
-                    <th style="text-align: left; padding: 8px 12px; min-width: 120px;">Status</th>
-                </tr>
-            </thead>
-            <tbody>
-            {% for row in progress %}
-                {% if row.status.value == 'over' %}
-                    {% set status_color = '#dc2626' %}
-                    {% set status_label = 'Over budget' %}
-                {% elif row.status.value == 'near' %}
-                    {% set status_color = '#d97706' %}
-                    {% set status_label = 'Near limit' %}
-                {% else %}
-                    {% set status_color = '#16a34a' %}
-                    {% set status_label = 'Under budget' %}
-                {% endif %}
-                <tr style="border-bottom: 1px solid var(--border, #e5e7eb);">
-                    <td style="padding: 10px 12px;">
-                        {% if row.category_name %}
-                            {{ row.category_name }}
-                        {% else %}
-                            <em style="color: #6b7280;">Uncategorized</em>
-                        {% endif %}
-                        {% if row.budget is none %}
-                            <span style="font-size: 0.75rem; color: #9ca3af; margin-left: 4px;">(no budget set)</span>
-                        {% endif %}
-                    </td>
-                    <td style="text-align: right; padding: 10px 12px;">
-                        {% if row.target > 0 %}${{ "%.2f"|format(row.target) }}{% else %}&mdash;{% endif %}
-                    </td>
-                    <td style="text-align: right; padding: 10px 12px;">
-                        ${{ "%.2f"|format(row.actual) }}
-                    </td>
-                    <td style="text-align: right; padding: 10px 12px; color: {{ '#dc2626' if row.variance < 0 else '#16a34a' }};">
-                        {% if row.target > 0 %}
-                            {% if row.variance >= 0 %}+{% endif %}${{ "%.2f"|format(row.variance) }}
-                        {% else %}
-                            &mdash;
-                        {% endif %}
-                    </td>
-                    <td style="padding: 10px 12px;">
-                        <span style="display: inline-flex; align-items: center; gap: 6px;">
-                            <span style="width: 10px; height: 10px; border-radius: 50%; background: {{ status_color }}; flex-shrink: 0;"></span>
-                            <span style="color: {{ status_color }}; font-size: 0.875rem; font-weight: 500;">{{ status_label }}</span>
-                        </span>
-                        {% if row.target > 0 %}
-                        <div style="margin-top: 4px; height: 4px; background: #e5e7eb; border-radius: 2px; overflow: hidden; max-width: 100px;">
-                            <div style="height: 100%; width: {{ [row.pct_used|float, 100]|min }}%; background: {{ status_color }}; border-radius: 2px;"></div>
-                        </div>
-                        {% endif %}
-                    </td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    {% else %}
-    <div class="card">
-        <p style="color: #6b7280;">No budgets or spend data for this month.</p>
-        <p>
-            <a href="{{ url_for('budgets.configure_budgets') }}">Set up budgets</a>
-            or
-            <a href="{{ url_for('budgets.propose_budget_preview', year=year, month=month) }}">let us propose some based on your history</a>.
-        </p>
-    </div>
-    {% endif %}
+        <div class="action-row" style="align-items: center;">
+            <button type="submit" class="button-primary">Save Budgets</button>
+            <span class="section-text" style="font-size: 0.8rem; line-height: 1.4;">
+                Drag to 0 to remove a target &mdash; click the amount to type exactly.
+            </span>
+            <div style="flex: 1;"></div>
+            <a href="{{ url_for('budgets.propose_budget_preview', year=year, month=month) }}"
+               class="button-secondary" style="font-size: var(--text-sm);">
+                Propose from history
+            </a>
+        </div>
+
+        {% if rows %}
+        <div class="card table-wrap" style="padding: 0;">
+            <table class="data-table budget-table">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Budget / Spent</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for row in rows %}
+                    {% if row.status and row.status.value == 'over' %}
+                        {% set s_color = '#b91c1c' %}
+                    {% elif row.status and row.status.value == 'near' %}
+                        {% set s_color = '#d97706' %}
+                    {% elif row.status %}
+                        {% set s_color = '#3b82f6' %}
+                    {% else %}
+                        {% set s_color = 'rgba(88,65,38,0.15)' %}
+                    {% endif %}
+                    <tr data-actual="{{ row.actual|float if row.actual else 0 }}">
+                        <td style="font-weight: 600; font-size: 1rem;">
+                            {% if row.id and monthly_income %}
+                            <span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px;
+                                         background: {{ palette[loop.index0 % 8] }};
+                                         vertical-align: middle; margin-right: 6px; flex-shrink: 0;"></span>
+                            {% endif %}
+                            {% if row.name %}{{ row.name }}
+                            {% else %}<em style="color: var(--muted); font-weight: 400;">Uncategorized</em>{% endif %}
+                        </td>
+                        <td>
+                            {% if row.id %}
+                            {% set init_val = row.target|int if row.target else 0 %}
+                            {% set target_fill = (init_val / slider_max * 100)|round(2) if slider_max else 0 %}
+                            {% if monthly_income %}
+                                {% set target_pct_label = (init_val / monthly_income * 100)|round(0)|int if init_val > 0 else 0 %}
+                                {% set actual_pct_label = (row.actual / monthly_income * 100)|round(0)|int if row.actual > 0 else 0 %}
+                            {% else %}
+                                {% set target_pct_label = 0 %}
+                                {% set actual_pct_label = (row.pct_used|float)|round(0)|int if row.actual > 0 and row.target > 0 else 0 %}
+                            {% endif %}
+                            {% set actual_fill = (row.actual / slider_max * 100)|round(2) if slider_max and row.actual else 0 %}
+
+                            {# ── Budget target row (interactive slider) ── #}
+                            <div style="display: flex; align-items: center; gap: var(--space-3);">
+                                <span style="font-size: 0.65rem; font-weight: 800; letter-spacing: 0.07em;
+                                             text-transform: uppercase; color: var(--accent);
+                                             min-width: 42px; flex-shrink: 0; text-align: right;">budget</span>
+                                <input class="budget-slider"
+                                       type="range" min="0" max="{{ slider_max }}" step="1"
+                                       value="{{ init_val }}"
+                                       style="flex: 1; min-width: 120px; --fill-pct: {{ target_fill }}%;">
+                                <input class="budget-number"
+                                       type="number" name="amount_{{ row.id }}"
+                                       value="{{ init_val }}" min="0" step="1"
+                                       style="display: none;">
+                                <span class="budget-display">$<span class="budget-display-val">{{ init_val }}</span></span>
+                                <span class="budget-pct">
+                                    {% if target_pct_label > 0 %}{{ target_pct_label }}%{% else %}—{% endif %}
+                                </span>
+                            </div>
+
+                            {# ── Actual spend row (static bar, same scale) ── #}
+                            <div style="display: flex; align-items: center; gap: var(--space-3); margin-top: 6px;">
+                                <span style="font-size: 0.65rem; font-weight: 800; letter-spacing: 0.07em;
+                                             text-transform: uppercase; color: var(--muted);
+                                             min-width: 42px; flex-shrink: 0; text-align: right;">spent</span>
+                                <div style="flex: 1; min-width: 120px; height: 8px;
+                                            background: rgba(88,65,38,0.1); border-radius: 999px; overflow: hidden;">
+                                    <div class="spent-bar-fill"
+                                         style="height: 100%; border-radius: 999px;
+                                                width: {{ [actual_fill, 100]|min }}%;
+                                                background: {{ s_color }};
+                                                transition: background 0.15s ease;"></div>
+                                </div>
+                                <span style="font-size: 0.95rem; font-weight: 600; color: var(--muted);
+                                             font-variant-numeric: tabular-nums; min-width: 58px; text-align: right;">
+                                    {% if row.actual > 0 %}${{ row.actual|int }}{% else %}&mdash;{% endif %}
+                                </span>
+                                <span class="budget-pct">
+                                    {% if actual_pct_label > 0 %}{{ actual_pct_label }}%{% else %}&mdash;{% endif %}
+                                </span>
+                            </div>
+
+                            {% else %}
+                            <span style="color: var(--muted);">&mdash;</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="card">
+            <p class="section-text">No categories yet &mdash;
+                <a href="{{ url_for('account_settings.categories_list') }}"
+                   style="color: var(--accent);">add some</a> to get started.
+            </p>
+        </div>
+        {% endif %}
+
+    </form>
+
 </div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+/* Slider: filled track in the app's accent colour (range inputs need vendor overrides) */
+.budget-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 10px;
+    border-radius: 999px;
+    outline: none;
+    cursor: pointer;
+    background: linear-gradient(
+        to right,
+        var(--accent) 0%,
+        var(--accent) var(--fill-pct, 0%),
+        rgba(88,65,38,0.12) var(--fill-pct, 0%),
+        rgba(88,65,38,0.12) 100%
+    );
+}
+.budget-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: grab;
+    border: 3px solid var(--surface-strong);
+    box-shadow: 0 1px 6px rgba(15,118,110,0.4);
+    transition: transform 120ms ease;
+}
+.budget-slider::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: grab;
+    border: 3px solid var(--surface-strong);
+    box-shadow: 0 1px 6px rgba(15,118,110,0.4);
+}
+.budget-slider:active::-webkit-slider-thumb {
+    cursor: grabbing;
+    transform: scale(1.12);
+}
+.budget-slider:focus-visible::-webkit-slider-thumb {
+    box-shadow: 0 0 0 4px rgba(15,118,110,0.25);
+}
+
+/* Click-to-edit dollar display */
+.budget-display {
+    font-size: 1.05rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    min-width: 58px;
+    text-align: right;
+    cursor: text;
+    padding: 2px 5px;
+    border-radius: 5px;
+    border-bottom: 1px dashed var(--border-strong);
+    transition: background 120ms ease, border-color 120ms ease;
+    white-space: nowrap;
+}
+.budget-display:hover {
+    background: rgba(15,118,110,0.07);
+    border-bottom-color: var(--accent);
+}
+
+/* Revealed number input (replaces display on click) */
+.budget-number {
+    width: 76px;
+    text-align: right;
+    font: inherit;
+    font-size: 1.05rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    padding: 2px 6px;
+    border: 1.5px solid var(--accent);
+    border-radius: 5px;
+    background: var(--surface-strong);
+    color: var(--text);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(15,118,110,0.12);
+}
+
+/* Percentage label */
+.budget-pct {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--muted);
+    min-width: 38px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Budget/Spent column needs room for both bars + labels */
+.budget-table th:nth-child(2),
+.budget-table td:nth-child(2) { min-width: 300px; width: 100%; }
+.budget-table td { vertical-align: middle; }
+</style>
+<script>
+(function () {
+    var income = parseFloat(document.getElementById('budget-page').getAttribute('data-income')) || 0;
+
+    function statusColor(target, actual) {
+        if (target <= 0) return actual > 0 ? '#b91c1c' : 'rgba(88,65,38,0.15)';
+        var ratio = actual / target;
+        if (ratio > 1.0)  return '#b91c1c';  // over  — red
+        if (ratio >= 0.8) return '#d97706';  // near  — amber
+        return '#3b82f6';                     // under — blue (distinct from teal budget slider)
+    }
+
+    function setFill(slider) {
+        var pct = Math.min(100, (parseFloat(slider.value) || 0) / (parseFloat(slider.max) || 1) * 100);
+        slider.style.setProperty('--fill-pct', pct.toFixed(2) + '%');
+    }
+
+    function getTotal() {
+        var t = 0;
+        document.querySelectorAll('.budget-number').forEach(function (n) { t += parseFloat(n.value) || 0; });
+        return t;
+    }
+
+    function updateSummary() {
+        if (!income) return;
+        var total   = getTotal();
+        var pct     = total / income * 100;
+        var unalloc = income - total;
+        var e;
+
+        if ((e = document.getElementById('total-allocated')))   e.textContent = '$' + Math.round(total);
+        if ((e = document.getElementById('pct-allocated')))     e.textContent = Math.round(pct);
+        if ((e = document.getElementById('total-unallocated'))) e.textContent = '$' + Math.round(Math.abs(unalloc));
+        if ((e = document.getElementById('unallocated-label'))) e.textContent = unalloc < 0 ? 'over budget' : 'unallocated';
+
+        var wrap = document.getElementById('unallocated-wrap');
+        if (wrap) wrap.style.color = unalloc < 0 ? 'var(--color-status-error)' : 'var(--accent)';
+    }
+
+    function updateStackedBar() {
+        if (!income) return;
+        var total  = getTotal();
+        var barMax = Math.max(income, total) || 1;
+
+        document.querySelectorAll('.alloc-segment').forEach(function (seg) {
+            var catId = seg.getAttribute('data-cat-id');
+            var inp = document.querySelector('.budget-number[name="amount_' + catId + '"]');
+            var val = inp ? Math.max(0, parseFloat(inp.value) || 0) : 0;
+            seg.style.width = (val / barMax * 100).toFixed(2) + '%';
+            seg.title = (seg.getAttribute('data-name') || 'Category') + ': $' + Math.round(val);
+        });
+
+        var unallocEl = document.getElementById('alloc-unallocated');
+        if (unallocEl) {
+            unallocEl.style.width = Math.max(0, (income - total) / barMax * 100).toFixed(2) + '%';
+        }
+
+        var marker = document.getElementById('income-marker');
+        if (marker) {
+            if (total > income) {
+                marker.style.left    = (income / barMax * 100).toFixed(2) + '%';
+                marker.style.display = 'block';
+            } else {
+                marker.style.display = 'none';
+            }
+        }
+    }
+
+    document.querySelectorAll('.budget-slider').forEach(function (slider) {
+        var row     = slider.closest('tr');
+        var numInp  = row.querySelector('.budget-number');
+        var dispVal = row.querySelector('.budget-display-val');
+        var display = row.querySelector('.budget-display');
+        var pctEl   = row.querySelector('.budget-pct');
+        var sliderMax = parseFloat(slider.max) || 5000;
+
+        setFill(slider);
+
+        function applyVal(val) {
+            val              = Math.max(0, val);
+            slider.value     = Math.min(val, sliderMax);
+            numInp.value     = val;
+            dispVal.textContent = val;
+            setFill(slider);
+            if (pctEl && income) pctEl.textContent = val > 0 ? Math.round(val / income * 100) + '%' : '—';
+
+            var actual    = parseFloat(row.getAttribute('data-actual')) || 0;
+            var spentFill = row.querySelector('.spent-bar-fill');
+            if (spentFill) spentFill.style.background = statusColor(val, actual);
+
+            updateSummary();
+            updateStackedBar();
+        }
+
+        slider.addEventListener('input', function () {
+            applyVal(parseInt(slider.value) || 0);
+        });
+
+        display.addEventListener('click', function () {
+            display.style.display = 'none';
+            numInp.style.display  = 'inline-block';
+            numInp.focus();
+            numInp.select();
+        });
+
+        function commitInput() {
+            var val = Math.max(0, parseInt(numInp.value) || 0);
+            numInp.style.display  = 'none';
+            display.style.display = '';
+            applyVal(val);
+        }
+
+        numInp.addEventListener('blur', commitInput);
+        numInp.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter')  { e.preventDefault(); commitInput(); }
+            if (e.key === 'Escape') {
+                numInp.value          = parseInt(slider.value) || 0;
+                numInp.style.display  = 'none';
+                display.style.display = '';
+            }
+        });
+    });
+})();
+</script>
 {% endblock %}

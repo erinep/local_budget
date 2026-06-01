@@ -1,18 +1,18 @@
-"""Budgeting Module routes — Phase 4.
+"""Budgeting Module routes — Phase 4 + Phase 5e.
 
 ADR-0025 (Decision 9) / ADR-0026: Blueprint prefix /budgets.
+ADR-0043: income owned by Account Settings; read here via get_user_settings().
+ADR-0044: dollar-only storage; percentage derived at display time.
 
 Route table:
-  GET  /budgets/                    budget_progress              Actual-vs-budget for selected month
-  GET  /budgets/configure           configure_budgets            List & form to add/edit global targets
-  POST /budgets/configure           save_budget                  Create or update one target
-  POST /budgets/<uuid>/delete       delete_budget_route          Hard delete a budget target
-  GET  /budgets/propose             propose_budget_preview       Preview proposed targets
+  GET  /budgets/                    budget_progress              Budget page — all categories, editable targets
+  POST /budgets/income              save_income                  Save monthly income (PRG)
+  POST /budgets/save                save_all_budgets             Batch-save all budget targets (PRG)
+  GET  /budgets/propose             propose_budget_preview       Preview history-based proposals
   POST /budgets/propose             apply_proposed_budgets_route Write proposed targets
 
 All routes require authentication. All POST routes follow PRG (Post-Redirect-Get).
 Progress view defaults to current UTC month; ?year=YYYY&month=MM overrides.
-Configure view is month-agnostic (global targets per ADR-0026).
 
 ADR-0003: this blueprint calls Budgeting service functions only; no direct DB access.
 ADR-0004: registered in app factory.
@@ -35,7 +35,11 @@ from flask import (
 )
 
 from app.middleware.auth import login_required
-from app.account_settings.services import list_categories
+from app.account_settings.services import (
+    list_categories,
+    get_user_settings,
+    upsert_user_settings,
+)
 from app.budgets.services import (
     apply_proposed_budgets,
     delete_budget,
@@ -55,19 +59,14 @@ budgets_bp = Blueprint("budgets", __name__, url_prefix="/budgets")
 # ---------------------------------------------------------------------------
 
 def _current_year_month() -> tuple[int, int]:
-    """Return (year, month) for the current UTC date."""
     now = datetime.now(tz=timezone.utc)
     return now.year, now.month
 
 
-def _parse_period(request) -> tuple[int, int]:
-    """Parse ?year=YYYY&month=MM query params, falling back to current UTC month.
-
-    Calls abort(400) if the params are present but invalid.
-    """
+def _parse_period(req) -> tuple[int, int]:
     default_year, default_month = _current_year_month()
-    raw_year = request.args.get("year")
-    raw_month = request.args.get("month")
+    raw_year = req.args.get("year")
+    raw_month = req.args.get("month")
 
     if raw_year is None and raw_month is None:
         return default_year, default_month
@@ -96,103 +95,195 @@ def _next_month(year: int, month: int) -> tuple[int, int]:
     return year, month + 1
 
 
+def _compute_allocation(budgets, monthly_income):
+    """Return allocation summary dict, or None when income is not set."""
+    if not monthly_income or monthly_income <= Decimal("0"):
+        return None
+    total = sum((b.amount for b in budgets), Decimal("0"))
+    unallocated = monthly_income - total
+    pct = total / monthly_income * Decimal("100")
+    return {
+        "total_allocated": total,
+        "total_unallocated": unallocated,
+        "pct_allocated": pct,
+        "monthly_income": monthly_income,
+    }
+
+
+def _build_rows(categories: list, progress: list) -> list[dict]:
+    """Merge all user categories with budget progress for the current month.
+
+    Every category gets a row. Categories with no budget and no spend show
+    target=0 and actual=0. Uncategorized spend is appended at the end.
+    """
+    progress_by_cat = {
+        str(r.category_id): r
+        for r in progress
+        if r.category_id is not None
+    }
+
+    rows = []
+    for cat in categories:
+        prog = progress_by_cat.get(cat["id"])
+        if prog:
+            rows.append({
+                "id": cat["id"],
+                "name": cat["name"],
+                "target": prog.target,
+                "actual": prog.actual,
+                "variance": prog.variance,
+                "pct_used": prog.pct_used,
+                "status": prog.status,
+            })
+        else:
+            rows.append({
+                "id": cat["id"],
+                "name": cat["name"],
+                "target": Decimal("0"),
+                "actual": Decimal("0"),
+                "variance": Decimal("0"),
+                "pct_used": Decimal("0"),
+                "status": None,
+            })
+
+    for r in progress:
+        if r.category_id is None and r.actual > Decimal("0"):
+            rows.append({
+                "id": None,
+                "name": None,
+                "target": Decimal("0"),
+                "actual": r.actual,
+                "variance": Decimal("0") - r.actual,
+                "pct_used": Decimal("0"),
+                "status": r.status,
+            })
+
+    return rows
+
+
 # ---------------------------------------------------------------------------
-# Budget progress view (default landing)
+# Income
+# ---------------------------------------------------------------------------
+
+@budgets_bp.route("/income", methods=["POST"])
+@login_required
+def save_income():
+    """Save or clear the user's monthly income (PRG → budget progress)."""
+    user_id = g.user.id
+    raw = request.form.get("monthly_income", "").strip()
+
+    if raw == "":
+        try:
+            upsert_user_settings(user_id, None)
+            flash("Income cleared.", "success")
+        except Exception:
+            flash("An error occurred.", "error")
+        return redirect(url_for("budgets.budget_progress"))
+
+    try:
+        income = Decimal(raw)
+    except InvalidOperation:
+        flash("Invalid income — please enter a number.", "error")
+        return redirect(url_for("budgets.budget_progress"))
+
+    try:
+        upsert_user_settings(user_id, income)
+        flash("Income saved.", "success")
+    except ValueError as exc:
+        flash(str(exc), "error")
+
+    return redirect(url_for("budgets.budget_progress"))
+
+
+# ---------------------------------------------------------------------------
+# Budget page
 # ---------------------------------------------------------------------------
 
 @budgets_bp.route("/", methods=["GET"])
 @login_required
 def budget_progress():
-    """Actual-vs-budget view for the selected month (defaults to current UTC month)."""
+    """Budget page — editable targets for all categories, actual spend for the month."""
     user_id = g.user.id
     year, month = _parse_period(request)
 
+    categories = list_categories(user_id)
     progress = get_budget_progress(user_id, year, month)
+    rows = _build_rows(categories, progress)
+
     prev_year, prev_month = _prev_month(year, month)
     next_year, next_month = _next_month(year, month)
 
+    user_settings = get_user_settings(user_id)
+    monthly_income = user_settings.monthly_income
+    allocation = _compute_allocation(get_budgets(user_id), monthly_income)
+
     return render_template(
         "budgets/progress.html",
-        progress=progress,
+        rows=rows,
         year=year,
         month=month,
         prev_year=prev_year,
         prev_month=prev_month,
         next_year=next_year,
         next_month=next_month,
+        monthly_income=monthly_income,
+        allocation=allocation,
     )
 
 
 # ---------------------------------------------------------------------------
-# Configure: list + add/edit form
+# Batch save all budget targets
 # ---------------------------------------------------------------------------
 
-@budgets_bp.route("/configure", methods=["GET"])
+@budgets_bp.route("/save", methods=["POST"])
 @login_required
-def configure_budgets():
-    """List standing budget targets; show form to add/edit."""
+def save_all_budgets():
+    """Batch-save all budget targets from the budget page form (PRG).
+
+    Form fields named amount_<category_uuid> are parsed.
+    A value of 0 or empty removes the budget for that category if one exists.
+    """
     user_id = g.user.id
+    existing = {b.category_id: b for b in get_budgets(user_id)}
+    errors = 0
 
-    budgets = get_budgets(user_id)
-    categories = list_categories(user_id)
+    for key, value in request.form.items():
+        if not key.startswith("amount_"):
+            continue
+        try:
+            cat_id = UUID(key[len("amount_"):])
+        except ValueError:
+            continue
 
-    return render_template(
-        "budgets/configure.html",
-        budgets=budgets,
-        categories=categories,
-    )
+        raw = value.strip()
+        try:
+            amount = Decimal(raw) if raw else Decimal("0")
+        except InvalidOperation:
+            errors += 1
+            continue
 
+        if amount <= Decimal("0"):
+            if cat_id in existing:
+                try:
+                    delete_budget(user_id, existing[cat_id].id)
+                except ValueError:
+                    pass
+        else:
+            try:
+                upsert_budget(user_id, cat_id, amount)
+            except ValueError:
+                errors += 1
 
-@budgets_bp.route("/configure", methods=["POST"])
-@login_required
-def save_budget():
-    """Create or update a single standing budget target (PRG)."""
-    user_id = g.user.id
+    if errors:
+        flash(f"Budgets saved with {errors} invalid value(s) skipped.", "warning")
+    else:
+        flash("Budgets saved.", "success")
 
-    raw_category_id = request.form.get("category_id", "").strip()
-    raw_amount = request.form.get("amount", "").strip()
-
-    try:
-        category_id = UUID(raw_category_id)
-    except (ValueError, AttributeError):
-        abort(400)
-
-    try:
-        amount = Decimal(raw_amount)
-    except InvalidOperation:
-        flash("Invalid amount — please enter a number.", "error")
-        return redirect(url_for("budgets.configure_budgets"))
-
-    try:
-        upsert_budget(user_id, category_id, amount)
-        flash("Budget saved.", "success")
-    except ValueError as exc:
-        flash(str(exc), "error")
-
-    return redirect(url_for("budgets.configure_budgets"))
+    return redirect(url_for("budgets.budget_progress"))
 
 
 # ---------------------------------------------------------------------------
-# Delete a budget
-# ---------------------------------------------------------------------------
-
-@budgets_bp.route("/<uuid:budget_id>/delete", methods=["POST"])
-@login_required
-def delete_budget_route(budget_id: UUID):
-    """Hard-delete a budget target (PRG)."""
-    user_id = g.user.id
-
-    try:
-        delete_budget(user_id, budget_id)
-        flash("Budget deleted.", "success")
-    except ValueError:
-        abort(404)
-
-    return redirect(url_for("budgets.configure_budgets"))
-
-
-# ---------------------------------------------------------------------------
-# Propose budget preview + apply
+# Propose budget (history-based)
 # ---------------------------------------------------------------------------
 
 @budgets_bp.route("/propose", methods=["GET"])
@@ -215,7 +306,7 @@ def propose_budget_preview():
 @budgets_bp.route("/propose", methods=["POST"])
 @login_required
 def apply_proposed_budgets_route():
-    """Write proposed targets — gaps-only or replace-all (PRG)."""
+    """Write history-based proposed targets — gaps-only or replace-all (PRG)."""
     user_id = g.user.id
 
     raw_year = request.form.get("year", "").strip()
