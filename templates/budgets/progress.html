@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Budget — {{ year }}-{{ "%02d"|format(month) }} — Budget Parser{% endblock %}
+{% block title %}Budget — Budget Parser{% endblock %}
 
 {% set slider_max = monthly_income|int if monthly_income else 5000 %}
 {% set palette = ['#0f766e','#2563eb','#d97706','#7c3aed','#db2777','#059669','#ea580c','#0891b2'] %}
@@ -141,19 +141,6 @@
         {% endif %}
     </div>
 
-    {# ── Month navigation ────────────────────────────────────────────────── #}
-    <div style="display: flex; align-items: center; gap: var(--space-3);">
-        <a class="nav-link" style="padding: 6px 14px;"
-           href="{{ url_for('budgets.budget_progress', year=prev_year, month=prev_month) }}">&larr;</a>
-        <strong style="flex: 1; text-align: center; font-size: var(--text-lg);">
-            {{ ["January","February","March","April","May","June",
-                "July","August","September","October","November","December"][month - 1] }}
-            {{ year }}
-        </strong>
-        <a class="nav-link" style="padding: 6px 14px;"
-           href="{{ url_for('budgets.budget_progress', year=next_year, month=next_month) }}">&rarr;</a>
-    </div>
-
     {# ── Budget table ────────────────────────────────────────────────────── #}
     <form method="post" action="{{ url_for('budgets.save_all_budgets') }}" id="budget-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -164,7 +151,7 @@
                 Drag to 0 to remove a target &mdash; click the amount to type exactly.
             </span>
             <div style="flex: 1;"></div>
-            <a href="{{ url_for('budgets.propose_budget_preview', year=year, month=month) }}"
+            <a href="{{ url_for('budgets.propose_budget_preview') }}"
                class="button-secondary" style="font-size: var(--text-sm);">
                 Propose from history
             </a>
@@ -181,16 +168,9 @@
                 </thead>
                 <tbody>
                 {% for row in rows %}
-                    {% if row.status and row.status.value == 'over' %}
-                        {% set s_color = '#b91c1c' %}
-                    {% elif row.status and row.status.value == 'near' %}
-                        {% set s_color = '#d97706' %}
-                    {% elif row.status %}
-                        {% set s_color = '#3b82f6' %}
-                    {% else %}
-                        {% set s_color = 'rgba(88,65,38,0.15)' %}
-                    {% endif %}
-                    <tr data-actual="{{ row.actual|float if row.actual else 0 }}">
+                    {# current month actual drives the JS colour update #}
+                    {% set current_actual = row.monthly_actuals[0].actual if row.monthly_actuals else 0 %}
+                    <tr data-actual="{{ current_actual|float }}">
                         <td style="font-weight: 600; font-size: 1rem;">
                             {% if row.id and monthly_income %}
                             <span style="display: inline-block; width: 10px; height: 10px; border-radius: 2px;
@@ -204,14 +184,7 @@
                             {% if row.id %}
                             {% set init_val = row.target|int if row.target else 0 %}
                             {% set target_fill = (init_val / slider_max * 100)|round(2) if slider_max else 0 %}
-                            {% if monthly_income %}
-                                {% set target_pct_label = (init_val / monthly_income * 100)|round(0)|int if init_val > 0 else 0 %}
-                                {% set actual_pct_label = (row.actual / monthly_income * 100)|round(0)|int if row.actual > 0 else 0 %}
-                            {% else %}
-                                {% set target_pct_label = 0 %}
-                                {% set actual_pct_label = (row.pct_used|float)|round(0)|int if row.actual > 0 and row.target > 0 else 0 %}
-                            {% endif %}
-                            {% set actual_fill = (row.actual / slider_max * 100)|round(2) if slider_max and row.actual else 0 %}
+                            {% set target_pct_label = (init_val / monthly_income * 100)|round(0)|int if init_val > 0 and monthly_income else 0 %}
 
                             {# ── Budget target row (interactive slider) ── #}
                             <div style="display: flex; align-items: center; gap: var(--space-3);">
@@ -232,27 +205,34 @@
                                 </span>
                             </div>
 
-                            {# ── Actual spend row (static bar, same scale) ── #}
-                            <div style="display: flex; align-items: center; gap: var(--space-3); margin-top: 6px;">
-                                <span style="font-size: 0.65rem; font-weight: 800; letter-spacing: 0.07em;
-                                             text-transform: uppercase; color: var(--muted);
-                                             min-width: 42px; flex-shrink: 0; text-align: right;">spent</span>
+                            {# ── 4 month spend bars (current + 3 prior) ── #}
+                            {% for ma in row.monthly_actuals %}
+                            <div style="display: flex; align-items: center; gap: var(--space-3); margin-top: 5px;">
+                                <span style="font-size: 0.65rem; letter-spacing: 0.07em;
+                                             text-transform: uppercase;
+                                             font-weight: {% if ma.is_current %}800{% else %}500{% endif %};
+                                             color: var(--muted);
+                                             min-width: 42px; flex-shrink: 0; text-align: right;">
+                                    {{ ma.label }}{% if ma.is_current %}&thinsp;&bull;{% endif %}
+                                </span>
                                 <div style="flex: 1; min-width: 120px; height: 8px;
                                             background: rgba(88,65,38,0.1); border-radius: 999px; overflow: hidden;">
-                                    <div class="spent-bar-fill"
+                                    <div {% if ma.is_current %}class="spent-bar-fill"{% endif %}
                                          style="height: 100%; border-radius: 999px;
-                                                width: {{ [actual_fill, 100]|min }}%;
-                                                background: {{ s_color }};
-                                                transition: background 0.15s ease;"></div>
+                                                width: {{ ma.actual_fill|round(2) }}%;
+                                                background: {{ ma.s_color }};
+                                                {% if ma.is_current %}transition: background 0.15s ease;{% endif %}">
+                                    </div>
                                 </div>
                                 <span style="font-size: 0.95rem; font-weight: 600; color: var(--muted);
                                              font-variant-numeric: tabular-nums; min-width: 58px; text-align: right;">
-                                    {% if row.actual > 0 %}${{ row.actual|int }}{% else %}&mdash;{% endif %}
+                                    {% if ma.actual > 0 %}${{ ma.actual|int }}{% else %}&mdash;{% endif %}
                                 </span>
                                 <span class="budget-pct">
-                                    {% if actual_pct_label > 0 %}{{ actual_pct_label }}%{% else %}&mdash;{% endif %}
+                                    {% if ma.actual_pct_label > 0 %}{{ ma.actual_pct_label }}%{% else %}&mdash;{% endif %}
                                 </span>
                             </div>
+                            {% endfor %}
 
                             {% else %}
                             <span style="color: var(--muted);">&mdash;</span>

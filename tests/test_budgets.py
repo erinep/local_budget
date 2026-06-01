@@ -104,7 +104,7 @@ _PROPOSED_A = ProposedBudget(
 # Mock patch paths
 # ---------------------------------------------------------------------------
 
-_GET_BUDGET_PROGRESS = "app.budgets.routes.get_budget_progress"
+_GET_SPEND_BY_CATEGORY = "app.budgets.routes.get_spend_by_category"
 _GET_BUDGETS = "app.budgets.routes.get_budgets"
 _PROPOSE_BUDGETS = "app.budgets.routes.propose_budgets"
 _UPSERT_BUDGET = "app.budgets.routes.upsert_budget"
@@ -451,7 +451,7 @@ class TestBudgetProgressRoute:
     def test_authenticated_returns_200(self, authenticated_client):
         # Behavior: authenticated request → 200
         with (
-            patch(_GET_BUDGET_PROGRESS, return_value=[]),
+            patch(_GET_SPEND_BY_CATEGORY, return_value=[]),
             patch(_GET_BUDGETS, return_value=[]),
             patch(_GET_USER_SETTINGS, side_effect=_stub_user_settings),
             patch(_LIST_CATEGORIES, return_value=[]),
@@ -460,11 +460,11 @@ class TestBudgetProgressRoute:
         assert response.status_code == 200
 
     def test_renders_budget_progress_data(self, authenticated_client):
-        # Behavior: category name from mocked progress appears in rendered HTML.
-        # list_categories must include the matching category so _build_rows picks it up.
+        # Behavior: category name appears in rendered HTML.
+        # list_categories must include the category; spend is empty (no actuals needed).
         matching_cat = {"id": str(_CAT_ID_A), "name": "Groceries", "keywords": []}
         with (
-            patch(_GET_BUDGET_PROGRESS, return_value=[_PROGRESS_A]),
+            patch(_GET_SPEND_BY_CATEGORY, return_value=[]),
             patch(_GET_BUDGETS, return_value=[]),
             patch(_GET_USER_SETTINGS, side_effect=_stub_user_settings),
             patch(_LIST_CATEGORIES, return_value=[matching_cat]),
@@ -472,36 +472,18 @@ class TestBudgetProgressRoute:
             response = authenticated_client.get("/budgets/")
         assert b"Groceries" in response.data
 
-    def test_defaults_to_current_month_no_query_params(self, authenticated_client):
-        # Behavior: no ?year=&month= → service called without aborting
-        mock_progress = MagicMock(return_value=[])
+    def test_calls_spend_for_four_months(self, authenticated_client):
+        # Behavior: get_spend_by_category is called 4 times (current + 3 prior months)
+        mock_spend = MagicMock(return_value=[])
         with (
-            patch(_GET_BUDGET_PROGRESS, mock_progress),
+            patch(_GET_SPEND_BY_CATEGORY, mock_spend),
             patch(_GET_BUDGETS, return_value=[]),
             patch(_GET_USER_SETTINGS, side_effect=_stub_user_settings),
             patch(_LIST_CATEGORIES, return_value=[]),
         ):
             response = authenticated_client.get("/budgets/")
         assert response.status_code == 200
-        mock_progress.assert_called_once()
-        call_args = mock_progress.call_args[0]
-        assert isinstance(call_args[1], int)  # year
-        assert isinstance(call_args[2], int)  # month
-
-    def test_accepts_year_and_month_query_params(self, authenticated_client):
-        # Behavior: ?year=2026&month=3 passed through to service correctly
-        mock_progress = MagicMock(return_value=[])
-        with (
-            patch(_GET_BUDGET_PROGRESS, mock_progress),
-            patch(_GET_BUDGETS, return_value=[]),
-            patch(_GET_USER_SETTINGS, side_effect=_stub_user_settings),
-            patch(_LIST_CATEGORIES, return_value=[]),
-        ):
-            response = authenticated_client.get("/budgets/?year=2026&month=3")
-        assert response.status_code == 200
-        call_args = mock_progress.call_args[0]
-        assert call_args[1] == 2026
-        assert call_args[2] == 3
+        assert mock_spend.call_count == 4
 
 
 class TestSaveAllBudgetsRoute:
@@ -580,7 +562,7 @@ class TestApplyProposedBudgetsRoute:
         with (
             patch(_PROPOSE_BUDGETS, return_value=[_PROPOSED_A]),
             patch(_APPLY_PROPOSED, return_value=1),
-            patch(_GET_BUDGET_PROGRESS, return_value=[]),
+            patch(_GET_SPEND_BY_CATEGORY, return_value=[]),
             patch(_GET_BUDGETS, return_value=[]),
             patch(_GET_USER_SETTINGS, side_effect=_stub_user_settings),
             patch(_LIST_CATEGORIES, return_value=[]),

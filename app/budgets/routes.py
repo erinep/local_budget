@@ -12,7 +12,6 @@ Route table:
   POST /budgets/propose             apply_proposed_budgets_route Write proposed targets
 
 All routes require authentication. All POST routes follow PRG (Post-Redirect-Get).
-Progress view defaults to current UTC month; ?year=YYYY&month=MM overrides.
 
 ADR-0003: this blueprint calls Budgeting service functions only; no direct DB access.
 ADR-0004: registered in app factory.
@@ -43,28 +42,27 @@ from app.account_settings.services import (
 from app.budgets.services import (
     apply_proposed_budgets,
     delete_budget,
-    get_budget_progress,
     get_budgets,
     propose_budgets,
     upsert_budget,
 )
+from app.transactions.services import DateRange, get_spend_by_category
 
 logger = logging.getLogger(__name__)
 
 budgets_bp = Blueprint("budgets", __name__, url_prefix="/budgets")
+
+_MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _current_year_month() -> tuple[int, int]:
-    now = datetime.now(tz=timezone.utc)
-    return now.year, now.month
-
-
 def _parse_period(req) -> tuple[int, int]:
-    default_year, default_month = _current_year_month()
+    now = datetime.now(tz=timezone.utc)
+    default_year, default_month = now.year, now.month
     raw_year = req.args.get("year")
     raw_month = req.args.get("month")
 
@@ -83,18 +81,6 @@ def _parse_period(req) -> tuple[int, int]:
     return year, month
 
 
-def _prev_month(year: int, month: int) -> tuple[int, int]:
-    if month == 1:
-        return year - 1, 12
-    return year, month - 1
-
-
-def _next_month(year: int, month: int) -> tuple[int, int]:
-    if month == 12:
-        return year + 1, 1
-    return year, month + 1
-
-
 def _compute_allocation(budgets, monthly_income):
     """Return allocation summary dict, or None when income is not set."""
     if not monthly_income or monthly_income <= Decimal("0"):
@@ -110,53 +96,93 @@ def _compute_allocation(budgets, monthly_income):
     }
 
 
-def _build_rows(categories: list, progress: list) -> list[dict]:
-    """Merge all user categories with budget progress for the current month.
+def _status_color(target: Decimal, actual: Decimal) -> str:
+    """Server-side mirror of the JS statusColor() function."""
+    if target <= Decimal("0"):
+        return "#b91c1c" if actual > Decimal("0") else "rgba(88,65,38,0.15)"
+    ratio = actual / target
+    if ratio > Decimal("1.0"):
+        return "#b91c1c"
+    if ratio >= Decimal("0.8"):
+        return "#d97706"
+    return "#3b82f6"
 
-    Every category gets a row. Categories with no budget and no spend show
-    target=0 and actual=0. Uncategorized spend is appended at the end.
+
+def _four_month_periods() -> list[tuple[int, int, bool]]:
+    """Return (year, month, is_current) for the current month and 3 prior."""
+    now = datetime.now(tz=timezone.utc)
+    y, m = now.year, now.month
+    periods = []
+    for i in range(4):
+        periods.append((y, m, i == 0))
+        m -= 1
+        if m == 0:
+            m = 12
+            y -= 1
+    return periods
+
+
+def _build_multi_month_rows(
+    user_id: str,
+    categories: list,
+    budgets: list,
+    monthly_income,
+) -> list[dict]:
+    """Build table rows, each with 4 months of actual spend.
+
+    Fetches spend for the current month and the 3 prior complete months.
+    Returns one row per user category (no uncategorized rows).
     """
-    progress_by_cat = {
-        str(r.category_id): r
-        for r in progress
-        if r.category_id is not None
-    }
+    slider_max = int(monthly_income) if monthly_income else 5000
+    budget_by_cat: dict[UUID, object] = {b.category_id: b for b in budgets}
+    periods = _four_month_periods()
+
+    # Fetch spend for each of the 4 months
+    monthly_spends = []
+    for (py, pm, is_current) in periods:
+        period = DateRange.for_month(py, pm)
+        spend_rows = get_spend_by_category(user_id, period)
+        spend_by_cat: dict[UUID, Decimal] = {
+            s.category_id: s.spend
+            for s in spend_rows
+            if s.category_id is not None
+        }
+        monthly_spends.append({
+            "label": _MONTH_NAMES[pm - 1],
+            "is_current": is_current,
+            "spend": spend_by_cat,
+        })
 
     rows = []
     for cat in categories:
-        prog = progress_by_cat.get(cat["id"])
-        if prog:
-            rows.append({
-                "id": cat["id"],
-                "name": cat["name"],
-                "target": prog.target,
-                "actual": prog.actual,
-                "variance": prog.variance,
-                "pct_used": prog.pct_used,
-                "status": prog.status,
-            })
-        else:
-            rows.append({
-                "id": cat["id"],
-                "name": cat["name"],
-                "target": Decimal("0"),
-                "actual": Decimal("0"),
-                "variance": Decimal("0"),
-                "pct_used": Decimal("0"),
-                "status": None,
+        cat_id = UUID(cat["id"])
+        budget = budget_by_cat.get(cat_id)
+        target = budget.amount if budget else Decimal("0")
+
+        monthly_actuals = []
+        for ms in monthly_spends:
+            actual = ms["spend"].get(cat_id, Decimal("0"))
+            actual_fill = min(float(actual) / slider_max * 100, 100) if slider_max else 0
+            actual_pct = (
+                round(float(actual / monthly_income * 100))
+                if monthly_income and actual > Decimal("0")
+                else 0
+            )
+            monthly_actuals.append({
+                "label": ms["label"],
+                "is_current": ms["is_current"],
+                "actual": actual,
+                "actual_fill": actual_fill,
+                "actual_pct_label": actual_pct,
+                "s_color": _status_color(target, actual),
             })
 
-    for r in progress:
-        if r.category_id is None and r.actual > Decimal("0"):
-            rows.append({
-                "id": None,
-                "name": None,
-                "target": Decimal("0"),
-                "actual": r.actual,
-                "variance": Decimal("0") - r.actual,
-                "pct_used": Decimal("0"),
-                "status": r.status,
-            })
+        rows.append({
+            "id": cat["id"],
+            "name": cat["name"],
+            "target": target,
+            "monthly_actuals": monthly_actuals,
+        })
 
     return rows
 
@@ -202,30 +228,19 @@ def save_income():
 @budgets_bp.route("/", methods=["GET"])
 @login_required
 def budget_progress():
-    """Budget page — editable targets for all categories, actual spend for the month."""
+    """Budget page — editable targets and 4 months of actual spend per category."""
     user_id = g.user.id
-    year, month = _parse_period(request)
 
     categories = list_categories(user_id)
-    progress = get_budget_progress(user_id, year, month)
-    rows = _build_rows(categories, progress)
-
-    prev_year, prev_month = _prev_month(year, month)
-    next_year, next_month = _next_month(year, month)
-
+    budgets = get_budgets(user_id)
     user_settings = get_user_settings(user_id)
     monthly_income = user_settings.monthly_income
-    allocation = _compute_allocation(get_budgets(user_id), monthly_income)
+    allocation = _compute_allocation(budgets, monthly_income)
+    rows = _build_multi_month_rows(user_id, categories, budgets, monthly_income)
 
     return render_template(
         "budgets/progress.html",
         rows=rows,
-        year=year,
-        month=month,
-        prev_year=prev_year,
-        prev_month=prev_month,
-        next_year=next_year,
-        next_month=next_month,
         monthly_income=monthly_income,
         allocation=allocation,
     )
@@ -331,4 +346,4 @@ def apply_proposed_budgets_route():
         logger.error("apply_proposed_budgets failed: %s", type(exc).__name__)
         flash("An error occurred while applying proposed budgets.", "error")
 
-    return redirect(url_for("budgets.budget_progress", year=year, month=month))
+    return redirect(url_for("budgets.budget_progress"))
