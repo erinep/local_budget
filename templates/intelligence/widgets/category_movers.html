@@ -4,12 +4,13 @@
      hx-target="#widget-category-movers"
      hx-swap="outerHTML">
 
-    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">{{ category_movers.title }}</h2>
-    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-4);">
+    <h2 class="card-title">{{ category_movers.title }}</h2>
+    <p class="widget-subtitle">
         {{ category_movers.current_label }} vs {{ category_movers.prior_label }} &middot; ranked by absolute change
     </p>
 
     {% if category_movers.items %}
+    <div class="table-wrap">
     <table style="width: 100%; border-collapse: collapse; font-size: var(--text-base);">
         <thead>
             <tr style="border-bottom: 1px solid var(--border);">
@@ -64,6 +65,7 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
     {% else %}
     <p style="color: var(--muted); font-size: var(--text-sm);">Not enough data to compare months yet.</p>
     {% endif %}

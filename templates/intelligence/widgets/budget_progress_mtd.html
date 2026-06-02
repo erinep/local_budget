@@ -3,8 +3,8 @@
      hx-trigger="none"
      hx-target="#widget-budget-progress-mtd"
      hx-swap="outerHTML">
-    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">{{ budget_progress_mtd.title }}</h2>
-    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-4);">
+    <h2 class="card-title">{{ budget_progress_mtd.title }}</h2>
+    <p class="widget-subtitle">
         {{ budget_progress_mtd.current_month_label }}
         &middot; day {{ budget_progress_mtd.days_elapsed }} of {{ budget_progress_mtd.days_in_month }}
         &middot; {{ budget_progress_mtd.pct_of_month | int }}% through the month

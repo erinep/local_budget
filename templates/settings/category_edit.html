@@ -31,29 +31,29 @@
         <p class="section-text" style="margin: 0 0 18px; font-size: 0.9rem;">Transactions whose description contains any of these keywords will be categorised as <strong>{{ category.name }}</strong>.</p>
 
         {% if category.keywords %}
-        <ul style="list-style: none; margin: 0 0 20px; padding: 0; display: flex; flex-direction: column; gap: 8px;">
+        <ul class="keyword-list-items">
             {% for kw in category.keywords %}
-            <li style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: rgba(255,255,255,0.55);">
-                <span style="font-size: 0.95rem; font-weight: 600;">{{ kw.keyword }}</span>
+            <li class="keyword-item">
+                <span class="keyword-item-text">{{ kw.keyword }}</span>
                 <form method="post" action="{{ url_for('account_settings.keywords_remove', category_id=category.id, keyword_id=kw.id) }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" style="display: inline-flex; align-items: center; min-height: 30px; padding: 0 12px; border: 1px solid rgba(220,38,38,0.28); border-radius: 999px; background: rgba(220,38,38,0.06); color: #b91c1c; font: inherit; font-size: 0.8rem; font-weight: 700; cursor: pointer;">Remove</button>
+                    <button type="submit" class="btn-danger">Remove</button>
                 </form>
             </li>
             {% endfor %}
         </ul>
         {% else %}
-        <p style="color: var(--muted); font-size: 0.9rem; margin: 0 0 20px;">No keywords yet. Add one below.</p>
+        <p class="text-caption" style="margin: 0 0 20px;">No keywords yet. Add one below.</p>
         {% endif %}
 
         <form method="post" action="{{ url_for('account_settings.keywords_add', category_id=category.id) }}" novalidate>
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <div style="display: flex; gap: 10px; align-items: flex-end;">
-                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+            <div class="form-row">
+                <div class="form-group form-field--lg">
                     <label for="keyword">Add keyword</label>
                     <input type="text" id="keyword" name="keyword" required autocomplete="off" placeholder="e.g. LOBLAWS">
                 </div>
-                <button type="submit" class="button-primary" style="flex-shrink: 0; margin-bottom: 0;">Add</button>
+                <button type="submit" class="button-primary form-field--auto">Add</button>
             </div>
         </form>
     </div>
@@ -63,7 +63,7 @@
 
         <form method="post" action="{{ url_for('account_settings.categories_delete', category_id=category.id) }}" onsubmit="return confirm('Delete category &quot;{{ category.name }}&quot; and all its keywords? This cannot be undone.');">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border: 1px solid rgba(220,38,38,0.35); border-radius: 999px; background: rgba(220,38,38,0.07); color: #b91c1c; font: inherit; font-weight: 800; cursor: pointer; transition: background 160ms ease, border-color 160ms ease;">Delete category</button>
+            <button type="submit" class="btn-danger">Delete category</button>
         </form>
     </div>
 </div>

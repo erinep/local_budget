@@ -3,10 +3,10 @@
 {% block title %}{% block settings_title %}Settings{% endblock %} — Budget Parser{% endblock %}
 
 {% block content %}
-<div style="display: grid; grid-template-columns: minmax(180px, 220px) 1fr; gap: 28px; align-items: start;">
+<div class="settings-layout">
 
-    <nav style="position: sticky; top: 24px;">
-        <p class="eyebrow" style="margin-bottom: 14px;">Settings</p>
+    <nav class="settings-sidebar">
+        <p class="eyebrow">Settings</p>
         {% set current = request.path %}
         {% set nav_items = [
             ('/settings/profile',         'Profile'),
@@ -16,21 +16,11 @@
             ('/settings/files',           'Files'),
             ('/settings/security',        'Security'),
         ] %}
-        <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px;">
+        <ul class="settings-nav-list">
             {% for path, label in nav_items %}
             {% set is_active = current.startswith(path) or (label == 'Categories' and current.startswith('/account-settings/')) %}
             <li>
-                <a href="{{ path }}" style="
-                    display: block;
-                    padding: 9px 14px;
-                    border-radius: var(--radius-sm);
-                    font-weight: {% if is_active %}800{% else %}600{% endif %};
-                    color: {% if is_active %}var(--accent-strong){% else %}var(--muted){% endif %};
-                    background: {% if is_active %}rgba(15,118,110,0.09){% else %}transparent{% endif %};
-                    border: 1px solid {% if is_active %}rgba(15,118,110,0.22){% else %}transparent{% endif %};
-                    text-decoration: none;
-                    transition: background 150ms, color 150ms;
-                ">{{ label }}</a>
+                <a href="{{ path }}" class="settings-nav-link{% if is_active %} settings-nav-link--active{% endif %}">{{ label }}</a>
             </li>
             {% endfor %}
         </ul>
@@ -39,16 +29,13 @@
     <div>
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-            <div style="margin-bottom: 20px;">
-                {% for category, message in messages %}
-                <div style="padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: 8px;
-                    {% if category == 'success' %}background: rgba(15,118,110,0.08); border: 1px solid rgba(15,118,110,0.28); color: var(--accent-strong);
-                    {% elif category == 'warning' %}background: rgba(217,119,6,0.08); border: 1px solid rgba(217,119,6,0.28); color: #92400e;
-                    {% else %}background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.28); color: #b91c1c;{% endif %}">
-                    {{ message }}
-                </div>
-                {% endfor %}
+            {% for category, message in messages %}
+            <div class="auth-{{ 'success' if category == 'success' else ('warning' if category == 'warning' else 'error') }}"
+                 role="{{ 'alert' if category in ('error', 'warning') else 'status' }}"
+                 style="margin-bottom: 8px;">
+                {{ message }}
             </div>
+            {% endfor %}
             {% endif %}
         {% endwith %}
         {% block settings_content %}{% endblock %}

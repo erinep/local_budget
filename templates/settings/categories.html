@@ -21,9 +21,7 @@
         <form method="post" action="{{ url_for('account_settings.categories_backfill') }}" onsubmit="var b=this.querySelector('button');b.disabled=true;b.textContent='Processing…';">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="next" value="{{ request.url }}">
-            <button type="submit" style="display: inline-flex; align-items: center; padding: 8px 18px; border-radius: 999px; border: 1px solid #d97706; background: #f59e0b; color: #fff; font: inherit; font-size: 0.88rem; font-weight: 700; cursor: pointer;">
-                Re-categorize uncategorized transactions
-            </button>
+            <button type="submit" class="btn-amber">Re-categorize uncategorized transactions</button>
         </form>
     </div>
     {% endif %}
@@ -58,7 +56,7 @@
                             <a class="nav-link" style="display: inline-flex; font-size: 0.82rem; padding: 6px 12px;" href="{{ url_for('account_settings.categories_edit', category_id=cat.id) }}">Edit</a>
                             <form method="post" action="{{ url_for('account_settings.categories_delete', category_id=cat.id) }}" style="display: inline;" onsubmit="return confirm('Delete category &quot;{{ cat.name }}&quot; and all its keywords? This cannot be undone.');">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn-danger" style="display: inline-flex; align-items: center; min-height: 34px; padding: 0 12px; border: 1px solid rgba(220,38,38,0.3); border-radius: 999px; background: rgba(220,38,38,0.06); color: #b91c1c; font: inherit; font-size: 0.82rem; font-weight: 700; cursor: pointer; margin-left: 6px;">Delete</button>
+                                <button type="submit" class="btn-danger" style="margin-left: 6px;">Delete</button>
                             </form>
                         </td>
                     </tr>
@@ -68,9 +66,9 @@
         </div>
     </div>
     {% else %}
-    <div class="card" style="text-align: center; padding: 48px 24px;">
-        <p style="color: var(--muted); margin: 0 0 8px; font-size: 1rem;">No categories yet.</p>
-        <p style="color: var(--muted); margin: 0 0 28px; font-size: 0.92rem;">Create a category to start grouping your transactions by keyword rules.</p>
+    <div class="card empty-state">
+        <p style="margin: 0 0 8px;">No categories yet.</p>
+        <p class="text-caption" style="margin: 0 0 28px;">Create a category to start grouping your transactions by keyword rules.</p>
         <div class="action-row" style="justify-content: center;">
             <a class="button-primary" href="{{ url_for('account_settings.categories_new') }}">Add Category</a>
             <a class="button-secondary" href="{{ url_for('account_settings.import_form') }}">Import from JSON</a>

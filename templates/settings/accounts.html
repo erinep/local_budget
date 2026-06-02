@@ -31,8 +31,8 @@
                 </button>
             </form>
 
-            <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
-                <span style="font-size: 0.85rem; color: var(--muted); white-space: nowrap;">
+            <div class="account-meta-row">
+                <span class="account-meta-text">
                     {{ account.transaction_count }} transaction{% if account.transaction_count != 1 %}s{% endif %},
                     {{ account.upload_count }} file{% if account.upload_count != 1 %}s{% endif %}
                 </span>

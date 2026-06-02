@@ -4,15 +4,15 @@
      hx-target="#widget-category-profile"
      hx-swap="outerHTML">
 
-    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">Categorization Health</h2>
-    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-5);">All time &middot; based on all transactions</p>
-    <div style="display: flex; gap: var(--space-8); margin-bottom: var(--space-6);">
-        <div style="display: flex; align-items: center; gap: var(--space-4);">
+    <h2 class="card-title">Categorization Health</h2>
+    <p class="widget-subtitle" style="margin-bottom: var(--space-5);">All time &middot; based on all transactions</p>
+    <div style="display: flex; flex-wrap: wrap; gap: var(--space-5); margin-bottom: var(--space-6);">
+        <div style="display: flex; align-items: center; gap: var(--space-4); flex: 1 0 200px;">
             <div style="flex: 0 0 auto;">
                 <canvas id="chart-categorization-health" width="64" height="64" style="width: 64px; height: 64px; display: block;"
                         data-chart='{"labels":["Categorized","Uncategorized"],"values":[{{ category_profile.categorized_count }},{{ category_profile.uncategorized_count }}],"colors":["#0f766e","#dc2626"]}'></canvas>
             </div>
-            <div style="flex: 1;">
+            <div style="flex: 1; min-width: 0;">
                 <p style="font-size: var(--text-sm); font-weight: 600; margin: 0; line-height: 1.4;">{{ category_profile.pct_categorized }}% of transactions categorized</p>
                 <p style="font-size: var(--text-sm); color: var(--muted); margin: var(--space-1) 0 0;">
                     {{ category_profile.categorized_count | int }} of {{ category_profile.total_txns | int }}
@@ -22,13 +22,12 @@
                 </p>
             </div>
         </div>
-        <div style="align-self: stretch; border-left: 1px solid var(--border); margin: 0 var(--space-2);"></div>
-        <div style="display: flex; align-items: center; gap: var(--space-4);">
+        <div style="display: flex; align-items: center; gap: var(--space-4); flex: 1 0 200px;">
             <div style="flex: 0 0 auto;">
                 <canvas id="chart-spend-coverage" width="64" height="64" style="width: 64px; height: 64px; display: block;"
                         data-chart='{"labels":["Categorized","Uncategorized"],"values":[{{ category_profile.categorized_spend }},{{ category_profile.uncategorized_spend }}],"colors":["#0f766e","#dc2626"]}'></canvas>
             </div>
-            <div style="flex: 1;">
+            <div style="flex: 1; min-width: 0;">
                 <p style="font-size: var(--text-sm); font-weight: 600; margin: 0; line-height: 1.4;">{{ category_profile.pct_spend_categorized }}% of spend categorized</p>
                 <p style="font-size: var(--text-sm); color: var(--muted); margin: var(--space-1) 0 0;">
                     ${{ "%.2f"|format(category_profile.categorized_spend) }} of ${{ "%.2f"|format(category_profile.total_spend) }}
@@ -42,13 +41,13 @@
 
     <hr style="border: none; border-top: 1px solid var(--border); margin: 0 0 var(--space-6);">
 
-    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">Category Profile</h2>
-    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-4);">
+    <h2 class="card-title">Category Profile</h2>
+    <p class="widget-subtitle">
         All time &middot;
         high std&nbsp;dev may indicate a category catching multiple spending behaviours
     </p>
 
-    <div style="overflow-x: auto;">
+    <div class="table-wrap">
         <table class="profile-table">
             <thead>
                 <tr>

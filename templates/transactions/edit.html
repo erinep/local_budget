@@ -73,7 +73,7 @@
                 <p class="section-text" style="margin: 4px 0 0; font-size: 0.84rem;">Matches future transactions with similar descriptions. Leave empty to skip.</p>
             </div>
 
-            <div style="display: flex; gap: 12px; align-items: center; margin-top: 24px;">
+            <div class="action-row" style="margin-top: 24px;">
                 <button type="submit" class="button-primary">Save</button>
                 <a class="button-secondary" href="{{ next_url or url_for('transactions.history') }}">Cancel</a>
             </div>

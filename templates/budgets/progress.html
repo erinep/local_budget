@@ -150,9 +150,8 @@
             <span class="section-text" style="font-size: 0.8rem; line-height: 1.4;">
                 Drag to 0 to remove a target &mdash; click the amount to type exactly.
             </span>
-            <div style="flex: 1;"></div>
             <a href="{{ url_for('budgets.propose_budget_preview') }}"
-               class="button-secondary" style="font-size: var(--text-sm);">
+               class="button-secondary" style="font-size: var(--text-sm); margin-left: auto;">
                 Propose from history
             </a>
         </div>
@@ -194,7 +193,7 @@
                                 <input class="budget-slider"
                                        type="range" min="0" max="{{ slider_max }}" step="1"
                                        value="{{ init_val }}"
-                                       style="flex: 1; min-width: 120px; --fill-pct: {{ target_fill }}%;">
+                                       style="--fill-pct: {{ target_fill }}%;">
                                 <input class="budget-number"
                                        type="number" name="amount_{{ row.id }}"
                                        value="{{ init_val }}" min="0" step="1"
@@ -215,8 +214,7 @@
                                              min-width: 42px; flex-shrink: 0; text-align: right;">
                                     {{ ma.label }}{% if ma.is_current %}&thinsp;&bull;{% endif %}
                                 </span>
-                                <div style="flex: 1; min-width: 120px; height: 8px;
-                                            background: rgba(88,65,38,0.1); border-radius: 999px; overflow: hidden;">
+                                <div class="budget-bar-track">
                                     <div {% if ma.is_current %}class="spent-bar-fill"{% endif %}
                                          style="height: 100%; border-radius: 999px;
                                                 width: {{ ma.actual_fill|round(2) }}%;
@@ -350,10 +348,17 @@
     font-variant-numeric: tabular-nums;
 }
 
-/* Budget/Spent column needs room for both bars + labels */
-.budget-table th:nth-child(2),
-.budget-table td:nth-child(2) { min-width: 300px; width: 100%; }
+/* Budget/Spent column needs room for both bars + labels (desktop only) */
+@media (min-width: 641px) {
+    .budget-table th:nth-child(2),
+    .budget-table td:nth-child(2) { min-width: 240px; width: 100%; }
+}
 .budget-table td { vertical-align: middle; }
+
+/* Move flex layout out of inline attrs so mobile CSS can override */
+.budget-slider   { flex: 1; min-width: 120px; }
+.budget-bar-track { flex: 1; min-width: 120px; height: 8px;
+    background: rgba(88,65,38,0.1); border-radius: 999px; overflow: hidden; }
 </style>
 <script>
 (function () {
