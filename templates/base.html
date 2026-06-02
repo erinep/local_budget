@@ -14,7 +14,12 @@
                 <span class="brand-text">Budget Parser</span>
             </a>
             {% if g.user %}
-            <nav class="site-nav">
+            <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+                <span class="nav-toggle-bar"></span>
+                <span class="nav-toggle-bar"></span>
+                <span class="nav-toggle-bar"></span>
+            </button>
+            <nav class="site-nav" id="site-nav">
                 <a class="nav-link" href="{{ url_for('transactions.history') }}">Transactions</a>
                 <a class="nav-link" href="{{ url_for('budgets.budget_progress') }}">Budget</a>
                 <a class="nav-link" href="{{ url_for('intelligence.dashboard') }}">Dashboard</a>
@@ -31,6 +36,24 @@
     </div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://unpkg.com/htmx.org@1.9.10/dist/htmx.min.js"></script>
+    <script>
+    (function () {
+        var toggle = document.getElementById('nav-toggle');
+        var nav    = document.getElementById('site-nav');
+        if (!toggle || !nav) return;
+        toggle.addEventListener('click', function () {
+            var open = nav.classList.toggle('site-nav--open');
+            toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+        document.addEventListener('click', function (e) {
+            if (nav.classList.contains('site-nav--open') &&
+                !nav.contains(e.target) && !toggle.contains(e.target)) {
+                nav.classList.remove('site-nav--open');
+                toggle.setAttribute('aria-expanded', 'false');
+            }
+        });
+    })();
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

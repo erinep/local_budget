@@ -7,7 +7,7 @@
     </div>
 
     <div class="card" style="padding: 16px 24px;">
-        <p style="margin: 0; font-size: 0.92rem; color: var(--muted);">
+        <p class="text-caption" style="margin: 0;">
             These shortcuts are learned automatically when you recategorize a transaction. You can reassign a merchant to a different category, or delete it to let the system re-learn from scratch.
         </p>
     </div>
@@ -26,7 +26,7 @@
                 <tbody>
                     {% for alias in aliases %}
                     <tr>
-                        <td style="font-variant-numeric: tabular-nums; font-family: monospace; font-size: 0.9rem;">{{ alias.normalized_name }}</td>
+                        <td class="cell-mono">{{ alias.normalized_name }}</td>
                         <td>
                             <form method="POST" action="{{ url_for('settings.merchants_remap', alias_id=alias.id) }}" style="display: flex; gap: 8px; align-items: center;">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -46,10 +46,7 @@
                             <form method="POST" action="{{ url_for('settings.merchants_delete', alias_id=alias.id) }}"
                                   onsubmit="return confirm('Delete merchant shortcut &quot;{{ alias.normalized_name }}&quot;? This cannot be undone.');">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" style="display: inline-flex; align-items: center; min-height: 30px; padding: 0 12px;
-                                        border: 1px solid rgba(220,38,38,0.3); border-radius: 999px;
-                                        background: rgba(220,38,38,0.06); color: #b91c1c;
-                                        font: inherit; font-size: 0.82rem; font-weight: 700; cursor: pointer;">Delete</button>
+                                <button type="submit" class="btn-danger">Delete</button>
                             </form>
                         </td>
                     </tr>
@@ -59,9 +56,9 @@
         </div>
     </div>
     {% else %}
-    <div class="card" style="text-align: center; padding: 48px 24px;">
-        <p style="color: var(--muted); margin: 0 0 8px; font-size: 1rem;">No merchants yet.</p>
-        <p style="color: var(--muted); margin: 0; font-size: 0.92rem;">Shortcuts are created automatically the first time you recategorize a transaction.</p>
+    <div class="card empty-state">
+        <p style="margin: 0 0 8px;">No merchants yet.</p>
+        <p class="text-caption" style="margin: 0;">Shortcuts are created automatically the first time you recategorize a transaction.</p>
     </div>
     {% endif %}
 </div>

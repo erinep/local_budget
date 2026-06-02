@@ -26,30 +26,30 @@
     {% endwith %}
 
     <div>
-        <a class="btn btn-secondary" href="{{ url_for('budgets.budget_progress', year=year, month=month) }}">&larr; Back to Progress</a>
+        <a class="button-secondary" href="{{ url_for('budgets.budget_progress', year=year, month=month) }}">&larr; Back to Progress</a>
     </div>
 
     {% if proposals %}
-    <div class="card" style="overflow-x: auto;">
-        <table style="width: 100%; border-collapse: collapse;">
+    <div class="card table-wrap" style="padding: 0;">
+        <table class="data-table">
             <thead>
-                <tr style="border-bottom: 2px solid var(--border, #e5e7eb);">
-                    <th style="text-align: left; padding: 8px 12px;">Category</th>
-                    <th style="text-align: right; padding: 8px 12px;">Proposed Target</th>
-                    <th style="text-align: right; padding: 8px 12px;">Avg Monthly Spend</th>
-                    <th style="text-align: right; padding: 8px 12px;">Months of Data</th>
+                <tr>
+                    <th>Category</th>
+                    <th style="text-align: right;">Proposed Target</th>
+                    <th style="text-align: right;">Avg Monthly Spend</th>
+                    <th style="text-align: right;">Months of Data</th>
                 </tr>
             </thead>
             <tbody>
             {% for p in proposals %}
-                <tr style="border-bottom: 1px solid var(--border, #e5e7eb);">
-                    <td style="padding: 10px 12px;">{{ p.category_name }}</td>
-                    <td style="text-align: right; padding: 10px 12px; font-weight: 600;">${{ "%.0f"|format(p.proposed_amount) }}</td>
-                    <td style="text-align: right; padding: 10px 12px; color: #6b7280;">${{ "%.2f"|format(p.average_monthly_spend) }}</td>
-                    <td style="text-align: right; padding: 10px 12px;">
+                <tr>
+                    <td>{{ p.category_name }}</td>
+                    <td style="text-align: right; font-weight: 600;">${{ "%.0f"|format(p.proposed_amount) }}</td>
+                    <td class="text-caption" style="text-align: right;">${{ "%.2f"|format(p.average_monthly_spend) }}</td>
+                    <td style="text-align: right;">
                         {{ p.months_of_data }}
                         {% if p.months_of_data < 3 %}
-                        <span style="font-size: 0.75rem; color: #d97706;" title="Limited history — estimate may be less accurate.">&#9651;</span>
+                        <span class="text-caption" title="Limited history — estimate may be less accurate.">&#9651;</span>
                         {% endif %}
                     </td>
                 </tr>
@@ -59,16 +59,14 @@
     </div>
 
     <div class="card">
-        <p style="margin-bottom: 16px; color: #374151;">
-            Apply these as your standing monthly targets:
-        </p>
+        <p style="margin: 0 0 16px;">Apply these as your standing monthly targets:</p>
         <div class="action-row">
             <form method="post" action="{{ url_for('budgets.apply_proposed_budgets_route') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="year" value="{{ year }}">
                 <input type="hidden" name="month" value="{{ month }}">
                 <input type="hidden" name="replace_existing" value="false">
-                <button type="submit" class="btn btn-primary">Apply (gaps only)</button>
+                <button type="submit" class="button-primary">Apply (gaps only)</button>
             </form>
             <form method="post" action="{{ url_for('budgets.apply_proposed_budgets_route') }}"
                   onsubmit="return confirm('This will overwrite any existing budget targets. Continue?');">
@@ -76,10 +74,10 @@
                 <input type="hidden" name="year" value="{{ year }}">
                 <input type="hidden" name="month" value="{{ month }}">
                 <input type="hidden" name="replace_existing" value="true">
-                <button type="submit" class="btn btn-secondary">Replace all</button>
+                <button type="submit" class="button-secondary">Replace all</button>
             </form>
         </div>
-        <p style="margin-top: 12px; font-size: 0.875rem; color: #6b7280;">
+        <p class="text-caption" style="margin: 12px 0 0;">
             <strong>Apply (gaps only)</strong> skips categories that already have a standing target.
             <strong>Replace all</strong> overwrites everything.
         </p>

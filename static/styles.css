@@ -176,6 +176,7 @@ html {
 body {
     margin: 0;
     min-height: 100vh;
+    overflow-x: hidden;
     font-family: "Aptos", "Segoe UI", "Trebuchet MS", sans-serif;
     color: var(--text);
     background:
@@ -918,7 +919,8 @@ h3 {
     font-size: 0.9rem;
 }
 
-.form-group input {
+.form-group input,
+.form-group select {
     width: 100%;
     padding: 12px 14px;
     border: 1px solid var(--border-strong);
@@ -930,10 +932,63 @@ h3 {
     transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
-.form-group input:focus {
+.form-group input:focus,
+.form-group select:focus {
     outline: none;
     border-color: var(--accent);
     box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14);
+}
+
+/* Filter form field width variants — use instead of inline flex styles */
+.form-row .form-group { margin-bottom: 0; }
+
+.form-field      { flex: 1 1 140px; }
+.form-field--md  { flex: 1 1 160px; }
+.form-field--lg  { flex: 2 1 200px; }
+.form-field--auto { flex-shrink: 0; }
+
+/* Inline checkbox + label pair */
+.form-check {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.form-check label {
+    margin: 0;
+    font-weight: normal;
+    cursor: pointer;
+}
+
+/* Responsive filter form — explicit breakpoints to avoid date input intrinsic-size quirks */
+.filter-form {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+    align-items: end;
+}
+
+@media (min-width: 560px) {
+    .filter-form { grid-template-columns: 1fr 1fr; }
+}
+
+@media (min-width: 900px) {
+    .filter-form { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* min-width: 0 overrides the default 'auto' so date/select inputs can't blow out the grid */
+.filter-form .form-group { margin-bottom: 0; min-width: 0; }
+
+/* Grid items default to min-width:auto which lets content blow past container edges */
+.page-content > * { min-width: 0; }
+
+.filter-form__controls {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--space-3);
 }
 
 .btn-primary {
@@ -1046,10 +1101,6 @@ h3 {
 }
 
 @media (max-width: 480px) {
-    .nav-email {
-        display: none;
-    }
-
     .auth-card {
         padding: 28px 20px;
         margin-top: 24px;
@@ -1195,4 +1246,395 @@ h3 {
     .transaction-modal-header {
         grid-template-columns: 1fr;
     }
+}
+
+/* ---------------------------------------------------------------------------
+ * Utility classes — extracted from inline styles (backlog #12)
+ * --------------------------------------------------------------------------- */
+
+.text-caption {
+    color: var(--muted);
+    font-size: var(--text-sm);
+}
+
+/* Widget subtitle: muted sm text with bottom spacing */
+.widget-subtitle {
+    color: var(--muted);
+    font-size: var(--text-sm);
+    margin: 0 0 var(--space-4);
+}
+
+/* Card/widget heading: consistent size + tight bottom margin */
+.card-title {
+    font-size: var(--text-lg);
+    margin: 0 0 var(--space-1);
+}
+
+/* Centred empty-state panel inside a .card */
+.empty-state {
+    text-align: center;
+    padding: 48px 24px;
+}
+
+/* Card used as a full-block link */
+.block-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+
+/* Small variant for .button-secondary pagination controls */
+.btn-sm {
+    font-size: 0.85rem;
+    padding: 6px 14px;
+    min-height: unset;
+}
+
+/* Destructive inline action (delete forms) */
+.btn-danger {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 0 12px;
+    border: 1px solid rgba(220, 38, 38, 0.3);
+    border-radius: 999px;
+    background: rgba(220, 38, 38, 0.06);
+    color: #b91c1c;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.btn-danger:hover {
+    background: rgba(220, 38, 38, 0.12);
+}
+
+/* Amber CTA — backfill / recategorize actions */
+.btn-amber {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 18px;
+    border-radius: 999px;
+    border: 1px solid #d97706;
+    background: #f59e0b;
+    color: #fff;
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.btn-amber:hover {
+    background: #d97706;
+    border-color: #b45309;
+}
+
+/* Warning flash — pairs with existing .auth-error / .auth-success */
+.auth-warning {
+    margin: 0 0 18px;
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+    background: rgba(217, 119, 6, 0.08);
+    border: 1px solid rgba(217, 119, 6, 0.28);
+    color: #92400e;
+    font-size: 0.92rem;
+    line-height: 1.5;
+}
+
+/* Monospace table cells (merchant names, normalized strings) */
+.cell-mono {
+    font-variant-numeric: tabular-nums;
+    font-family: monospace;
+    font-size: 0.9rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * Settings layout — 2-column sidebar → horizontal tab strip on mobile
+ * --------------------------------------------------------------------------- */
+
+.settings-layout {
+    display: grid;
+    grid-template-columns: minmax(180px, 220px) 1fr;
+    gap: 28px;
+    align-items: start;
+}
+
+/* Grid items default to min-width:auto — clamp both columns so content can't escape */
+.settings-layout > * {
+    min-width: 0;
+}
+
+.settings-sidebar {
+    position: sticky;
+    top: 24px;
+}
+
+.settings-nav-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.settings-nav-link {
+    display: block;
+    padding: 9px 14px;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid transparent;
+    text-decoration: none;
+    transition: background 150ms, color 150ms;
+}
+
+.settings-nav-link:hover {
+    color: var(--accent-strong);
+    background: rgba(15, 118, 110, 0.05);
+}
+
+.settings-nav-link--active {
+    font-weight: 800;
+    color: var(--accent-strong);
+    background: rgba(15, 118, 110, 0.09);
+    border-color: rgba(15, 118, 110, 0.22);
+}
+
+@media (max-width: 640px) {
+    .settings-layout {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+    .settings-sidebar {
+        position: static;
+        margin-bottom: 20px;
+        overflow: hidden;
+        /* Fade right edge — signals the pill strip is horizontally scrollable */
+        -webkit-mask-image: linear-gradient(to right, black calc(100% - 40px), transparent 100%);
+        mask-image: linear-gradient(to right, black calc(100% - 40px), transparent 100%);
+    }
+
+    /* Horizontal scrollable pill strip */
+    .settings-nav-list {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        gap: 6px;
+        padding-bottom: 4px;
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+
+    .settings-nav-list::-webkit-scrollbar {
+        display: none;
+    }
+
+    .settings-nav-link {
+        white-space: nowrap;
+        padding: 7px 14px;
+        border: 1.5px solid var(--border-strong);
+        background: rgba(255, 255, 255, 0.5);
+        border-radius: 999px;
+    }
+
+    .settings-nav-link--active {
+        background: rgba(15, 118, 110, 0.09);
+        border-color: rgba(15, 118, 110, 0.4);
+    }
+
+    /* Hide "Settings" eyebrow label; the pill strip is self-explaining */
+    .settings-sidebar .eyebrow {
+        display: none;
+    }
+}
+
+/* ---------------------------------------------------------------------------
+ * Mobile nav — hamburger toggle (≤640px)
+ * --------------------------------------------------------------------------- */
+
+.nav-toggle {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    width: 42px;
+    height: 42px;
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.62);
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+    transition: background 160ms ease;
+}
+
+.nav-toggle:hover {
+    background: white;
+}
+
+.nav-toggle-bar {
+    display: block;
+    width: 18px;
+    height: 2px;
+    background: var(--text);
+    border-radius: 1px;
+    transform-origin: center;
+    transition: transform 240ms ease, opacity 240ms ease;
+}
+
+.nav-toggle[aria-expanded="true"] .nav-toggle-bar:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+}
+
+.nav-toggle[aria-expanded="true"] .nav-toggle-bar:nth-child(2) {
+    opacity: 0;
+    transform: scaleX(0);
+}
+
+.nav-toggle[aria-expanded="true"] .nav-toggle-bar:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+}
+
+@media (max-width: 640px) {
+    .nav-toggle {
+        display: flex;
+    }
+
+    .site-header {
+        flex-wrap: wrap;
+    }
+
+    .site-nav {
+        display: none;
+        flex-direction: column;
+        width: 100%;
+        padding: 10px 0 6px;
+        gap: 4px;
+        border-top: 1px solid var(--border);
+        margin-top: 10px;
+    }
+
+    .site-nav.site-nav--open {
+        display: flex;
+    }
+
+    .nav-link {
+        width: 100%;
+        justify-content: flex-start;
+        border-radius: var(--radius-sm);
+    }
+
+    /* Show email inside the open dropdown */
+    .nav-email {
+        display: block;
+        max-width: none;
+        padding: 6px 16px;
+        font-size: 0.82rem;
+    }
+}
+
+/* ---------------------------------------------------------------------------
+ * Budget table — stack vertically on mobile so sliders don't conflict
+ * with horizontal scroll gestures
+ * --------------------------------------------------------------------------- */
+
+@media (max-width: 640px) {
+    /* Convert to block layout — each category row becomes a full-width block */
+    .budget-table,
+    .budget-table tbody,
+    .budget-table tr,
+    .budget-table td {
+        display: block;
+        width: 100%;
+    }
+
+    .budget-table thead {
+        display: none;
+    }
+
+    .budget-table tr {
+        padding: 16px 18px;
+        border-bottom: 1px solid rgba(88, 65, 38, 0.1);
+    }
+
+    .budget-table tr:last-child {
+        border-bottom: none;
+    }
+
+    /* Reset data-table cell padding — the row provides it now */
+    .budget-table td {
+        padding: 0;
+        vertical-align: top;
+    }
+
+    /* Category name sits above the slider/bars */
+    .budget-table td:first-child {
+        margin-bottom: 10px;
+    }
+
+    /* Slider and bar tracks expand to full row width */
+    .budget-slider,
+    .budget-bar-track {
+        min-width: 0;
+    }
+
+    /* Hide % labels — saves space in the now-narrower rows */
+    .budget-pct {
+        display: none;
+    }
+}
+
+/* ---------------------------------------------------------------------------
+ * Settings — keyword list (category_edit.html)
+ * --------------------------------------------------------------------------- */
+
+.keyword-list-items {
+    list-style: none;
+    margin: 0 0 20px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.keyword-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.55);
+    min-width: 0;
+}
+
+.keyword-item-text {
+    font-size: 0.95rem;
+    font-weight: 600;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+ * Settings — accounts row
+ * --------------------------------------------------------------------------- */
+
+.account-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.account-meta-text {
+    font-size: 0.85rem;
+    color: var(--muted);
 }

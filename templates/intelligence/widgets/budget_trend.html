@@ -11,13 +11,13 @@
      hx-trigger="none"
      hx-target="#widget-budget-trend"
      hx-swap="outerHTML">
-    <h2 style="font-size: var(--text-lg); margin: 0 0 var(--space-1);">{{ budget_trend.title }}</h2>
-    <p style="font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-4);">
+    <h2 class="card-title">{{ budget_trend.title }}</h2>
+    <p class="widget-subtitle">
         Last {{ budget_trend.period_months }} complete months &middot; budgeted categories only
     </p>
 
     {% if budget_trend.rows %}
-    <div style="overflow-x: auto;">
+    <div class="table-wrap">
         <table style="width: 100%; border-collapse: separate; border-spacing: 3px; font-size: var(--text-sm);">
             <thead>
                 <tr>

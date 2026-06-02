@@ -7,24 +7,24 @@
     <p class="section-text" style="margin: 0 0 28px;">Manage your accounts, categories, profile, and security.</p>
 </div>
 
-<div class="requirements-grid" style="grid-template-columns: repeat(2, minmax(0, 1fr));">
-    <a class="card" href="{{ url_for('settings.accounts_list') }}" style="text-decoration: none; color: inherit; display: block;">
-        <h2 style="font-size: 1.2rem; margin-bottom: 8px;">Accounts</h2>
+<div class="requirements-grid">
+    <a class="card block-link" href="{{ url_for('settings.accounts_list') }}">
+        <h2 class="card-title" style="font-size: 1.2rem;">Accounts</h2>
         <p class="section-text" style="margin: 0;">Create, rename, or delete accounts. Each account is a named group for your uploaded transactions.</p>
     </a>
 
-    <a class="card" href="{{ url_for('account_settings.categories_list') }}" style="text-decoration: none; color: inherit; display: block;">
-        <h2 style="font-size: 1.2rem; margin-bottom: 8px;">Categories</h2>
+    <a class="card block-link" href="{{ url_for('account_settings.categories_list') }}">
+        <h2 class="card-title" style="font-size: 1.2rem;">Categories</h2>
         <p class="section-text" style="margin: 0;">Add, rename, and delete categories or their keywords. Import a JSON map if you have one.</p>
     </a>
 
-    <a class="card" href="{{ url_for('settings.profile') }}" style="text-decoration: none; color: inherit; display: block;">
-        <h2 style="font-size: 1.2rem; margin-bottom: 8px;">Profile</h2>
+    <a class="card block-link" href="{{ url_for('settings.profile') }}">
+        <h2 class="card-title" style="font-size: 1.2rem;">Profile</h2>
         <p class="section-text" style="margin: 0;">View your account email and sign out.</p>
     </a>
 
-    <a class="card" href="{{ url_for('transactions.files') }}" style="text-decoration: none; color: inherit; display: block;">
-        <h2 style="font-size: 1.2rem; margin-bottom: 8px;">Files</h2>
+    <a class="card block-link" href="{{ url_for('transactions.files') }}">
+        <h2 class="card-title" style="font-size: 1.2rem;">Files</h2>
         <p class="section-text" style="margin: 0;">Review and delete uploaded transaction files.</p>
     </a>
 </div>
