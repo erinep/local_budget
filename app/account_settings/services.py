@@ -46,10 +46,11 @@ logger = logging.getLogger(__name__)
 def _cache_get(user_id: str) -> "list[dict] | None":
     """Return cached category list for user_id, or None on miss / no context."""
     try:
-        from flask import g, has_request_context, request
+        from flask import g, has_request_context
+        from flask.ctx import _cv_request
         if not has_request_context():
             return None
-        current_req = request._get_current_object()
+        current_req = _cv_request.get(None)
         if getattr(g, "_cache_request_obj", None) is not current_req:
             g._category_cache = {}
             g._cache_request_obj = current_req
@@ -62,10 +63,11 @@ def _cache_get(user_id: str) -> "list[dict] | None":
 def _cache_set(user_id: str, categories: list) -> None:
     """Store categories in the per-request cache if a request context exists."""
     try:
-        from flask import g, has_request_context, request
+        from flask import g, has_request_context
+        from flask.ctx import _cv_request
         if not has_request_context():
             return
-        current_req = request._get_current_object()
+        current_req = _cv_request.get(None)
         if getattr(g, "_cache_request_obj", None) is not current_req:
             g._category_cache = {}
             g._cache_request_obj = current_req

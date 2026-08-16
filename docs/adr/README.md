@@ -49,6 +49,7 @@ One file per non-trivial decision. Append-only.
 | [0042](0042-batched-monthly-spend-query.md) | Batched Monthly Spend Query and Granularity Picker | Accepted | 2026-05-31 |
 | [0043](0043-income-field-schema.md) | Income Field Schema and Ownership — user_settings under Account Settings | Accepted | 2026-05-31 |
 | [0044](0044-budget-allocation-model.md) | Budget Allocation Model — Dollar-Only Storage, Percentage Derived at Display Time | Accepted | 2026-05-31 |
+| [0045](0045-local-postgres-and-local-auth.md) | Local Postgres and Local Auth | Accepted | 2026-08-16 |
 
 When the first ADR lands, replace the placeholder row with a real entry. Keep entries sorted by number, ascending.
 

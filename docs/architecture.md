@@ -97,9 +97,9 @@ Because everything the Intelligence Layer produces is either regeneratable from 
 
 ### Security
 
-- All data encrypted at rest (Supabase / Postgres handles this once introduced in Phase 1).
+- All data encrypted at rest by the Postgres host/storage layer.
 - HTTPS enforced (Render handles this; verify in middleware).
-- Password hashing via Argon2 or bcrypt (Supabase handles this).
+- Password hashing is owned by the local auth service.
 - CSRF protection on all state-changing routes, including upload (Flask-WTF or equivalent).
 - Rate limiting on auth endpoints from Phase 1. If outbound LLM endpoints are ever reintroduced (deferred past Phase 5), per-user caps and a circuit breaker apply before any such endpoint ships.
 - Audit log for sensitive actions (data export, account deletion).

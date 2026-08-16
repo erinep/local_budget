@@ -1,10 +1,9 @@
 """Integration tests for auth routes (app/auth/routes.py).
 
 These are route-layer tests: the Flask test client is used end-to-end, but
-the auth service functions are mocked — route tests verify HTTP mechanics
-(status codes, redirects, session writes, CSRF enforcement), not Supabase
-behaviour.  Mocking is appropriate here because the service tests in
-test_auth_service.py already cover the real Supabase integration.
+the auth service functions are mocked. Route tests verify HTTP mechanics
+(status codes, redirects, session writes, CSRF enforcement), while
+test_auth_service.py covers local auth service behavior.
 
 Routes under test:
   GET  /auth/login
@@ -204,7 +203,7 @@ class TestPostSignup:
         self, client, mock_auth_user, mock_auth_session
     ):
         """Successful signup must:
-        1. Call sign_up (creates the Supabase user)
+        1. Call sign_up (creates the local user)
         2. Call sign_in (establishes the session)
         3. Write user_id to the session
         4. Redirect to /

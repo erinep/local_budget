@@ -55,6 +55,10 @@ flask --app wsgi:app run
 ```
 Then open `http://127.0.0.1:5000`.
 
+Set `DATABASE_URL` to a PostgreSQL database before using authenticated or
+persisted features. For LAN-hosted Postgres on Fedora/Podman, see
+`docs/runbooks/local-postgres.md`.
+
 **Run tests**
 ```powershell
 pytest -v
@@ -64,6 +68,18 @@ pytest -v
 ```powershell
 $env:FLASK_DEBUG = "true"
 python app.py
+```
+
+## Database And Auth
+
+The app targets PostgreSQL and local email/password auth. User identity is
+stored in `auth.users`; application data references that table for ownership
+and cascade deletion. The Supabase SDK is no longer a runtime dependency.
+
+Fresh databases are created with Alembic:
+
+```powershell
+alembic upgrade head
 ```
 
 ## Deployment
