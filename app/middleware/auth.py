@@ -33,8 +33,8 @@ def load_user() -> None:
     this function calls auth_services.refresh_session and writes the updated
     tokens and expiry back to flask.session.
     """
-    # Import here to avoid circular imports; auth.services is the Supabase
-    # boundary and is only needed at request time.
+    # Import here to avoid circular imports; auth.services is only needed at
+    # request time.
     from app.auth.services import AuthError, AuthUser, get_refresh_token, refresh_session, store_refresh_token
 
     g.user = None

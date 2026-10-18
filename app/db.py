@@ -1,7 +1,7 @@
 """Database engine singleton for Local Budget Parser.
 
-ADR-0002: Supabase is the PostgreSQL host. All database access outside
-app/auth/services.py uses standard SQLAlchemy + psycopg2 — no Supabase SDK.
+The app targets PostgreSQL and uses standard SQLAlchemy + psycopg2 for
+database access.
 
 The engine is lazily created on first call and reused for the lifetime of the
 process. In tests, DATABASE_URL should be set to a test database; the
@@ -33,6 +33,6 @@ def get_engine() -> Engine:
                 "Set it to a PostgreSQL connection string."
             )
         # pool_pre_ping ensures stale connections are detected and recycled
-        # automatically, which matters on Supabase's connection-pooler.
+        # automatically, which matters for long-running local services.
         _engine = create_engine(url, pool_pre_ping=True)
     return _engine

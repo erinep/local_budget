@@ -1,4 +1,4 @@
-"""Initial schema: user_sessions and custom_categories tables.
+"""Initial schema: local auth compatibility, sessions, and categories.
 
 ADR-0007: All schema changes go through Alembic.
 ADR-0001: All timestamps are TIMESTAMPTZ (UTC) — no naive datetime columns.
@@ -23,13 +23,32 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # ------------------------------------------------------------------
+    # local auth compatibility
+    #
+    # Supabase used to provide auth.users. Local Postgres needs the same root
+    # table before later migrations add foreign keys to auth.users(id).
+    # ------------------------------------------------------------------
+    op.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto")
+    op.execute("CREATE SCHEMA IF NOT EXISTS auth")
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS auth.users (
+            id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            email         TEXT,
+            password_hash TEXT,
+            created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+            CONSTRAINT uq_auth_users_email UNIQUE (email)
+        )
+    """)
+
+    # ------------------------------------------------------------------
     # user_sessions
     # Stores active refresh tokens so the middleware can silently refresh
     # sessions nearing expiry. One row per issued session; expired rows
     # should be pruned by a background job (Phase 5).
     #
-    # PII note: user_id is a UUID foreign key to Supabase Auth; no email
-    # or name is stored here. refresh_token is treated as a secret and
+    # PII note: user_id is a UUID foreign key to auth.users; no email or name
+    # is stored here. refresh_token is treated as a secret and
     # must never appear in logs (PII scrubber covers this).
     # Retention: rows expire via expires_at; hard-delete by Phase 5 job.
     # ------------------------------------------------------------------

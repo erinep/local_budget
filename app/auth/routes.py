@@ -2,10 +2,10 @@
 
 Covers: login, logout, signup, password-reset.
 All POST routes are CSRF-protected via Flask-WTF (ADR-0006).
-Google OAuth is deferred to Phase 1.5 (ADR-0008).
+Google OAuth is unavailable while the app uses local auth.
 
 Session shape written to flask.session on login:
-    user_id      str   Supabase Auth UUID
+    user_id      str   local auth UUID
     email        str   user's email address (stored for display only)
     expires_at   str   ISO-8601 UTC datetime string
 
@@ -114,17 +114,12 @@ def signup():
 
 
 # ---------------------------------------------------------------------------
-# Google OAuth (Phase 1.5 — ADR-0008)
+# Google OAuth
 # ---------------------------------------------------------------------------
 
 @auth_bp.route("/google")
 def google_login():
-    """Redirect the user to Google's OAuth consent screen via Supabase.
-
-    GET-only; no CSRF token required. PKCE (handled by the Supabase SDK)
-    provides OAuth CSRF protection via the code challenge embedded in the
-    redirect URL.
-    """
+    """Redirect to Google OAuth when a provider is configured."""
     if g.user is not None:
         return redirect(url_for("home.index"))
 
@@ -140,15 +135,7 @@ def google_login():
 
 @auth_bp.route("/callback")
 def oauth_callback():
-    """Handle the OAuth callback from Supabase after Google authentication.
-
-    Supabase redirects here with ?code=... (PKCE flow). The code is exchanged
-    for a Supabase session via exchange_oauth_code(), then written to the Flask
-    signed cookie session using _write_session() — same path as email/password.
-
-    GET-only; no CSRF token required — this endpoint only receives a code from
-    Supabase, not a form submission.
-    """
+    """Handle an OAuth callback when a provider is configured."""
     error = request.args.get("error")
     if error:
         logger.warning("OAuth callback received an error from provider.")
@@ -200,12 +187,12 @@ def reset_password():
 
 @auth_bp.route("/update-password", methods=["GET", "POST"])
 def update_password_view():
-    """Handle the recovery link from Supabase and allow the user to set a new password.
+    """Handle a recovery link and allow the user to set a new password.
 
-    GET:  Supabase sends ?token_hash=...&type=recovery.  Verify the token,
+    GET:  The reset link sends ?token_hash=...&type=recovery. Verify the token,
           store the access_token in the session for the subsequent POST, and
           render the update-password form.
-    POST: Read the new password from the form, use the stored access_token to
+    POST: Read the new password from the form, use the stored reset token to
           call update_password, then redirect to /auth/login on success.
     """
     if request.method == "GET":
@@ -227,8 +214,8 @@ def update_password_view():
                 error="Reset link is invalid or has expired.",
             )
 
-        # Store the access_token so the POST handler can authenticate with Supabase.
-        # This is a short-lived token used exclusively for the password-update call.
+        # Store the reset token so the POST handler can complete the password
+        # update. This is short-lived and used only for this flow.
         session["reset_access_token"] = auth_session.access_token
         return render_template("auth/update_password.html")
 
@@ -257,7 +244,7 @@ def update_password_view():
 # ---------------------------------------------------------------------------
 
 def _write_session(auth_session) -> None:
-    """Write a Supabase AuthSession into flask.session.
+    """Write an AuthSession into flask.session.
 
     expires_at is stored as an ISO-8601 UTC string so it survives cookie
     serialisation without losing timezone information (ADR-0001).

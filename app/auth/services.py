@@ -1,27 +1,30 @@
-"""Supabase Auth integration for Local Budget Parser.
+"""Local Postgres-backed authentication for Local Budget Parser.
 
-ADR-0002: This is the ONLY file that imports or calls the Supabase client SDK.
-No other file in the project may import supabase directly.
-
-All timestamps are UTC (ADR-0001). datetime.now(UTC) is used everywhere;
-datetime.utcnow() is banned.
+The rest of the application depends on the dataclasses and functions in this
+module, not on an external auth provider. User identity is stored in
+``auth.users`` so existing per-user foreign keys and cascade deletion semantics
+remain intact.
 """
 
-import os
+from __future__ import annotations
+
+import secrets
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import sqlalchemy as sa
-from supabase import Client, create_client
+from sqlalchemy.exc import IntegrityError
+from werkzeug.security import check_password_hash, generate_password_hash
 
 
-# ---------------------------------------------------------------------------
-# Data classes
-# ---------------------------------------------------------------------------
+SESSION_TTL = timedelta(hours=1)
+RESET_TOKEN_TTL = timedelta(hours=1)
+
 
 @dataclass
 class AuthUser:
     """Minimal user identity object passed through the session layer."""
+
     id: str
     email: str
 
@@ -29,236 +32,180 @@ class AuthUser:
 @dataclass
 class AuthSession:
     """Returned after a successful sign-in or session refresh."""
+
     user: AuthUser
     access_token: str
     refresh_token: str
     expires_at: datetime
 
 
-# ---------------------------------------------------------------------------
-# Errors
-# ---------------------------------------------------------------------------
-
 class AuthError(Exception):
-    """Raised for any Supabase Auth failure.
+    """Raised for any authentication failure.
 
-    The message is safe to surface to the caller but must not contain PII —
-    do not interpolate email addresses or tokens into it.
+    Messages may be surfaced to callers, so do not include emails, tokens, or
+    other user-specific data.
     """
 
 
-# ---------------------------------------------------------------------------
-# Supabase client (module-level singleton, lazy-initialised)
-# ---------------------------------------------------------------------------
-
-_client: Client | None = None
+def _normalize_email(email: str) -> str:
+    return " ".join((email or "").strip().lower().split())
 
 
-def _get_client() -> Client:
-    """Return a cached Supabase client, creating it on first call.
+def _new_session(user_id: str, email: str) -> AuthSession:
+    return AuthSession(
+        user=AuthUser(id=str(user_id), email=email),
+        access_token=secrets.token_urlsafe(32),
+        refresh_token=secrets.token_urlsafe(32),
+        expires_at=datetime.now(UTC) + SESSION_TTL,
+    )
 
-    Reads SUPABASE_URL and SUPABASE_ANON_KEY from the environment.
-    Raises RuntimeError in test environments if these are not set; callers
-    should mock this function in unit tests.
-    """
-    global _client
-    if _client is None:
-        url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_ANON_KEY")
-        if not url or not key:
-            raise RuntimeError(
-                "SUPABASE_URL and SUPABASE_ANON_KEY must be set in the environment."
-            )
-        _client = create_client(url, key)
-    return _client
-
-
-# ---------------------------------------------------------------------------
-# Service functions
-# ---------------------------------------------------------------------------
 
 def sign_up(email: str, password: str) -> AuthUser:
-    """Create a new user account via Supabase Auth.
+    """Create a local user account.
 
-    Returns AuthUser on success. Raises AuthError on any failure (duplicate
-    email, weak password, etc.).
-
-    Note: email is not logged — it is PII (architecture doc, cross-cutting /
-    Security).
+    The password is hashed with Werkzeug's default password hasher. Duplicate
+    email addresses and invalid inputs raise AuthError.
     """
+    email = _normalize_email(email)
+    if not email or not password:
+        raise AuthError("Sign-up failed.")
+
+    from app.db import get_engine
+
     try:
-        client = _get_client()
-        response = client.auth.sign_up({"email": email, "password": password})
-        if response.user is None:
-            raise AuthError("Sign-up failed: no user returned.")
-        return AuthUser(id=str(response.user.id), email=response.user.email)
-    except AuthError:
-        raise
+        with get_engine().begin() as conn:
+            row = conn.execute(
+                sa.text(
+                    """
+                    INSERT INTO auth.users (email, password_hash)
+                    VALUES (:email, :password_hash)
+                    RETURNING id, email
+                    """
+                ),
+                {
+                    "email": email,
+                    "password_hash": generate_password_hash(password),
+                },
+            ).fetchone()
+    except IntegrityError as exc:
+        raise AuthError("Sign-up failed.") from exc
     except Exception as exc:
-        raise AuthError(f"Sign-up failed: {exc}") from exc
+        raise AuthError("Sign-up failed.") from exc
+
+    if row is None:
+        raise AuthError("Sign-up failed: no user returned.")
+    return AuthUser(id=str(row.id), email=row.email)
 
 
 def sign_in(email: str, password: str) -> AuthSession:
-    """Authenticate with email and password.
+    """Authenticate a local user with email and password."""
+    email = _normalize_email(email)
+    if not email or not password:
+        raise AuthError("Sign-in failed.")
 
-    Returns AuthSession containing tokens and expiry. Raises AuthError on
-    invalid credentials or any other failure.
-    """
+    from app.db import get_engine
+
     try:
-        client = _get_client()
-        response = client.auth.sign_in_with_password(
-            {"email": email, "password": password}
-        )
-        if response.session is None or response.user is None:
-            raise AuthError("Sign-in failed: no session returned.")
-
-        session = response.session
-        user = response.user
-
-        # Supabase returns expires_at as a Unix timestamp (int).
-        expires_at = datetime.fromtimestamp(session.expires_at, tz=UTC)
-
-        return AuthSession(
-            user=AuthUser(id=str(user.id), email=user.email),
-            access_token=session.access_token,
-            refresh_token=session.refresh_token,
-            expires_at=expires_at,
-        )
-    except AuthError:
-        raise
+        with get_engine().connect() as conn:
+            row = conn.execute(
+                sa.text(
+                    """
+                    SELECT id, email, password_hash
+                    FROM auth.users
+                    WHERE email = :email
+                    """
+                ),
+                {"email": email},
+            ).fetchone()
     except Exception as exc:
-        raise AuthError(f"Sign-in failed: {exc}") from exc
+        raise AuthError("Sign-in failed.") from exc
+
+    if row is None or not row.password_hash:
+        raise AuthError("Sign-in failed.")
+    if not check_password_hash(row.password_hash, password):
+        raise AuthError("Sign-in failed.")
+
+    return _new_session(str(row.id), row.email)
 
 
 def sign_in_with_google(callback_url: str) -> str:
-    """Initiate Google OAuth sign-in via Supabase.
-
-    Returns the Supabase-generated OAuth redirect URL. Caller must redirect
-    the user to this URL. Supabase handles the Google handshake and redirects
-    back to callback_url with a ?code= query parameter.
-
-    The PKCE code verifier is generated and stored in the Supabase client's
-    in-memory storage (module-level singleton). The same process must handle
-    the /auth/callback request — correct for single-worker Gunicorn (Render
-    free tier) but would break under multi-worker setups (ADR-0008).
-    """
-    try:
-        client = _get_client()
-        response = client.auth.sign_in_with_oauth({
-            "provider": "google",
-            "options": {"redirect_to": callback_url},
-        })
-        return response.url
-    except Exception as exc:
-        raise AuthError(f"Google OAuth initiation failed: {exc}") from exc
+    """Google OAuth is not implemented for local auth."""
+    raise AuthError("Google sign-in is unavailable.")
 
 
 def exchange_oauth_code(auth_code: str) -> AuthSession:
-    """Exchange an OAuth authorization code for a Supabase session.
-
-    Called from /auth/callback after Supabase redirects back with ?code=.
-    The SDK reads the PKCE code verifier from its in-memory storage
-    (set during sign_in_with_google) and sends it to Supabase's token endpoint.
-
-    Raises AuthError on failure (expired code, PKCE mismatch, etc.).
-    """
-    try:
-        client = _get_client()
-        response = client.auth.exchange_code_for_session({"auth_code": auth_code})
-        if response.session is None or response.user is None:
-            raise AuthError("OAuth code exchange failed: no session returned.")
-
-        session = response.session
-        user = response.user
-        expires_at = datetime.fromtimestamp(session.expires_at, tz=UTC)
-
-        return AuthSession(
-            user=AuthUser(id=str(user.id), email=user.email),
-            access_token=session.access_token,
-            refresh_token=session.refresh_token,
-            expires_at=expires_at,
-        )
-    except AuthError:
-        raise
-    except Exception as exc:
-        raise AuthError(f"OAuth code exchange failed: {exc}") from exc
+    """OAuth callback exchange is unavailable without an OAuth provider."""
+    raise AuthError("Google sign-in is unavailable.")
 
 
 def sign_out(refresh_token: str) -> None:
-    """Invalidate a session via Supabase Auth.
-
-    refresh_token is treated as a secret; it must not appear in logs.
-    Failures are swallowed — the local Flask session is cleared regardless.
-    """
-    try:
-        client = _get_client()
-        client.auth.sign_out()
-    except Exception:
-        # Best-effort: local session will be cleared by the route handler even
-        # if the Supabase call fails.
-        pass
+    """Local sign-out is completed by deleting the stored refresh token."""
+    return None
 
 
 def refresh_session(refresh_token: str) -> AuthSession:
-    """Exchange a refresh token for a new access token + refresh token pair.
+    """Exchange a stored refresh token for a new local session."""
+    if not refresh_token:
+        raise AuthError("Session refresh failed.")
 
-    Called by the middleware when the session is within 5 minutes of expiry.
-    Raises AuthError if the refresh token is expired or invalid.
-    """
+    from app.db import get_engine
+
     try:
-        client = _get_client()
-        response = client.auth.refresh_session(refresh_token)
-        if response.session is None or response.user is None:
-            raise AuthError("Session refresh failed: no session returned.")
-
-        session = response.session
-        user = response.user
-        expires_at = datetime.fromtimestamp(session.expires_at, tz=UTC)
-
-        return AuthSession(
-            user=AuthUser(id=str(user.id), email=user.email),
-            access_token=session.access_token,
-            refresh_token=session.refresh_token,
-            expires_at=expires_at,
-        )
-    except AuthError:
-        raise
+        with get_engine().connect() as conn:
+            row = conn.execute(
+                sa.text(
+                    """
+                    SELECT u.id, u.email
+                    FROM public.user_sessions s
+                    JOIN auth.users u ON u.id = s.user_id
+                    WHERE s.refresh_token = :refresh_token
+                      AND s.expires_at > now()
+                    """
+                ),
+                {"refresh_token": refresh_token},
+            ).fetchone()
     except Exception as exc:
-        raise AuthError(f"Session refresh failed: {exc}") from exc
+        raise AuthError("Session refresh failed.") from exc
+
+    if row is None:
+        raise AuthError("Session refresh failed.")
+    return _new_session(str(row.id), row.email)
 
 
 def get_user_from_session(user_id: str) -> AuthUser | None:
-    """Look up a user by their Supabase Auth UUID.
+    """Look up a user by local auth UUID."""
+    from app.db import get_engine
 
-    Returns AuthUser if found, None otherwise. Used by the middleware to
-    rehydrate g.user without a full token exchange.
-    """
     try:
-        client = _get_client()
-        response = client.auth.get_user()
-        if response.user is None:
-            return None
-        # Confirm the stored user_id matches the token subject.
-        if str(response.user.id) != user_id:
-            return None
-        return AuthUser(id=str(response.user.id), email=response.user.email)
+        with get_engine().connect() as conn:
+            row = conn.execute(
+                sa.text("SELECT id, email FROM auth.users WHERE id = :uid"),
+                {"uid": user_id},
+            ).fetchone()
     except Exception:
         return None
 
+    if row is None:
+        return None
+    return AuthUser(id=str(row.id), email=row.email or "")
+
 
 def store_refresh_token(user_id: str, refresh_token: str, expires_at: datetime) -> None:
-    """Upsert a refresh token into user_sessions (ADR-0006: server-side storage)."""
+    """Upsert a refresh token into user_sessions."""
     from app.db import get_engine
+
     with get_engine().begin() as conn:
         conn.execute(
-            sa.text("""
-                INSERT INTO user_sessions (user_id, refresh_token, expires_at)
+            sa.text(
+                """
+                INSERT INTO public.user_sessions (user_id, refresh_token, expires_at)
                 VALUES (:user_id, :refresh_token, :expires_at)
                 ON CONFLICT (user_id) DO UPDATE
                     SET refresh_token = EXCLUDED.refresh_token,
                         expires_at    = EXCLUDED.expires_at,
                         last_used_at  = now()
-            """),
+                """
+            ),
             {"user_id": user_id, "refresh_token": refresh_token, "expires_at": expires_at},
         )
 
@@ -266,9 +213,10 @@ def store_refresh_token(user_id: str, refresh_token: str, expires_at: datetime) 
 def get_refresh_token(user_id: str) -> str | None:
     """Return the stored refresh token for a user, or None if not found."""
     from app.db import get_engine
+
     with get_engine().connect() as conn:
         row = conn.execute(
-            sa.text("SELECT refresh_token FROM user_sessions WHERE user_id = :uid"),
+            sa.text("SELECT refresh_token FROM public.user_sessions WHERE user_id = :uid"),
             {"uid": user_id},
         ).fetchone()
     return row[0] if row else None
@@ -277,77 +225,131 @@ def get_refresh_token(user_id: str) -> str | None:
 def delete_refresh_token(user_id: str) -> None:
     """Remove the user_sessions row on logout."""
     from app.db import get_engine
+
     with get_engine().begin() as conn:
         conn.execute(
-            sa.text("DELETE FROM user_sessions WHERE user_id = :uid"),
+            sa.text("DELETE FROM public.user_sessions WHERE user_id = :uid"),
             {"uid": user_id},
         )
 
 
 def initiate_password_reset(email: str) -> None:
-    """Send a password-reset email via Supabase Auth.
+    """Create a local password-reset token when the address exists.
 
-    Raises AuthError on failure. On success, Supabase sends an email to the
-    address; we do not confirm whether the address is registered (prevents
-    user enumeration).
+    This intentionally returns the same result for known and unknown addresses.
+    Token delivery is an operational concern that needs a separate email
+    provider decision before public use.
     """
-    try:
-        client = _get_client()
-        client.auth.reset_password_email(email)
-    except Exception as exc:
-        raise AuthError(f"Password reset failed: {exc}") from exc
+    email = _normalize_email(email)
+    if not email:
+        return None
 
+    from app.db import get_engine
 
-def verify_recovery_token(token_hash: str) -> "AuthSession":
-    """Exchange a password-reset token_hash for an active session.
+    token_hash = secrets.token_urlsafe(32)
+    expires_at = datetime.now(UTC) + RESET_TOKEN_TTL
 
-    Raises AuthError if the token is invalid or expired.
-    Uses supabase.auth.verify_otp with type='recovery'.
-    Returns an AuthSession built from the response.
-
-    The token_hash is a secret credential; it must not appear in logs.
-    """
-    try:
-        client = _get_client()
-        response = client.auth.verify_otp({"token_hash": token_hash, "type": "recovery"})
-        if response.session is None or response.user is None:
-            raise AuthError("Recovery token verification failed: no session returned.")
-
-        sess = response.session
-        user = response.user
-        expires_at = datetime.fromtimestamp(sess.expires_at, tz=UTC)
-
-        return AuthSession(
-            user=AuthUser(id=str(user.id), email=user.email),
-            access_token=sess.access_token,
-            refresh_token=sess.refresh_token,
-            expires_at=expires_at,
+    with get_engine().begin() as conn:
+        row = conn.execute(
+            sa.text("SELECT id FROM auth.users WHERE email = :email"),
+            {"email": email},
+        ).fetchone()
+        if row is None:
+            return None
+        conn.execute(
+            sa.text(
+                """
+                INSERT INTO public.password_reset_tokens (token_hash, user_id, expires_at)
+                VALUES (:token_hash, :user_id, :expires_at)
+                """
+            ),
+            {"token_hash": token_hash, "user_id": str(row.id), "expires_at": expires_at},
         )
-    except AuthError:
-        raise
+    return None
+
+
+def verify_recovery_token(token_hash: str) -> AuthSession:
+    """Exchange a local password-reset token for a short-lived session."""
+    if not token_hash:
+        raise AuthError("Recovery token verification failed.")
+
+    from app.db import get_engine
+
+    try:
+        with get_engine().connect() as conn:
+            row = conn.execute(
+                sa.text(
+                    """
+                    SELECT u.id, u.email
+                    FROM public.password_reset_tokens t
+                    JOIN auth.users u ON u.id = t.user_id
+                    WHERE t.token_hash = :token_hash
+                      AND t.used_at IS NULL
+                      AND t.expires_at > now()
+                    """
+                ),
+                {"token_hash": token_hash},
+            ).fetchone()
     except Exception as exc:
-        raise AuthError(f"Recovery token verification failed: {exc}") from exc
+        raise AuthError("Recovery token verification failed.") from exc
+
+    if row is None:
+        raise AuthError("Recovery token verification failed.")
+
+    session = _new_session(str(row.id), row.email)
+    session.access_token = token_hash
+    return session
 
 
 def update_password(access_token: str, new_password: str) -> None:
-    """Set a new password for the authenticated user.
+    """Set a new password using a verified local recovery token."""
+    if not access_token or not new_password:
+        raise AuthError("Password update failed.")
 
-    Uses supabase.auth.set_session to authenticate the client with the
-    provided access_token, then calls update_user to set the new password.
-    Raises AuthError on failure.
+    from app.db import get_engine
 
-    The access_token is a secret credential; it must not appear in logs.
-    """
     try:
-        client = _get_client()
-        # Authenticate the client with the recovery session's access token.
-        # An empty string is passed for the refresh_token because we only
-        # need the access_token to perform this single update operation.
-        client.auth.set_session(access_token, "")
-        response = client.auth.update_user({"password": new_password})
-        if response.user is None:
-            raise AuthError("Password update failed: no user returned.")
+        with get_engine().begin() as conn:
+            row = conn.execute(
+                sa.text(
+                    """
+                    SELECT user_id
+                    FROM public.password_reset_tokens
+                    WHERE token_hash = :token_hash
+                      AND used_at IS NULL
+                      AND expires_at > now()
+                    """
+                ),
+                {"token_hash": access_token},
+            ).fetchone()
+            if row is None:
+                raise AuthError("Password update failed.")
+
+            conn.execute(
+                sa.text(
+                    """
+                    UPDATE auth.users
+                    SET password_hash = :password_hash,
+                        updated_at = now()
+                    WHERE id = :user_id
+                    """
+                ),
+                {
+                    "password_hash": generate_password_hash(new_password),
+                    "user_id": str(row.user_id),
+                },
+            )
+            conn.execute(
+                sa.text(
+                    """
+                    UPDATE public.password_reset_tokens
+                    SET used_at = now()
+                    WHERE token_hash = :token_hash
+                    """
+                ),
+                {"token_hash": access_token},
+            )
     except AuthError:
         raise
     except Exception as exc:
-        raise AuthError(f"Password update failed: {exc}") from exc
+        raise AuthError("Password update failed.") from exc
